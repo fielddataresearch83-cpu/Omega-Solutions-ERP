@@ -96,12 +96,13 @@ describe('PosService', () => {
     expect(await service.currentShift(user)).toBeNull();
     expect(db.query.mock.calls[0][0]).toContain('s.company_id=$1');
     expect(db.query.mock.calls[0][0]).toContain('s.opened_by=$2');
-    expect(db.query.mock.calls[0][1]).toEqual(['company-1', 'cashier-1']);
+    expect(db.query.mock.calls[0][1]).toEqual(['company-1', 'cashier-1', null]);
+    expect(db.query.mock.calls[0][0]).toContain('AND ($3::uuid IS NULL OR r.branch_id=$3::uuid)');
   });
 
   it('calculates cash-up only from confirmed cash payments linked to this exact shift', async () => {
     const client = { query: vi.fn(async (sql: string) => {
-      if (sql.includes('SELECT id,opened_by,opening_float,status,register_id')) return { rows: [{ id: 'shift-1', opened_by: 'cashier-1', opening_float: '100.00', status: 'open', register_id: 'register-1' }], rowCount: 1 };
+      if (sql.includes('SELECT s.id,s.opened_by,s.opening_float,s.status,s.register_id,r.branch_id')) return { rows: [{ id: 'shift-1', opened_by: 'cashier-1', opening_float: '100.00', status: 'open', register_id: 'register-1' }], rowCount: 1 };
       if (sql.includes('SUM(amount)') && sql.includes('pos_shift_id=$2')) return { rows: [{ total: '25.50' }], rowCount: 1 };
       if (sql.includes('UPDATE pos_shifts SET status')) return { rows: [{ id: 'shift-1', status: 'closed', expected_cash: '125.50', counted_cash: '130.00', cash_difference: '4.50' }], rowCount: 1 };
       return { rows: [], rowCount: 1 };
@@ -169,6 +170,27 @@ describe('PosService', () => {
     db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
 
     await expect(service.openShift(user, { registerId: 'register-2', openingFloat: 0 }))
+      .rejects.toThrow(ForbiddenException);
+    expect(client.query).toHaveBeenCalledTimes(1);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('blocks a branch-bound cashier from closing a shift in another branch', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({
+      companyId: 'company-1', branchId: 'branch-1', role: 'staff',
+    });
+    const client = {
+      query: vi.fn().mockResolvedValue({
+        rows: [{
+          id: 'shift-1', opened_by: 'cashier-1', opening_float: '0',
+          status: 'open', register_id: 'register-2', branch_id: 'branch-2',
+        }],
+        rowCount: 1,
+      }),
+    };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+
+    await expect(service.closeShift(user, 'shift-1', { countedCash: 0 }))
       .rejects.toThrow(ForbiddenException);
     expect(client.query).toHaveBeenCalledTimes(1);
     expect(audit.log).not.toHaveBeenCalled();
