@@ -60,26 +60,34 @@ export class CreditNotesService {
   }
 
   async list(user: AuthenticatedUser) {
-    const { companyId } = await this.companyFor(user);
+    const { companyId, branchId } = await this.companyFor(user);
     return (await this.db.query(
       `SELECT cn.id,cn.company_id,cn.invoice_id,cn.customer_id,c.name AS customer_name,
         i.invoice_number,cn.credit_note_number,cn.issue_date,cn.reason,cn.subtotal,cn.tax_amount,cn.total,cn.created_at
        FROM credit_notes cn
        JOIN invoices i ON i.id=cn.invoice_id AND i.company_id=cn.company_id
        JOIN customers c ON c.id=cn.customer_id AND c.company_id=cn.company_id
-       WHERE cn.company_id=$1 ORDER BY cn.created_at DESC`, [companyId],
+       WHERE cn.company_id=$1 AND ($2::uuid IS NULL OR EXISTS (
+         SELECT 1 FROM pos_sales ps
+         JOIN pos_registers pr ON pr.id=ps.register_id AND pr.company_id=ps.company_id
+         WHERE ps.company_id=cn.company_id AND ps.invoice_id=cn.invoice_id AND pr.branch_id=$2::uuid
+       )) ORDER BY cn.created_at DESC`, [companyId, branchId ?? null],
     )).rows;
   }
 
   async getById(user: AuthenticatedUser, id: string) {
-    const { companyId } = await this.companyFor(user);
+    const { companyId, branchId } = await this.companyFor(user);
     const result = await this.db.query(
       `SELECT cn.id,cn.company_id,cn.invoice_id,cn.customer_id,c.name AS customer_name,
         i.invoice_number,cn.credit_note_number,cn.issue_date,cn.reason,cn.subtotal,cn.tax_amount,cn.total,cn.created_at
        FROM credit_notes cn
        JOIN invoices i ON i.id=cn.invoice_id AND i.company_id=cn.company_id
        JOIN customers c ON c.id=cn.customer_id AND c.company_id=cn.company_id
-       WHERE cn.company_id=$1 AND cn.id=$2`, [companyId, id],
+       WHERE cn.company_id=$1 AND cn.id=$2 AND ($3::uuid IS NULL OR EXISTS (
+         SELECT 1 FROM pos_sales ps
+         JOIN pos_registers pr ON pr.id=ps.register_id AND pr.company_id=ps.company_id
+         WHERE ps.company_id=cn.company_id AND ps.invoice_id=cn.invoice_id AND pr.branch_id=$3::uuid
+       ))`, [companyId, id, branchId ?? null],
     );
     if (!result.rows[0]) throw new NotFoundException('Credit note not found.');
     const items = await this.db.query(
@@ -123,6 +131,15 @@ export class CreditNotesService {
       );
       const invoice = invoiceResult.rows[0];
       if (!invoice) throw new NotFoundException('Invoice not found in this company.');
+      if (branchId) {
+        const branchInvoice = await client.query(
+          `SELECT 1 FROM pos_sales ps
+           JOIN pos_registers pr ON pr.id=ps.register_id AND pr.company_id=ps.company_id
+           WHERE ps.company_id=$1 AND ps.invoice_id=$2 AND pr.branch_id=$3 LIMIT 1`,
+          [companyId, invoice.id, branchId],
+        );
+        if (!branchInvoice.rows[0]) throw new NotFoundException('Invoice not found in this branch.');
+      }
       if (invoice.status === 'draft' || invoice.status === 'cancelled') {
         throw new BadRequestException('Credit notes can only be issued against sent or settled invoices.');
       }
