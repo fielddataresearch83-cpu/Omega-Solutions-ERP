@@ -41,7 +41,7 @@ function applyPreferences(preferences: AppearancePreferences) {
 }
 
 export default function AppearanceSettings() {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme } = useContext(ThemeProviderContext)
   const [preferences, setPreferences] = useState<AppearancePreferences>(defaults)
   const [saved, setSaved] = useState(false)
 
