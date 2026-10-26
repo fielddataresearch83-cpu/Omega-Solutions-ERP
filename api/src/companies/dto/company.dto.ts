@@ -12,6 +12,7 @@ import {
   ValidateNested,
   Min,
   Max,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -25,7 +26,7 @@ export class CompanyTaxPolicyDto {
   @IsNumber()
   @Min(0.01)
   @Max(100)
-  @IsOptional()
+  @ValidateIf((_object, value) => value !== undefined)
   standardRate?: number;
 }
 
