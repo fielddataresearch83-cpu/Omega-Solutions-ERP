@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -33,6 +33,7 @@ export class ApprovalsService {
 
   async submitPurchaseOrder(user: AuthenticatedUser, id: string) {
     const membership = await this.companyFor(user);
+    if (membership.branchId) throw new ForbiddenException('Purchase orders are company-wide until branch attribution is supported. A company-wide procurement administrator must submit them for approval.');
     const oldStatus = await this.db.transaction(async client => {
       const found = await client.query(
         'SELECT id,status,created_by FROM purchase_orders WHERE company_id=$1 AND id=$2 FOR UPDATE',
