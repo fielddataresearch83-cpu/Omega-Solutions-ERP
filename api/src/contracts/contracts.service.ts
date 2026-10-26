@@ -56,7 +56,7 @@ export class ContractsService {
     const number = typeof body.contractNumber === 'string' && body.contractNumber.trim() ? `CON-${new Date().getFullYear()}-${id.slice(0,8).toUpperCase()}`;
     await this.db.transaction(async client => {
       if (m.branchId && body.branchId && body.branchId !== m.branchId) throw new ForbiddenException('You cannot create a contract for another branch.');
-      if (body.branchId) { const b=await client.query('SELECT id FROM branches WHERE id=$1 AND company_id=$2',[body.branchId,companyId]); if(!b.rows[0]) throw new NotFoundException('Branch not found in this company.'); }
+      if (body.branchId) { const b=await client.query('SELECT id FROM branches WHERE id=$1 AND company_id=$2 AND is_active=true',[body.branchId,companyId]); if(!b.rows[0]) throw new NotFoundException('Branch not found or inactive in this company.'); }
       if (type==='customer') { const c=await client.query('SELECT id FROM customers WHERE id=$1 AND company_id=$2',[body.customerId,companyId]); if(!c.rows[0]) throw new NotFoundException('Customer not found in this company.'); }
       if (type==='supplier') { const s=await client.query('SELECT id FROM suppliers WHERE id=$1 AND company_id=$2',[body.supplierId,companyId]); if(!s.rows[0]) throw new NotFoundException('Supplier not found in this company.'); }
       await client.query(`INSERT INTO contracts(id,company_id,branch_id,contract_number,title,contract_type,counterparty_customer_id,counterparty_supplier_id,description,start_date,end_date,renewal_date,currency,contract_value,monthly_budget,owner_user_id,notes,created_by)
