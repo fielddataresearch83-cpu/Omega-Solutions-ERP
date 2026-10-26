@@ -17,12 +17,12 @@ export class RequisitionsService {
     return (await this.db.query(`SELECT r.*, u.full_name AS requester_name,
       (SELECT COUNT(*)::int FROM requisition_items i WHERE i.company_id=r.company_id AND i.requisition_id=r.id) AS item_count
       FROM requisitions r JOIN users u ON u.id=r.requester_user_id
-      WHERE r.company_id=$1 AND ($2::uuid IS NULL OR r.branch_id IS NULL OR r.branch_id=$2::uuid)
+      WHERE r.company_id=$1 AND ($2::uuid IS NULL OR r.branch_id=$2::uuid)
       ORDER BY r.created_at DESC`, [companyId, branchId ?? null])).rows;
   }
   async get(user: AuthenticatedUser, id: string) {
     const { companyId, branchId } = await this.companyFor(user);
-    const row = await this.db.query('SELECT * FROM requisitions WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id IS NULL OR branch_id=$3::uuid)', [companyId, id, branchId ?? null]);
+    const row = await this.db.query('SELECT * FROM requisitions WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id=$3::uuid)', [companyId, id, branchId ?? null]);
     if (!row.rows[0]) throw new NotFoundException('Requisition not found.');
     const items = await this.db.query(`SELECT i.*, p.name AS product_name, p.sku FROM requisition_items i
       JOIN products p ON p.id=i.product_id AND p.company_id=i.company_id
