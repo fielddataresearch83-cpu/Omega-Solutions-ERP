@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
@@ -30,8 +31,15 @@ export class SuppliersService {
       : this.memberships.getMembership(user.userId);
   }
 
+  private assertCompanyWide(membership: { branchId?: string | null }) {
+    if (membership.branchId) {
+      throw new ForbiddenException('Supplier records are company-wide. A company-wide procurement member must access them.');
+    }
+  }
+
   async list(user: AuthenticatedUser, search?: string): Promise<SupplierRow[]> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWide(membership);
 
     if (search) {
       const result = await this.db.query<SupplierRow>(
@@ -53,11 +61,13 @@ export class SuppliersService {
 
   async getById(user: AuthenticatedUser, supplierId: string): Promise<SupplierRow> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWide(membership);
     return this.getByIdInternal(membership.companyId, supplierId);
   }
 
   async create(user: AuthenticatedUser, dto: CreateSupplierDto): Promise<SupplierRow> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWide(membership);
 
     if (dto.email) {
       const existing = await this.db.query<{ id: string }>(
@@ -112,6 +122,7 @@ export class SuppliersService {
     dto: UpdateSupplierDto,
   ): Promise<SupplierRow> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWide(membership);
     const existing = await this.getByIdInternal(membership.companyId, supplierId);
 
     if (dto.email && dto.email !== existing.email) {
@@ -188,6 +199,7 @@ export class SuppliersService {
 
   async delete(user: AuthenticatedUser, supplierId: string): Promise<void> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWide(membership);
     const existing = await this.getByIdInternal(membership.companyId, supplierId);
 
     await this.db.query(
