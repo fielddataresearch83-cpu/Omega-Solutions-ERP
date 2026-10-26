@@ -11,6 +11,7 @@ const connectionString = process.env.DATABASE_URL;
 const migrations = [
   { filename: '042_subscription_module_entitlements.sql', requiredTables: ['subscription_plans', 'company_subscriptions', 'subscription_change_requests', 'company_module_overrides'] },
   { filename: '043_subscription_module_requests.sql', requiredTables: ['subscription_module_requests'] },
+  { filename: '202610260004_subscription_tier_restructure.sql', requiredTables: ['subscription_plans', 'company_subscriptions', 'subscription_change_requests', 'company_module_overrides'] },
 ];
 if (!connectionString) throw new Error('DATABASE_URL is required to apply subscription migrations.');
 const client = new Client({
@@ -62,15 +63,16 @@ try {
   }
   const verification = await client.query(
     `SELECT
-       (SELECT count(*)::int FROM subscription_plans WHERE code IN ('starter','business','enterprise')) AS plan_count,
+       (SELECT count(*)::int FROM subscription_plans WHERE code IN ('starter','medium','professional','enterprise_custom') AND is_active = TRUE) AS active_plan_count,
+       (SELECT count(*)::int FROM subscription_plans WHERE code = 'enterprise_custom' AND is_custom_pricing = TRUE) AS custom_plan_count,
        (SELECT count(*)::int FROM information_schema.tables
         WHERE table_schema = 'public' AND table_name = ANY($1::text[])) AS table_count`,
     [['subscription_plans', 'company_subscriptions', 'subscription_change_requests', 'company_module_overrides', 'subscription_module_requests']],
   );
-  if (verification.rows[0].plan_count !== 3 || verification.rows[0].table_count !== 5) {
-    throw new Error('Subscription schema verification failed; expected five tables and three plans.');
+  if (verification.rows[0].active_plan_count !== 4 || verification.rows[0].custom_plan_count !== 1 || verification.rows[0].table_count !== 5) {
+    throw new Error('Subscription schema verification failed; expected five tables, four active tiers, and one custom-priced Enterprise plan.');
   }
-  console.log('Subscription schema verified: 5 tables, 3 plans. No company subscriptions were assigned.');
+  console.log('Subscription schema verified: 5 tables, four active tiers, custom-priced Enterprise. No company subscriptions were assigned.');
 } finally {
   await client.end();
 }
