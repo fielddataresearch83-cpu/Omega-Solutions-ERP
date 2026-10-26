@@ -243,7 +243,7 @@ export default function Page() {
                         <LineChart data={invoiceTrend} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} />
                           <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                          <YAxis tickLine={false} axisLine={false} width={64} tickFormatter={(value: number) => value >= 1000000 ? `${company?.currency || "KES"} ${(value / 1000000).toFixed(1)}m` : value >= 1000 ? `${company?.currency || "KES"} ${(value / 1000).toFixed(0)}k` : `${company?.currency || "KES"} ${value}`} />
+                          <YAxis tickLine={false} axisLine={false} width={64} tickFormatter={(value: number) => value >= 1000000 ? `${dashboard.data?.currency || company?.currency || "KES"} ${(value / 1000000).toFixed(1)}m` : value >= 1000 ? `${dashboard.data?.currency || company?.currency || "KES"} ${(value / 1000).toFixed(0)}k` : `${dashboard.data?.currency || company?.currency || "KES"} ${value}`} />
                           <Tooltip formatter={(value) => [new Intl.NumberFormat("en-KE", { style: "currency", currency: company?.currency || "KES", maximumFractionDigits: 0 }).format(Number(value)), "Invoice total"]} labelFormatter={(label) => `Month: ${label}`} />
                           <Line type="monotone" dataKey="total" name="Invoice total" stroke="var(--color-primary, #51BC8F)" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
                         </LineChart>
@@ -284,7 +284,7 @@ export default function Page() {
                 <CardHeader className="flex flex-row items-start justify-between gap-3">
                   <div className="space-y-1">
                     <CardDescription>Customer receivables</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{formatCompanyCurrency(receivables)}</CardTitle>
+                    <CardTitle className="text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{receivables === null ? "—" : formatCompanyCurrency(receivables)}</CardTitle>
                   </div>
                   <div className="rounded-xl bg-primary/10 p-3"><ArrowUpRight className="size-5 text-primary" aria-hidden="true" /></div>
                 </CardHeader>
@@ -297,7 +297,7 @@ export default function Page() {
                 <CardHeader className="flex flex-row items-start justify-between gap-3">
                   <div className="space-y-1">
                     <CardDescription>Supplier payables</CardDescription>
-                    <CardTitle className="text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{formatCompanyCurrency(payables)}</CardTitle>
+                    <CardTitle className="text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{payables === null ? "—" : formatCompanyCurrency(payables)}</CardTitle>
                   </div>
                   <div className="rounded-xl bg-amber-500/10 p-3"><ArrowDownRight className="size-5 text-amber-700 dark:text-amber-300" aria-hidden="true" /></div>
                 </CardHeader>
