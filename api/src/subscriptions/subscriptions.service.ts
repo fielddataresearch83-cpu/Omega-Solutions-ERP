@@ -148,7 +148,7 @@ export class SubscriptionsService {
     );
     const overrides = new Map(overridesResult.rows.map((row) => [row.module_code, row.enabled]));
     const legacy = !subscription;
-    const subscriptionActive = legacy || ['active', 'trialing'].includes(subscription.status);
+    const subscriptionActive = !subscription || ['active', 'trialing'].includes(subscription.status);
     const planModules = new Set(subscription?.modules ?? MODULE_CATALOGUE.map((module) => module.code));
 
     const resolve = (code: string, visited = new Set<string>()): { enabled: boolean; missingDependencies: string[] } => {
