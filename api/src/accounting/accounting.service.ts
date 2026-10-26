@@ -14,6 +14,7 @@ const DEFAULT_ACCOUNTS = [
  {code:'1250',name:'Work in Progress',type:'asset',side:'debit',system:'work_in_progress'},
  {code:'1300',name:'Input VAT Recoverable',type:'asset',side:'debit',system:'input_tax'},
  {code:'2000',name:'Accounts Payable',type:'liability',side:'credit',system:'accounts_payable'},
+ {code:'2050',name:'Customer Credits Payable',type:'liability',side:'credit',system:'customer_credits'},
  {code:'2010',name:'Goods Received Not Invoiced',type:'liability',side:'credit',system:'goods_received_not_invoiced'},
  {code:'2100',name:'Output VAT Payable',type:'liability',side:'credit',system:'output_tax'},
  {code:'3000',name:'Owner Equity',type:'equity',side:'credit',system:'equity'},
