@@ -57,6 +57,11 @@ export class SupplierBillsService {
   }
   async create(user:AuthenticatedUser,dto:CreateSupplierBillDto) {
     const membership=await this.companyFor(user);this.assertCompanyWide(membership);const companyId=membership.companyId;
+    const billDate=dto.billDate?.slice(0,10);
+    const dueDate=dto.dueDate?.slice(0,10);
+    if(billDate && dueDate && dueDate < billDate) {
+      throw new BadRequestException('Supplier bill due date cannot be earlier than its bill date.');
+    }
     await this.accounting.ensureDefaults(companyId);
     let id: string;
     try {
