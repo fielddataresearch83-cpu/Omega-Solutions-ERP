@@ -52,6 +52,15 @@ describe('SearchService', () => {
     expect(db.query.mock.calls[0][1]?.[0]).toBe('company-a');
   });
 
+
+  it('restricts employee search to the active branch when membership is branch-bound', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    await service.search(user({ branchId: 'branch-a', permissions: ['employees:read'] }), 'Amina');
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query.mock.calls[0][0]).toContain('($3::uuid IS NULL OR branch_id=$3)');
+    expect(db.query.mock.calls[0][1]).toEqual(['company-a', '%Amina%', 'branch-a']);
+  });
+
   it('ranks exact title matches before partial matches across permitted modules', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 'customer-1', title: 'Acme Holdings', type: 'Customer', subtitle: 'hello@example.test' }], rowCount: 1 })
