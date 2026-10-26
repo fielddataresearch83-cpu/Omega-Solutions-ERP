@@ -402,6 +402,27 @@ export default function ProductsPage() {
                 <Input id="prod-reorder" type="number" value={formData.reorderLevel} onChange={(e) => setFormData({ ...formData, reorderLevel: Number(e.target.value) })} />
               </div>
             </div>
+            <div className="rounded-lg border p-3 flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="prod-tax-treatment">Tax treatment</Label>
+                <Select value={formData.taxTreatment} onValueChange={(value) => value && setFormData((current) => ({ ...current, taxTreatment: value as typeof current.taxTreatment }))}>
+                  <SelectTrigger id="prod-tax-treatment"><SelectValue placeholder="Choose tax treatment" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="legacy">Legacy - retain existing transaction tax entry</SelectItem>
+                    <SelectItem value="standard">Standard-rated - use configured product rate</SelectItem>
+                    <SelectItem value="zero_rated">Zero-rated - 0% output tax</SelectItem>
+                    <SelectItem value="exempt">Exempt - no output VAT</SelectItem>
+                    <SelectItem value="out_of_scope">Out of scope - no VAT calculation</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {formData.taxTreatment === "standard" && <div className="flex flex-col gap-1.5">
+                <Label htmlFor="prod-tax-rate">Tax rate (%) *</Label>
+                <Input id="prod-tax-rate" type="number" min="0.01" max="100" step="0.01" value={formData.taxRate} onChange={(e) => setFormData((current) => ({ ...current, taxRate: Number(e.target.value) }))} aria-invalid={!!formErrors.taxRate} />
+                {formErrors.taxRate && <span className="text-xs text-destructive">{formErrors.taxRate}</span>}
+              </div>}
+              <p className="text-xs text-muted-foreground">Tax treatment is applied by the server to invoices, quotations and POS sales. Confirm the correct legal treatment for your business before selecting a classification. Legacy preserves existing behaviour until you classify the product.</p>
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={formData.isService} onChange={(e) => setFormData({ ...formData, isService: e.target.checked })} className="size-4" />
               This is a service (not a physical product)
