@@ -26,6 +26,16 @@ export class SubscriptionsController {
     return this.subscriptions.getPlans();
   }
 
+
+  @Get('modules')
+  @UseGuards(JwtAuthGuard)
+  getModuleCatalogue(@Request() req: { user: AuthenticatedUser }) {
+    if (!req.user.companyId) {
+      throw new UnauthorizedException('Select a company before viewing module availability.');
+    }
+    return this.subscriptions.getModuleCatalogue(req.user.companyId);
+  }
+
   @Get('current')
   @UseGuards(JwtAuthGuard)
   getCurrent(@Request() req: { user: AuthenticatedUser }) {
