@@ -49,6 +49,10 @@ export class NeonExchangeDto {
   @MaxLength(8192)
   token!: string;
 
+  @IsUUID()
+  @IsOptional()
+  companyId?: string;
+
   @IsString()
   @MinLength(1)
   @MaxLength(100)
