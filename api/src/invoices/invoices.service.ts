@@ -95,6 +95,14 @@ export class InvoicesService {
     const membership = await this.membershipFor(user);
     const conditions = ['i.company_id = $1'];
     const params: (string | number)[] = [membership.companyId];
+    if (membership.branchId) {
+      params.push(membership.branchId);
+      conditions.push(`EXISTS (
+        SELECT 1 FROM pos_sales ps
+        JOIN pos_registers pr ON pr.id=ps.register_id AND pr.company_id=ps.company_id
+        WHERE ps.company_id=i.company_id AND ps.invoice_id=i.id AND pr.branch_id=${params.length}::uuid
+      )`);
+    }
 
     if (search?.trim()) {
       params.push(`%${search.trim()}%`);
