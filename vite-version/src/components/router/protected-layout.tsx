@@ -14,7 +14,7 @@ function requiredModule(pathname: string): string {
   if (pathname === "/crm" || pathname.startsWith("/crm/")) return "crm"
   if (pathname === "/pos" || pathname.startsWith("/pos/") || pathname === "/salesperson-stock") return "pos"
   if (["/sales-dashboard", "/customers", "/quotations", "/sales-orders", "/invoices", "/credit-notes", "/payments"].some((path) => pathname === path || pathname.startsWith(path + "/"))) return "sales"
-  if (["/suppliers", "/requisitions", "/purchase-orders", "/supplier-bills", "/approvals"].some((path) => pathname === path || pathname.startsWith(path + "/"))) return "procurement"
+  if (["/suppliers", "/requisitions", "/purchase-orders", "/contracts", "/supplier-bills", "/approvals"].some((path) => pathname === path || pathname.startsWith(path + "/"))) return "procurement"
   if (["/products", "/stock-levels", "/warehouses", "/stock-movements"].some((path) => pathname === path || pathname.startsWith(path + "/"))) return "inventory"
   if (pathname === "/manufacturing" || pathname.startsWith("/manufacturing/")) return "manufacturing"
   if (["/chart-of-accounts", "/expenses", "/financial-reports"].some((path) => pathname === path || pathname.startsWith(path + "/"))) return "accounting"
