@@ -30,6 +30,11 @@ export class CustomersService {
       : this.memberships.getMembership(user.userId);
   }
 
+  private redactCompanyWideBalance<T extends CustomerRow>(customer: T, branchId?: string | null): T {
+    if (!branchId) return customer;
+    return { ...customer, outstanding_balance: null } as T;
+  }
+
   async list(user: AuthenticatedUser, search?: string): Promise<CustomerRow[]> {
     const membership = await this.membershipFor(user);
 
@@ -40,7 +45,7 @@ export class CustomersService {
          ORDER BY created_at DESC`,
         [membership.companyId, `%${search}%`],
       );
-      return result.rows;
+      return result.rows.map((customer) => this.redactCompanyWideBalance(customer, membership.branchId));
     }
 
     const result = await this.db.query<CustomerRow>(
@@ -48,12 +53,12 @@ export class CustomersService {
        WHERE company_id = $1 ORDER BY created_at DESC`,
       [membership.companyId],
     );
-    return result.rows;
+    return result.rows.map((customer) => this.redactCompanyWideBalance(customer, membership.branchId));
   }
 
   async getById(user: AuthenticatedUser, customerId: string): Promise<CustomerRow> {
     const membership = await this.membershipFor(user);
-    return this.getByIdInternal(membership.companyId, customerId);
+    return this.redactCompanyWideBalance(await this.getByIdInternal(membership.companyId, customerId), membership.branchId);
   }
 
   async create(user: AuthenticatedUser, dto: CreateCustomerDto): Promise<CustomerRow> {
@@ -102,7 +107,7 @@ export class CustomersService {
       ipAddress: null,
     });
 
-    return customer;
+    return this.redactCompanyWideBalance(customer, membership.branchId);
   }
 
   async update(
@@ -181,7 +186,7 @@ export class CustomersService {
       ipAddress: null,
     });
 
-    return updated;
+    return this.redactCompanyWideBalance(updated, membership.branchId);
   }
 
   async delete(user: AuthenticatedUser, customerId: string): Promise<void> {
