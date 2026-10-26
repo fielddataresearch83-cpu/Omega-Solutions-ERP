@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api } from "@/lib/api-client";
 import { formatKES, formatDate } from "@/lib/format";
@@ -13,7 +14,7 @@ import { formatKES, formatDate } from "@/lib/format";
 type Supplier={id:string;name:string;is_active:boolean;status:string};
 type POLine={id:string;product_name:string;sku:string|null;quantity:string|number;received_quantity:string|number;unit_cost:string|number;tax_rate?:string|number};
 type PO={id:string;order_number:string;supplier_id:string;supplier_name:string;status:string;items?:POLine[]};
-type BillLine={description:string;quantity:string;unitCost:string;taxRate:string;purchaseOrderItemId?:string};
+type BillLine={description:string;quantity:string;unitCost:string;taxRate:string;taxTreatment:"legacy"|"standard"|"zero_rated"|"exempt"|"out_of_scope";purchaseOrderItemId?:string};
 type Bill={id:string;bill_number:string;supplier_name:string;supplier_id:string;purchase_order_id:string|null;supplier_invoice_number:string|null;bill_date:string;due_date:string|null;status:"open"|"partially_paid"|"paid"|"void";total:string|number;paid_amount:string|number;balance:string|number;item_count:number};
 type BillDetail=Bill&{items:Array<{id:string;description:string;quantity:string|number;unit_cost:string|number;tax_rate:string|number;line_total:string|number}>;payments:Array<{id:string;amount:string|number;payment_date:string;method:string;reference?:string|null}>};
 const statusLabel:Record<Bill["status"],string>={open:"Open",partially_paid:"Partially paid",paid:"Paid",void:"Void"};
@@ -34,7 +35,7 @@ export default function SupplierBillsPage(){
  const [billDate,setBillDate]=React.useState(new Date().toISOString().slice(0,10));
  const [dueDate,setDueDate]=React.useState("");
  const [notes,setNotes]=React.useState("");
- const [lines,setLines]=React.useState<BillLine[]>([{description:"",quantity:"1",unitCost:"0",taxRate:"16"}]);
+ const [lines,setLines]=React.useState<BillLine[]>([{description:"",quantity:"1",unitCost:"0",taxRate:"16",taxTreatment:"legacy"}]);
  const [payBill,setPayBill]=React.useState<Bill|null>(null);
  const [detail,setDetail]=React.useState<BillDetail|null>(null);
  const [detailLoading,setDetailLoading]=React.useState(false);
@@ -60,7 +61,7 @@ export default function SupplierBillsPage(){
   try{
    const po=await api.get<PO>(`/purchase-orders/${id}`);
    setSupplierId(po.supplier_id);
-   const received=(po.items??[]).filter(i=>Number(i.received_quantity)>0).map(i=>({description:i.product_name,quantity:String(i.received_quantity),unitCost:String(i.unit_cost),taxRate:String(i.tax_rate??0),purchaseOrderItemId:i.id}));
+   const received=(po.items??[]).filter(i=>Number(i.received_quantity)>0).map(i=>({description:i.product_name,quantity:String(i.received_quantity),unitCost:String(i.unit_cost),taxRate:String(i.tax_rate??0),taxTreatment:"legacy" as const,purchaseOrderItemId:i.id}));
    if(!received.length){setError("This order has no received quantities available to bill yet.");setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16"}]);return}
    setLines(received);
   }catch(e){setError(messageOf(e))}
@@ -71,7 +72,7 @@ export default function SupplierBillsPage(){
   if(purchaseOrderId&&lines.some(l=>!l.purchaseOrderItemId)){setError("All lines on a purchase-order bill must be linked to received order lines.");return}
   setSaving(true);setError("");
   try{
-   await api.post("/supplier-bills",{supplierId,purchaseOrderId:purchaseOrderId||undefined,supplierInvoiceNumber:supplierInvoiceNumber.trim()||undefined,billDate:billDate||undefined,dueDate:dueDate||undefined,notes:notes.trim()||undefined,items:lines.map(l=>({description:l.description.trim(),quantity:Number(l.quantity),unitCost:Number(l.unitCost),taxRate:Number(l.taxRate||0),purchaseOrderItemId:l.purchaseOrderItemId}))});
+   await api.post("/supplier-bills",{supplierId,purchaseOrderId:purchaseOrderId||undefined,supplierInvoiceNumber:supplierInvoiceNumber.trim()||undefined,billDate:billDate||undefined,dueDate:dueDate||undefined,notes:notes.trim()||undefined,items:lines.map(l=>({description:l.description.trim(),quantity:Number(l.quantity),unitCost:Number(l.unitCost),taxRate:Number(l.taxRate||0),taxTreatment:l.taxTreatment,purchaseOrderItemId:l.purchaseOrderItemId}))});
    setShowForm(false);setPurchaseOrderId("");setSupplierInvoiceNumber("");setDueDate("");setNotes("");setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16"}]);await refresh();
   }catch(e){setError(messageOf(e))}finally{setSaving(false)}
  };
@@ -107,11 +108,12 @@ export default function SupplierBillsPage(){
     <div className="flex flex-col gap-1"><Label htmlFor="bill-due">Due date</Label><Input id="bill-due" type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></div>
    </div>
    <div className="flex flex-col gap-3"><div className="flex items-center justify-between"><h3 className="text-sm font-medium">Bill lines</h3>{!purchaseOrderId&&<Button type="button" variant="outline" size="sm" onClick={()=>setLines(v=>[...v,{description:"",quantity:"1",unitCost:"0",taxRate:"16"}])}><Plus className="size-3.5"/>Add line</Button>}</div>
-    {lines.map((line,index)=><div key={line.purchaseOrderItemId??index} className="grid gap-3 rounded-lg border p-3 md:grid-cols-[minmax(180px,2fr)_100px_130px_100px_auto]">
+    {lines.map((line,index)=><div key={line.purchaseOrderItemId??index} className="grid gap-3 rounded-lg border p-3 md:grid-cols-[minmax(180px,2fr)_100px_130px_100px_minmax(170px,1fr)_auto]">
      <div className="flex flex-col gap-1"><Label>Description</Label><Input value={line.description} onChange={e=>setLines(v=>v.map((x,i)=>i===index?{...x,description:e.target.value}:x))} disabled={!!purchaseOrderId}/></div>
      <div className="flex flex-col gap-1"><Label>Quantity</Label><Input type="number" min="0.001" step="0.001" value={line.quantity} onChange={e=>setLines(v=>v.map((x,i)=>i===index?{...x,quantity:e.target.value}:x))}/></div>
      <div className="flex flex-col gap-1"><Label>Unit cost (KSh)</Label><Input type="number" min="0" step="0.01" value={line.unitCost} onChange={e=>setLines(v=>v.map((x,i)=>i===index?{...x,unitCost:e.target.value}:x))}/></div>
      <div className="flex flex-col gap-1"><Label>Tax %</Label><Input type="number" min="0" max="100" step="0.01" value={line.taxRate} onChange={e=>setLines(v=>v.map((x,i)=>i===index?{...x,taxRate:e.target.value}:x))}/></div>
+     <div className="flex flex-col gap-1"><Label>Tax treatment</Label><Select value={line.taxTreatment} onValueChange={value=>value&&setLines(v=>v.map((x,i)=>i===index?{...x,taxTreatment:value as BillLine["taxTreatment"]}:x))}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="legacy">Legacy</SelectItem><SelectItem value="standard">Standard-rated</SelectItem><SelectItem value="zero_rated">Zero-rated</SelectItem><SelectItem value="exempt">Exempt</SelectItem><SelectItem value="out_of_scope">Out of scope</SelectItem></SelectContent></Select></div>
      {!purchaseOrderId&&<div className="flex items-end"><Button type="button" variant="ghost" disabled={lines.length===1} onClick={()=>setLines(v=>v.filter((_,i)=>i!==index))}>Remove</Button></div>}
     </div>)}
    </div>
