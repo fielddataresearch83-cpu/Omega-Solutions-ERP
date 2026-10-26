@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ExpensesService } from './expenses.service.js';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
@@ -25,6 +25,16 @@ describe('ExpensesService',()=>{
   db.query.mockResolvedValue({rows:[],rowCount:0});
   await service.list(user);
   expect(db.query).toHaveBeenCalledWith(expect.stringContaining('WHERE e.company_id=$1'),['company-active']);
+ });
+ it('blocks branch-bound members from company-wide expenses before querying or writing',async()=>{
+  const branchUser={...user,branchId:'branch-1'};
+  memberships.getMembershipForCompany.mockResolvedValue({companyId:'company-active',branchId:'branch-1',role:'staff'});
+  await expect(service.list(branchUser)).rejects.toThrow(ForbiddenException);
+  await expect(service.create(branchUser,{description:'Office supplies',category:'Supplies',amount:25.5,paymentMethod:'cash'})).rejects.toThrow(ForbiddenException);
+  expect(db.query).not.toHaveBeenCalled();
+  expect(db.transaction).not.toHaveBeenCalled();
+  expect(accounting.ensureDefaults).not.toHaveBeenCalled();
+  expect(audit.log).not.toHaveBeenCalled();
  });
  it('posts a balanced expense journal and records its source atomically',async()=>{
   const client={query:vi.fn().mockImplementation(async(sql:string,params:unknown[] = [])=>{
