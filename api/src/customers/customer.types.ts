@@ -10,7 +10,7 @@ export interface CustomerRow {
   address_line1: string | null;
   postal_code: string | null;
   credit_limit: number;
-  outstanding_balance: number;
+  outstanding_balance: number | null;
   status: string;
   is_active: boolean;
   created_at: string;
