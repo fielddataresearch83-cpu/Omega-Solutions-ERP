@@ -75,16 +75,18 @@ export class PayrollService {
   return result.rows[0];
  }
  async getEmployeePaySettings(user:AuthenticatedUser,employeeId:string){
-  const {companyId}=await this.membershipFor(user);
+  const membership=await this.membershipFor(user);
+  const {companyId}=membership;
   const result=await this.db.query(`SELECT s.id,s.company_id,s.employee_id,s.monthly_basic_salary,s.monthly_taxable_allowances,s.monthly_taxable_benefits,s.employee_pension_contribution,s.post_retirement_medical_contribution,s.qualifying_mortgage_interest,s.eligible_insurance_premiums,s.resident_for_tax_purposes,s.effective_from,s.created_at,s.updated_at
    FROM employee_pay_settings s JOIN employees e ON e.id=s.employee_id AND e.company_id=s.company_id
-   WHERE s.employee_id=$1 AND s.company_id=$2 AND s.effective_from<=CURRENT_DATE ORDER BY s.effective_from DESC LIMIT 1`,[employeeId,companyId]);
+   WHERE s.employee_id=$1 AND s.company_id=$2 AND ($3::uuid IS NULL OR e.branch_id=$3) AND s.effective_from<=CURRENT_DATE ORDER BY s.effective_from DESC LIMIT 1`,[employeeId,companyId,membership.branchId]);
   if(!result.rows.length)throw new NotFoundException('Pay settings not found for this employee in this company.');
   return result.rows[0];
  }
  async setEmployeePaySettings(user:AuthenticatedUser,employeeId:string,dto:Record<string,unknown>){
-  const {companyId}=await this.membershipFor(user);
-  const employee=await this.db.query('SELECT id FROM employees WHERE id=$1 AND company_id=$2',[employeeId,companyId]);
+  const membership=await this.membershipFor(user);
+  const {companyId}=membership;
+  const employee=await this.db.query('SELECT id FROM employees WHERE id=$1 AND company_id=$2 AND ($3::uuid IS NULL OR branch_id=$3)',[employeeId,companyId,membership.branchId]);
   if(!employee.rows.length)throw new NotFoundException('Employee not found in this company.');
   const keys=['monthlyBasicSalary','monthlyTaxableAllowances','monthlyTaxableBenefits','employeePensionContribution','postRetirementMedicalContribution','qualifyingMortgageInterest','eligibleInsurancePremiums'];
   for(const key of keys){
