@@ -53,7 +53,7 @@ export class ContractsService {
     if (type === 'supplier' && !body.supplierId) throw new BadRequestException('Select a supplier for a supplier contract.');
     const ownerUserId = typeof body.ownerUserId === 'string' && body.ownerUserId.trim() ? body.ownerUserId : user.userId;
     if (ownerUserId !== user.userId) await this.memberships.getMembershipForCompany(ownerUserId, companyId);
-    const number = typeof body.contractNumber === 'string' && body.contractNumber.trim() ? `CON-${new Date().getFullYear()}-${id.slice(0,8).toUpperCase()}`;
+    const number = typeof body.contractNumber === 'string' && body.contractNumber.trim() ? body.contractNumber.trim() : `CON-${new Date().getFullYear()}-${id.slice(0,8).toUpperCase()}`;
     await this.db.transaction(async client => {
       if (m.branchId && body.branchId && body.branchId !== m.branchId) throw new ForbiddenException('You cannot create a contract for another branch.');
       if (body.branchId) { const b=await client.query('SELECT id FROM branches WHERE id=$1 AND company_id=$2 AND is_active=true',[body.branchId,companyId]); if(!b.rows[0]) throw new NotFoundException('Branch not found or inactive in this company.'); }
