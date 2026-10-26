@@ -70,6 +70,37 @@ describe('CreditNotesService', () => {
     expect(client.query.mock.calls[1][1]).toEqual(['company-a', 'invoice-a', ['invoice-line-a']]);
   });
 
+  it('rejects duplicate references to the same original invoice line in one credit note', async () => {
+    const db = {
+      query: vi.fn(),
+      transaction: vi.fn(),
+    };
+    const memberships = {
+      getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-a', branchId: null, role: 'owner' }),
+      getMembership: vi.fn(),
+    };
+    const accounting = { ensureDefaults: vi.fn() };
+    const service = new CreditNotesService(
+      db as unknown as DatabaseService,
+      memberships as unknown as MembershipsService,
+      { log: vi.fn() } as unknown as AuditService,
+      accounting as unknown as AccountingService,
+    );
+
+    await expect(service.create(user, {
+      invoiceId: 'invoice-a',
+      issueDate: '2026-10-17',
+      reason: 'Duplicate line test',
+      items: [
+        { invoiceItemId: 'invoice-line-a', description: 'First credit', quantity: 1 },
+        { invoiceItemId: 'invoice-line-a', description: 'Second credit', quantity: 1 },
+      ],
+    })).rejects.toThrow('Each original invoice line can only appear once per credit note.');
+
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(accounting.ensureDefaults).not.toHaveBeenCalled();
+  });
+
   it('limits branch-bound credit note creation to invoices sold through that branch', async () => {
     const branchUser: AuthenticatedUser = { ...user, branchId: 'branch-a', role: 'staff' };
     const client = {
