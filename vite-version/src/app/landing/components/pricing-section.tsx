@@ -13,7 +13,7 @@ const plans = [
     popular: false,
   },
   {
-    name: "Business",
+    name: "Medium",
     description: "Connected operations for growing businesses",
     monthlyPrice: 3000,
     features: ["Everything in Starter", "Finance and accounting", "Procurement and approvals", "CRM", "5 users", "Up to 3 branches"],
