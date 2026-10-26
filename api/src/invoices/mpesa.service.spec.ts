@@ -23,6 +23,18 @@ describe('MpesaService', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
+  it('does not initiate M-Pesa for an invoice outside the member branch', async () => {
+    const db = { query: vi.fn(), transaction: vi.fn() };
+    const memberships = { getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: user.companyId, branchId: '44444444-4444-4444-8444-444444444444' }) };
+    const invoices = { getById: vi.fn().mockRejectedValue(new Error('Invoice not found.')) };
+    const service = new MpesaService(db as never, memberships as never, invoices as never);
+
+    await expect(service.initiate(user, '33333333-3333-4333-8333-333333333333', '0712345678', 100))
+      .rejects.toThrow('Invoice not found.');
+    expect(invoices.getById).toHaveBeenCalledWith(user, '33333333-3333-4333-8333-333333333333');
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   it('acknowledges unknown callback IDs without creating a payment', async () => {
     const db = { query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }), transaction: vi.fn() };
     const memberships = {};
