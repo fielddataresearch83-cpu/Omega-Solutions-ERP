@@ -126,6 +126,19 @@ export default function BillingSettings() {
     }
   }
 
+  const moduleBenefits: Record<string, string> = {
+    core: "Company users, roles and access controls",
+    inventory: "Stock levels, warehouses and stock movements",
+    sales: "Quotations, orders, invoices and customer sales",
+    pos: "Fast checkout and salesperson workflows",
+    reports: "Business performance reports",
+    accounting: "Accounts, journals and financial reconciliation",
+    procurement: "Requisitions, purchase orders, supplier bills and contracts",
+    crm: "Lead pipeline, opportunities and customer follow-up",
+    manufacturing: "Bills of materials, production orders and costing",
+    hr_workforce: "Employee records, attendance and payroll workflows",
+  }
+
   const formattedPlans = plans.map((plan) => ({
     id: plan.code,
     name: plan.name,
@@ -134,7 +147,7 @@ export default function BillingSettings() {
     frequency: "/month",
     popular: plan.code === "business",
     features: [
-      ...plan.modules.map((module) => module.name),
+      ...plan.modules.map((module) => moduleBenefits[module.code] ?? module.name),
       `${plan.limits.users} users`,
       `${plan.limits.branches} branch${plan.limits.branches === 1 ? "" : "es"}`,
     ],
