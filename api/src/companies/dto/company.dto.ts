@@ -6,7 +6,28 @@ import {
   MaxLength,
   Matches,
   IsEmail,
+  IsIn,
+  IsNumber,
+  IsObject,
+  ValidateNested,
+  Min,
+  Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class CompanyTaxPolicyDto {
+  @IsIn(['legacy', 'configured'])
+  mode!: 'legacy' | 'configured';
+
+  @IsBoolean()
+  vatRegistered!: boolean;
+
+  @IsNumber()
+  @Min(0.01)
+  @Max(100)
+  @IsOptional()
+  standardRate?: number;
+}
 
 export class CreateCompanyDto {
   @IsString()
@@ -75,6 +96,12 @@ export class CreateCompanyDto {
 }
 
 export class UpdateCompanyDto {
+  @IsObject()
+  @ValidateNested()
+  @Type(() => CompanyTaxPolicyDto)
+  @IsOptional()
+  taxPolicy?: CompanyTaxPolicyDto;
+
   @IsString()
   @MinLength(1)
   @MaxLength(200)
