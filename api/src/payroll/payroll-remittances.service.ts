@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
@@ -42,8 +42,14 @@ export class PayrollRemittancesService {
       : this.memberships.getMembership(user.userId);
   }
 
+  private assertCompanyWidePayroll(membership: { branchId?: string | null }) {
+    if (membership.branchId) throw new ForbiddenException('Payroll remittances are company-wide. A company-wide payroll administrator must perform this action.');
+  }
+
   async list(user: AuthenticatedUser) {
-    const { companyId } = await this.membershipFor(user);
+    const membership = await this.membershipFor(user);
+    this.assertCompanyWidePayroll(membership);
+    const { companyId } = membership;
     return (await this.db.query(
       `SELECT o.id,o.payroll_run_id,o.authority,o.period_start,o.period_end,o.due_date,o.amount,
               o.created_at,COALESCE(p.amount_paid,0)::numeric(14,2) AS amount_paid,
@@ -64,7 +70,9 @@ export class PayrollRemittancesService {
   }
 
   async previewForRun(user: AuthenticatedUser, runId: string) {
-    const { companyId } = await this.membershipFor(user);
+    const membership = await this.membershipFor(user);
+    this.assertCompanyWidePayroll(membership);
+    const { companyId } = membership;
     const run = await this.db.query(
       `SELECT id,period_start,period_end,status FROM payroll_runs
        WHERE id=$1 AND company_id=$2 AND status IN ('approved','posted')`,
@@ -113,7 +121,9 @@ export class PayrollRemittancesService {
   }
 
   async generateForRun(user: AuthenticatedUser, runId: string) {
-    const { companyId } = await this.membershipFor(user);
+    const membership = await this.membershipFor(user);
+    this.assertCompanyWidePayroll(membership);
+    const { companyId } = membership;
     return this.db.transaction(async (client) => {
       const run = await client.query(
         `SELECT id,period_start,period_end,status FROM payroll_runs
