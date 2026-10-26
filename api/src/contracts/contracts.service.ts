@@ -15,6 +15,11 @@ export class ContractsService {
     if (!r.rows[0]) throw new NotFoundException('Contract not found.');
     return { membership: m, row: r.rows[0] };
   }
+  private assertBranchWritable(membership: { branchId?: string | null }, row: Record<string, unknown>) {
+    if (membership.branchId && !row.branch_id) {
+      throw new ForbiddenException('Branch-bound members can view company-wide contracts but cannot modify them.');
+    }
+  }
   async list(user: AuthenticatedUser) {
     const m = await this.companyFor(user);
     return (await this.db.query(`SELECT c.*, COALESCE(ci.item_count,0)::int AS item_count,
@@ -74,7 +79,7 @@ export class ContractsService {
     }
   }
   async update(user: AuthenticatedUser, id: string, body: Record<string, unknown>) {
-    this.validate(body,true); const {membership,row}=await this.scoped(user,id);
+    this.validate(body,true); const {membership,row}=await this.scoped(user,id); this.assertBranchWritable(membership,row);
     if(row.status!=='draft') throw new BadRequestException('Only draft contracts can be edited. Submit the contract again after making changes.');
     const allowed:Record<string,string>={title:'title',description:'description',startDate:'start_date',endDate:'end_date',renewalDate:'renewal_date',contractValue:'contract_value',monthlyBudget:'monthly_budget',notes:'notes'};
     const keys=Object.keys(allowed).filter(k=>body[k]!==undefined);
@@ -92,7 +97,7 @@ export class ContractsService {
     return this.get(user,id);
   }
   async submitForApproval(user: AuthenticatedUser,id:string) {
-    const {membership,row}=await this.scoped(user,id);
+    const {membership,row}=await this.scoped(user,id); this.assertBranchWritable(membership,row);
     if(row.created_by!==user.userId) throw new ForbiddenException('Only the contract creator can submit it for approval.');
     if(!['draft','suspended'].includes(String(row.status))) throw new BadRequestException('Only draft or suspended contracts can be submitted for approval.');
     await this.db.transaction(async client=>{
@@ -103,7 +108,7 @@ export class ContractsService {
     return this.get(user,id);
   }
   async changeStatus(user: AuthenticatedUser,id:string,status:'active'|'suspended') {
-    const {membership,row}=await this.scoped(user,id);
+    const {membership,row}=await this.scoped(user,id); this.assertBranchWritable(membership,row);
     if(status==='active'&&!['draft','suspended'].includes(String(row.status))) throw new BadRequestException('Only draft or suspended contracts can be activated.');
     if(status==='suspended'&&row.status!=='active') throw new BadRequestException('Only active contracts can be suspended.');
     await this.db.query('UPDATE contracts SET status=$3,updated_at=NOW() WHERE company_id=$1 AND id=$2 AND ($4::uuid IS NULL OR branch_id IS NULL OR branch_id=$4)',[membership.companyId,id,status,membership.branchId]);
@@ -111,7 +116,7 @@ export class ContractsService {
     return this.get(user,id);
   }
   async createRequisition(user: AuthenticatedUser, id: string) {
-    const { membership, row } = await this.scoped(user, id);
+    const { membership, row } = await this.scoped(user, id); this.assertBranchWritable(membership,row);
     if (!['active', 'draft'].includes(String(row.status))) throw new BadRequestException('Only draft or active contracts can generate a requisition.');
     const planned = await this.db.query(`SELECT i.product_id, i.description, i.quantity, i.unit
       FROM contract_items i JOIN products p ON p.id=i.product_id AND p.company_id=i.company_id
@@ -136,7 +141,7 @@ export class ContractsService {
     if(typeof body.title!=='string'||!body.title.trim()) throw new BadRequestException('Obligation title is required.');
     if(body.dueDate!==undefined&&body.dueDate!==null&&(typeof body.dueDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(body.dueDate)||Number.isNaN(Date.parse(body.dueDate+'T00:00:00Z'))||new Date(body.dueDate+'T00:00:00Z').toISOString().slice(0,10)!==body.dueDate)) throw new BadRequestException('Obligation dueDate must be a valid YYYY-MM-DD date.');
     if(body.notes!==undefined&&body.notes!==null&&(typeof body.notes!=='string'||body.notes.length>2000)) throw new BadRequestException('Obligation notes must be text up to 2000 characters.');
-    const {membership}=await this.scoped(user,id), obligationId=randomUUID();
+    const {membership,row}=await this.scoped(user,id); this.assertBranchWritable(membership,row); const obligationId=randomUUID();
     const dueDate=body.dueDate===undefined||body.dueDate===null?null:body.dueDate as string;
     const notes=body.notes===undefined||body.notes===null?null:body.notes as string;
     await this.db.query('INSERT INTO contract_obligations(id,company_id,contract_id,title,due_date,notes) VALUES($1,$2,$3,$4,$5,$6)',[obligationId,membership.companyId,id,body.title.trim(),dueDate,notes]);
@@ -144,7 +149,7 @@ export class ContractsService {
     return this.get(user,id);
   }
   async updateObligation(user:AuthenticatedUser,id:string,obligationId:string,body:Record<string,unknown>) {
-    const {membership}=await this.scoped(user,id);
+    const {membership,row}=await this.scoped(user,id); this.assertBranchWritable(membership,row);
     const status=String(body.status??'');
     if(!['open','in_progress','completed','waived'].includes(status)) throw new BadRequestException('Invalid obligation status.');
     const result=await this.db.query('UPDATE contract_obligations SET status=$4,completed_at=CASE WHEN $4=\'completed\' THEN NOW() ELSE NULL END WHERE company_id=$1 AND contract_id=$2 AND id=$3 RETURNING id',[membership.companyId,id,obligationId,status]);
