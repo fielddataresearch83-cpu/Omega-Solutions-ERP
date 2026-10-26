@@ -81,4 +81,23 @@ describe('company tax policy', () => {
       requestedRate: 16,
     })).toEqual({ treatment: 'exempt', rate: 0 });
   });
+  it.each([
+    ['unknown mode', { taxPolicy: { mode: 'enabled', vatRegistered: true, standardRate: 16 } }],
+    ['wrong registration type', { taxPolicy: { mode: 'configured', vatRegistered: 'yes', standardRate: 16 } }],
+    ['invalid rate type', { taxPolicy: { mode: 'configured', vatRegistered: true, standardRate: '16' } }],
+    ['out-of-range rate', { taxPolicy: { mode: 'configured', vatRegistered: true, standardRate: 101 } }],
+    ['non-object policy', { taxPolicy: 'configured' }],
+  ])('rejects malformed company tax policy: %s', (_name, settings) => {
+    expect(() => readCompanyTaxPolicy(settings)).toThrow(BadRequestException);
+  });
+
+  it('rejects malformed non-empty JSON settings rather than silently falling back to legacy', () => {
+    expect(() => readCompanyTaxPolicy('{invalid json')).toThrow(BadRequestException);
+  });
+
+  it('allows an explicit legacy policy while validating its shape', () => {
+    expect(readCompanyTaxPolicy({ taxPolicy: { mode: 'legacy', vatRegistered: false } }))
+      .toEqual({ mode: 'legacy', vatRegistered: false });
+  });
+
 });
