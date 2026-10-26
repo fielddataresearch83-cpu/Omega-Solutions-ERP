@@ -213,7 +213,7 @@ export class ProductsService {
     await this.audit.log({
       userId: user.userId,
       companyId: membership.companyId,
-      branchId: null,
+      branchId: membership.branchId,
       action: 'product.create',
       entityType: 'product',
       entityId: product.id,
@@ -298,7 +298,7 @@ export class ProductsService {
     await this.audit.log({
       userId: user.userId,
       companyId: membership.companyId,
-      branchId: null,
+      branchId: membership.branchId,
       action: 'product.update',
       entityType: 'product',
       entityId: updated.id,
@@ -338,7 +338,7 @@ export class ProductsService {
       try { await this.imageStorage.remove(key); } catch { /* Preserve the database error. */ }
       throw error;
     }
-    await this.audit.log({ userId: user.userId, companyId: membership.companyId, branchId: null, action: 'product.image.upload', entityType: 'product', entityId: productId, oldValues: { hadImage: !!existing.image_url || !!existing.image_storage_key }, newValues: { imageType: imageType.type }, ipAddress: null });
+    await this.audit.log({ userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'product.image.upload', entityType: 'product', entityId: productId, oldValues: { hadImage: !!existing.image_url || !!existing.image_storage_key }, newValues: { imageType: imageType.type }, ipAddress: null });
     if (existing.image_storage_key) {
       try { await this.imageStorage.remove(String(existing.image_storage_key)); } catch { /* New key is committed; old object cleanup can be retried safely. */ }
     }
@@ -349,7 +349,7 @@ export class ProductsService {
     const membership = await this.resolveMembership(user);
     const existing = await this.getByIdInternal(membership.companyId, productId);
     await this.db.query('UPDATE products SET image_storage_key = NULL, image_url = NULL, updated_at = NOW() WHERE id = $1 AND company_id = $2', [productId, membership.companyId]);
-    await this.audit.log({ userId: user.userId, companyId: membership.companyId, branchId: null, action: 'product.image.remove', entityType: 'product', entityId: productId, oldValues: { hadImage: !!existing.image_url || !!existing.image_storage_key }, newValues: null, ipAddress: null });
+    await this.audit.log({ userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'product.image.remove', entityType: 'product', entityId: productId, oldValues: { hadImage: !!existing.image_url || !!existing.image_storage_key }, newValues: null, ipAddress: null });
     if (existing.image_storage_key) await this.imageStorage.remove(String(existing.image_storage_key));
     return this.withImageUrl({ ...existing, image_url: null, image_storage_key: null });
   }
@@ -371,7 +371,7 @@ export class ProductsService {
     await this.audit.log({
       userId: user.userId,
       companyId: membership.companyId,
-      branchId: null,
+      branchId: membership.branchId,
       action: 'product.delete',
       entityType: 'product',
       entityId: existing.id,
