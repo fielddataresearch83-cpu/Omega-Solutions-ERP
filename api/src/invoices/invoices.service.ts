@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -75,6 +76,19 @@ export class InvoicesService {
     return user.companyId
       ? this.memberships.getMembershipForCompany(user.userId, user.companyId)
       : this.memberships.getMembership(user.userId);
+  }
+
+  private async assertBranchInvoiceAccess(membership: { companyId: string; branchId?: string | null }, invoiceId: string) {
+    if (!membership.branchId) return;
+    const result = await this.db.query<{ id: string }>(
+      `SELECT i.id FROM invoices i
+       JOIN pos_sales ps ON ps.invoice_id=i.id AND ps.company_id=i.company_id
+       JOIN pos_registers pr ON pr.id=ps.register_id AND pr.company_id=ps.company_id
+       WHERE i.id=$1 AND i.company_id=$2 AND pr.branch_id=$3
+       LIMIT 1`,
+      [invoiceId, membership.companyId, membership.branchId],
+    );
+    if (!result.rows[0]) throw new NotFoundException('Invoice not found.');
   }
 
   async list(user: AuthenticatedUser, search?: string, status?: string): Promise<InvoiceRow[]> {
@@ -255,6 +269,7 @@ export class InvoicesService {
     dto: CreateInvoicePaymentDto,
   ): Promise<InvoiceRow> {
     const membership = await this.membershipFor(user);
+    await this.assertBranchInvoiceAccess(membership, invoiceId);
     const paymentAmount = Math.round(dto.amount * 100) / 100;
     if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
       throw new BadRequestException('Payment amount must be greater than zero.');
@@ -315,6 +330,7 @@ export class InvoicesService {
     paymentId: string,
   ): Promise<InvoiceRow> {
     const membership = await this.membershipFor(user);
+    await this.assertBranchInvoiceAccess(membership, invoiceId);
     await this.accounting.ensureDefaults(membership.companyId);
     const confirmed = await this.db.transaction(async (client) => {
       const paymentResult = await client.query<InvoicePaymentRow>(
@@ -477,6 +493,7 @@ export class InvoicesService {
     paymentId: string,
   ): Promise<InvoiceRow> {
     const membership = await this.membershipFor(user);
+    await this.assertBranchInvoiceAccess(membership, invoiceId);
     const payment = await this.db.transaction(async (client) => {
       const result = await client.query<InvoicePaymentRow>(
         `SELECT id, invoice_id, amount, method, reference, paid_at, notes, created_at, status, verified_at, reconciled_at, reconciliation_reference
@@ -507,6 +524,7 @@ export class InvoicesService {
     statementReference: string,
   ): Promise<InvoiceRow> {
     const membership = await this.membershipFor(user);
+    await this.assertBranchInvoiceAccess(membership, invoiceId);
     const reference = statementReference.trim();
     if (!reference) throw new BadRequestException('Bank statement reference is required.');
     const payment = await this.db.transaction(async (client) => {
@@ -542,6 +560,7 @@ export class InvoicesService {
 
   async updateStatus(user: AuthenticatedUser, invoiceId: string, status: string): Promise<InvoiceRow> {
     const membership = await this.membershipFor(user);
+    await this.assertBranchInvoiceAccess(membership, invoiceId);
     await this.accounting.ensureDefaults(membership.companyId);
     if (!this.isInvoiceStatus(status)) throw new BadRequestException('Invalid invoice status.');
     if (status !== 'sent' && status !== 'cancelled') {
