@@ -14,7 +14,7 @@ describe('AccountingService receivables reconciliation', () => {
   let service: AccountingService;
 
   beforeEach(() => {
-    const client = { query: vi.fn((sql: string, params?: unknown[]) => sql.startsWith('SET TRANSACTION') ? Promise.resolve({ rows: [], rowCount: 1 }) : db.query(sql, params)) };
+    const client = { query: vi.fn((sql: string, params?: unknown[]) => (sql.startsWith('SET TRANSACTION') || sql.startsWith('INSERT INTO chart_of_accounts')) ? Promise.resolve({ rows: [], rowCount: 1 }) : db.query(sql, params)) };
     db = {
       query: vi.fn()
         .mockResolvedValueOnce({ rows: [{ balance: '100.00' }], rowCount: 1 })
