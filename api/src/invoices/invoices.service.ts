@@ -213,7 +213,7 @@ export class InvoicesService {
       let taxCents = 0;
       const resolved: Array<{
         productId: string; name: string; sku: string; quantity: number;
-        unitPriceCents: number; taxRate: number; lineSubtotalCents: number;
+        unitPriceCents: number; taxRate: number; taxTreatment: string; lineSubtotalCents: number;
         lineTaxCents: number; lineTotalCents: number;
       }> = [];
 
@@ -245,7 +245,7 @@ export class InvoicesService {
         taxCents += lineTaxCents;
         resolved.push({
           productId: product.id, name: product.name, sku: product.sku, quantity,
-          unitPriceCents, taxRate, lineSubtotalCents, lineTaxCents, lineTotalCents,
+          unitPriceCents, taxRate, taxTreatment: product.tax_treatment, lineSubtotalCents, lineTaxCents, lineTotalCents,
         });
       }
 
@@ -268,11 +268,11 @@ export class InvoicesService {
         await client.query(
           `INSERT INTO invoice_items
             (company_id, invoice_id, product_id, product_name, sku, quantity, unit_price,
-             tax_rate, line_subtotal, tax_amount, line_total)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+             tax_rate, tax_treatment, line_subtotal, tax_amount, line_total)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
           [
             membership.companyId, invoice.id, item.productId, item.name, item.sku, item.quantity,
-            item.unitPriceCents / 100, item.taxRate, item.lineSubtotalCents / 100,
+            item.unitPriceCents / 100, item.taxRate, item.taxTreatment, item.lineSubtotalCents / 100,
             item.lineTaxCents / 100, item.lineTotalCents / 100,
           ],
         );
