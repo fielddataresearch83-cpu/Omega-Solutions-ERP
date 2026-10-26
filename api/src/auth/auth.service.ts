@@ -378,6 +378,23 @@ export class AuthService {
     }
   }
 
+  async getActiveCompanies(userId: string): Promise<Array<{ id: string; name: string; role: string; branchId: string | null }>> {
+    const result = await this.db.query<{ id: string; name: string; role: string; branch_id: string | null }>(
+      `SELECT c.id, c.name, cm.role, cm.branch_id
+       FROM company_memberships cm
+       JOIN companies c ON c.id = cm.company_id AND c.is_active = true
+       WHERE cm.user_id = $1 AND cm.is_active = true
+       ORDER BY c.name, c.id`,
+      [userId],
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      role: row.role,
+      branchId: row.branch_id,
+    }));
+  }
+
   async switchCompany(userId: string, companyId: string, mfaVerified = false): Promise<TokenPair & { user: Omit<AuthenticatedUser, 'permissions'> }> {
     // The target company is accepted only after an active membership check for this user.
     const profile = await this.getUserProfile(userId, companyId);
