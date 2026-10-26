@@ -201,7 +201,6 @@ export class PosService {
   async checkout(user:AuthenticatedUser,dto:PosCheckoutDto) {
     const membership=await this.company(user);
     const {companyId,branchId}=membership;
-    await this.accounting.ensureDefaults(companyId);
     const today=new Date().toISOString().slice(0,10);
     const totals=await this.db.transaction(async client=>{
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[dto.requestId]);
@@ -283,6 +282,8 @@ export class PosService {
       if(payments.some(p=>!Number.isFinite(p.cents)||p.cents<=0||Math.round(Number(p.amount)*100)!==Number(p.amount)*100)) throw new BadRequestException('Payment amounts must be positive and limited to two decimal places.');
       if(payments.reduce((sum,p)=>sum+p.cents,0)!==totalCents) throw new BadRequestException('Payment split must equal the exact checkout total.');
       if(payments.some(p=>p.method==='mpesa'&&!p.reference?.trim())) throw new BadRequestException('An M-Pesa transaction reference is required; the payment remains pending verification.');
+      // Existing idempotent requests and rejected checkouts must not create accounting defaults.
+      await this.accounting.ensureDefaults(companyId);
       const confirmedCents=payments.filter(p=>p.method==='cash').reduce((sum,p)=>sum+p.cents,0);
       const pendingCents=totalCents-confirmedCents;
       const invoiceSequence=await client.query<{next_number:number}>(
