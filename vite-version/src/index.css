@@ -258,3 +258,21 @@ html { scroll-behavior: smooth; }
 }
 .dark [data-slot="table-header"] { background-color: #1b211d; }
 .dark [data-slot="table-row"]:hover { background-color: #1b211d; }
+
+
+/* User-selected appearance preferences (persisted by the Appearance page). */
+:root[data-font-family="system"] body { font-family: system-ui, sans-serif; }
+:root[data-font-family="inter"] body { font-family: "Inter", system-ui, sans-serif; }
+:root[data-font-family="roboto"] body { font-family: "Roboto", Arial, sans-serif; }
+
+:root[data-font-size="small"] { font-size: 14px; }
+:root[data-font-size="medium"] { font-size: 16px; }
+:root[data-font-size="large"] { font-size: 18px; }
+
+:root[data-sidebar-width="compact"] [data-slot="sidebar"] { --sidebar-width: 13rem; }
+:root[data-sidebar-width="comfortable"] [data-slot="sidebar"] { --sidebar-width: 16rem; }
+:root[data-sidebar-width="spacious"] [data-slot="sidebar"] { --sidebar-width: 18rem; }
+
+:root[data-content-width="fixed"] main { width: min(100%, 72rem); margin-inline: auto; }
+:root[data-content-width="container"] main { width: min(100%, 88rem); margin-inline: auto; }
+:root[data-content-width="fluid"] main { width: 100%; }
