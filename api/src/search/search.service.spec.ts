@@ -88,10 +88,12 @@ describe('SearchService', () => {
   });
 
   it('does not search a module excluded from an active plan', async () => {
-    db.query.mockResolvedValueOnce({
-      rows: [{ status: 'active', modules: ['core', 'inventory', 'sales', 'pos', 'reports'] }],
-      rowCount: 1,
-    });
+    db.query
+      .mockResolvedValueOnce({
+        rows: [{ status: 'active', modules: ['core', 'inventory', 'sales', 'pos', 'reports'] }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 });
     expect(await service.search(user(), 'Acme')).toEqual([]);
     expect(db.query).toHaveBeenCalledTimes(2);
   });
