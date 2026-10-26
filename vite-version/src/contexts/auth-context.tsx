@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { AuthenticatedUser } from "@/lib/api-types";
-import { getAccessToken, setTokens, clearTokens } from "@/lib/api-client";
+import { api, getAccessToken, getRefreshToken, setTokens, clearTokens } from "@/lib/api-client";
 import { getCurrentUser, login, exchangeNeonToken, exchangeNeonInvitationToken, completeMfaChallenge } from "@/lib/auth-api";
 import { signInWithNeon } from "@/lib/neon-auth-api";
 import type { LoginResponse, MfaChallengeResponse } from "@/lib/auth-api";
@@ -15,6 +15,7 @@ interface AuthContextValue {
   registerUser: (email: string, password: string, fullName: string, phone?: string, companyName?: string) => Promise<void>;
   finishNeonRegistration: (token: string, fullName: string, phone?: string, companyName?: string) => Promise<void>;
   finishNeonInvitation: (token: string, invitationToken: string) => Promise<boolean>;
+  switchCompany: (companyId: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -72,7 +73,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         neonError = err;
       }
     }
-    // Keep existing Omega accounts usable while the Neon cutover is validated.
     try {
       const result = await login(email, password);
       await applyOmegaSession(result);
@@ -90,7 +90,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const registerUser = React.useCallback(async (email: string, password: string, fullName: string, phone?: string, companyName?: string) => {
     setError(null);
-    // New accounts must verify their email with Neon before Omega creates company membership.
     const { registerWithNeon } = await import("@/lib/neon-auth-api");
     await registerWithNeon({ email, password, fullName });
     void phone;
@@ -109,6 +108,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await applyOmegaSession(result);
     return "mfaRequired" in result;
   }, [applyOmegaSession]);
+
+  const switchCompany = React.useCallback(async (companyId: string) => {
+    if (!companyId || companyId === user?.companyId) return;
+    const previousAccessToken = getAccessToken();
+    const previousRefreshToken = getRefreshToken();
+    if (!previousAccessToken || !previousRefreshToken) throw new Error("Your session has expired. Please sign in again.");
+
+    const result = await api.post<LoginResponse>("/auth/switch-company", { companyId });
+    if (!result?.accessToken || !result.refreshToken) throw new Error("The company switch returned an invalid session.");
+
+    setTokens(result.accessToken, result.refreshToken);
+    try {
+      const current = await getCurrentUser(result.accessToken);
+      setUser(current);
+    } catch (err) {
+      setTokens(previousAccessToken, previousRefreshToken);
+      throw err;
+    }
+  }, [user?.companyId]);
 
   const logout = React.useCallback(() => {
     clearTokens();
@@ -132,6 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     registerUser,
     finishNeonRegistration,
     finishNeonInvitation,
+    switchCompany,
     logout,
     refreshUser,
   };
