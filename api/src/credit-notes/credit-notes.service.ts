@@ -298,6 +298,13 @@ export class CreditNotesService {
         [companyId, invoice.id],
       );
       const pendingPayments = Number(pendingResult.rows[0]?.amount ?? 0);
+      // Pending reports are not yet receipts. Do not issue a credit that would make
+      // those pending reports exceed the invoice's net collectible value; otherwise
+      // they could become permanently unconfirmable after the credit note is posted.
+      const netAfterCredit = Math.round((Number(invoice.total) - Number(invoice.credited_amount) - total) * 100) / 100;
+      if (pendingPayments > 0 && Number(invoice.amount_paid) + pendingPayments > netAfterCredit + 0.005) {
+        throw new BadRequestException('Resolve pending payment reports before issuing a credit that would exceed the invoice balance after credit.');
+      }
       // Credit notes may be issued for paid invoices. Reduce receivables only by the
       // amount not already paid or reserved by pending payment reports; the excess is
       // a customer-credit liability and must be refunded/settled separately.
