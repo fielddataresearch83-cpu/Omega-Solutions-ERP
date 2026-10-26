@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -18,9 +18,15 @@ export class CrmService {
   ) {}
 
   private async membershipFor(user: AuthenticatedUser) {
-    return user.companyId
+    const membership = await (user.companyId
       ? this.memberships.getMembershipForCompany(user.userId, user.companyId)
-      : this.memberships.getMembership(user.userId);
+      : this.memberships.getMembership(user.userId));
+    if (membership.branchId) {
+      throw new ForbiddenException(
+        'CRM records are company-wide until branch attribution is supported. A company-wide CRM administrator must perform this action.',
+      );
+    }
+    return membership;
   }
 
   private async companyId(user: AuthenticatedUser) {

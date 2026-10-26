@@ -51,6 +51,12 @@ describe('CrmService', () => {
     );
   });
 
+  it('blocks branch-bound memberships from company-wide CRM records until branch attribution exists', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-1', role: 'staff' });
+    await expect(service.listLeads(user)).rejects.toThrow('CRM records are company-wide until branch attribution is supported');
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   it('does not return a lead outside the company scope', async () => {
     db.query.mockResolvedValue({ rows: [], rowCount: 0 });
     await expect(service.getLead(user, 'other-company-lead')).rejects.toThrow(NotFoundException);
