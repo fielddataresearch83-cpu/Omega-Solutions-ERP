@@ -66,7 +66,7 @@ export default function CreditNotesPage() {
     try {
       const created = await api.post<CreditNote>("/credit-notes", {
         invoiceId, issueDate, reason,
-        items: [{ description, quantity: Number(quantity), unitPrice: Number(unitPrice), taxRate: Number(taxRate) }],
+        items: [{ invoiceItemId, description, quantity: Number(quantity) }],
       });
       setNotes(current => [created, ...current]);
       setReason(""); setDescription(""); setQuantity("1"); setNotice(`Credit note ${created.credit_note_number} created and posted to the ledger.`);
