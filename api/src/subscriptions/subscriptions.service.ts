@@ -27,7 +27,7 @@ const MODULE_CATALOGUE = [
   { code: 'sales', category: 'Commercial', description: 'Customers, quotations, sales orders, invoices and credit notes.', dependencies: ['core'] },
   { code: 'pos', category: 'Commercial', description: 'Point-of-sale registers, shifts, checkout and salesperson stock workflows.', dependencies: ['sales', 'inventory'] },
   { code: 'accounting', category: 'Finance', description: 'Chart of accounts, journals, financial reports and reconciliation.', dependencies: ['core'] },
-  { code: 'procurement', category: 'Operations', description: 'Requisitions, purchase orders, supplier bills and purchasing contracts.', dependencies: ['inventory'] },
+  { code: 'procurement', category: 'Operations', description: 'Requisitions, purchase orders, supplier bills and purchasing contracts.', dependencies: ['inventory', 'accounting'] },
   { code: 'manufacturing', category: 'Operations', description: 'Bills of materials, production orders and production costing.', dependencies: ['inventory', 'accounting'] },
   { code: 'crm', category: 'Commercial', description: 'Leads, opportunities, campaigns, customer segments and support tickets.', dependencies: ['sales'] },
   { code: 'hr_workforce', category: 'People', description: 'Employees, workforce operations, attendance and payroll.', dependencies: ['core'] },
