@@ -53,7 +53,7 @@ import { api } from "@/lib/api-client"
 
 type NavItem = { title: string; url: string; icon: LucideIcon; module?: string }
 type NavGroup = { label: string; module: string; items: NavItem[] }
-type SubscriptionAccess = { subscription: null | { status: string }; modules?: Record<string, boolean> }
+type SubscriptionAccess = { subscription: null | { status: string }; accessMode?: string; modules?: Record<string, boolean> | Array<{ code: string; enabled: boolean }> }
 
 const navGroups: NavGroup[] = [
   {
@@ -156,7 +156,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     if (!company?.id) return
     let cancelled = false
     setAccessLoaded(false)
-    api.get<SubscriptionAccess>("/subscriptions/current")
+    api.get<SubscriptionAccess>("/subscriptions/modules")
       .then((result) => {
         if (!cancelled) setAccess(result)
       })
@@ -175,6 +175,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     if (!access?.subscription) return true // Legacy tenants retain their current navigation.
     if (moduleCode === "core") return true
     if (!["active", "trialing"].includes(access.subscription.status)) return false
+    if (Array.isArray(access.modules)) return access.modules.some((module) => module.code === moduleCode && module.enabled)
     return access.modules?.[moduleCode] === true
   }
 
