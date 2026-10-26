@@ -147,24 +147,27 @@ export class QuotationsService {
   async updateStatus(user: AuthenticatedUser, id: string, nextStatus: string): Promise<QuotationRow> {
     const membership = await this.membershipFor(user);
     this.assertCompanyWideAccess(membership);
-    const current = await this.db.query<QuotationRow>(
-      'SELECT id, company_id, status FROM quotations WHERE id = $1 AND company_id = $2',
-      [id, membership.companyId],
-    );
-    const quotation = current.rows[0];
-    if (!quotation) throw new NotFoundException('Quotation not found.');
     const allowed: Record<QuotationStatus, QuotationStatus[]> = {
       draft: ['sent', 'cancelled'], sent: ['accepted', 'rejected', 'expired', 'cancelled'],
       accepted: ['cancelled'], rejected: [], expired: [], cancelled: [], converted: [],
     };
-    const from = quotation.status as QuotationStatus;
-    if (!this.isStatus(nextStatus) || !allowed[from]?.includes(nextStatus as QuotationStatus)) {
-      throw new BadRequestException(`Cannot change quotation status from ${from} to ${nextStatus}.`);
-    }
-    await this.db.query(
-      'UPDATE quotations SET status = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3',
-      [nextStatus, id, membership.companyId],
-    );
+    const from = await this.db.transaction(async (client) => {
+      const current = await client.query<{ id: string; company_id: string; status: string }>(
+        'SELECT id, company_id, status FROM quotations WHERE id = $1 AND company_id = $2 FOR UPDATE',
+        [id, membership.companyId],
+      );
+      const quotation = current.rows[0];
+      if (!quotation) throw new NotFoundException('Quotation not found.');
+      const currentStatus = quotation.status as QuotationStatus;
+      if (!this.isStatus(nextStatus) || !allowed[currentStatus]?.includes(nextStatus as QuotationStatus)) {
+        throw new BadRequestException(`Cannot change quotation status from ${currentStatus} to ${nextStatus}.`);
+      }
+      await client.query(
+        'UPDATE quotations SET status = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3',
+        [nextStatus, id, membership.companyId],
+      );
+      return currentStatus;
+    });
     await this.audit.log({
       userId: user.userId, companyId: membership.companyId, branchId: null,
       action: 'quotation.status.update', entityType: 'quotation', entityId: id,
