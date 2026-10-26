@@ -11,6 +11,8 @@ export interface ProductRow {
   cost_price: string | number;
   stock_quantity: string | number;
   reorder_level: string | number;
+  tax_treatment: 'legacy' | 'standard' | 'zero_rated' | 'exempt' | 'out_of_scope';
+  tax_rate: string | number;
   is_service: boolean;
   is_active: boolean;
   created_at: string;
