@@ -63,16 +63,17 @@ export class PaystackPaymentsService {
     email: string,
     planCode: string,
   ) {
-    const key = this.secretKey();
     const normalizedPlan = planCode.trim().toLowerCase();
     const planResult = await this.db.query<{
-      code: string; name: string; monthly_price_kes: number;
+      code: string; name: string; monthly_price_kes: number; is_custom_pricing: boolean;
     }>(
-      'SELECT code, name, monthly_price_kes FROM subscription_plans WHERE code = $1 AND is_active = TRUE',
+      'SELECT code, name, monthly_price_kes, is_custom_pricing FROM subscription_plans WHERE code = $1 AND is_active = TRUE',
       [normalizedPlan],
     );
     const plan = planResult.rows[0];
     if (!plan) throw new BadRequestException('The selected subscription plan is not available.');
+    if (plan.is_custom_pricing) throw new BadRequestException('Enterprise requires a custom quote. Submit an Enterprise quote request instead of using online checkout.');
+    const key = this.secretKey();
 
     const existing = await this.db.query<{ plan_code: string; status: string }>(
       'SELECT plan_code, status FROM company_subscriptions WHERE company_id = $1',
