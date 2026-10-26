@@ -24,6 +24,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 type DashboardSummary = {
   currency: string
+  accessMode: "legacy_unmetered" | "subscription"
+  subscription: null | { status: string }
+  modules: Record<string, boolean>
   customers: null | { count: number; receivables: number | null }
   suppliers: null | { count: number; payables: number }
   inventory: null | { activeProducts: number; lowStock: number; costValue: number; lowStockProducts: Array<{ id: string; name: string; sku: string; stock_quantity: number; reorder_level: number }> }
@@ -73,7 +76,7 @@ export default function Page() {
   })
 
   React.useEffect(() => {
-    if (authLoading || !user) return
+    if (authLoading || companyLoading || !user) return
     let cancelled = false
     setDashboard((current) => ({ ...current, loading: true, error: null }))
     api.get<DashboardSummary>("/dashboard/summary")
@@ -82,7 +85,7 @@ export default function Page() {
         if (!cancelled) setDashboard({ data: null, loading: false, error: error.message ?? "Could not load dashboard summary." })
       })
     return () => { cancelled = true }
-  }, [authLoading, user?.userId, company?.id])
+  }, [authLoading, companyLoading, user?.userId, company?.id])
 
   const canUseModule = (moduleCode: string) => {
     if (dashboard.loading || !dashboard.data) return false
