@@ -152,7 +152,7 @@ export class CompaniesService {
     };
 
     if (dto.taxPolicy !== undefined) {
-      fields.push(`settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{taxPolicy}', ${paramIndex}::jsonb, true)`);
+      fields.push(`settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{taxPolicy}', $${paramIndex}::jsonb, true)`);
       values.push(JSON.stringify(dto.taxPolicy));
       paramIndex++;
     }
