@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -26,8 +26,11 @@ export class PurchaseOrdersService {
   private companyFor(user: AuthenticatedUser) {
     return user.companyId ? this.memberships.getMembershipForCompany(user.userId,user.companyId) : this.memberships.getMembership(user.userId);
   }
+  private assertCompanyWideProcurement(membership: { branchId?: string | null }) {
+    if (membership.branchId) throw new ForbiddenException('Purchase orders are company-wide until branch attribution is supported. A company-wide procurement administrator must perform this action.');
+  }
   async list(user: AuthenticatedUser) {
-    const {companyId}=await this.companyFor(user);
+    const membership=await this.companyFor(user); this.assertCompanyWideProcurement(membership); const {companyId}=membership;
     return (await this.db.query(
       `SELECT po.id,po.company_id,po.supplier_id,s.name AS supplier_name,po.order_number,po.order_date,po.expected_date,po.status,po.currency,po.subtotal,po.tax_amount,po.total,po.notes,po.created_at,po.updated_at,ar.status AS approval_status,COUNT(i.id)::int AS item_count,COALESCE(SUM(i.quantity),0) AS ordered_quantity,COALESCE(SUM(i.received_quantity),0) AS received_quantity
        FROM purchase_orders po JOIN suppliers s ON s.id=po.supplier_id AND s.company_id=po.company_id
@@ -36,14 +39,14 @@ export class PurchaseOrdersService {
        WHERE po.company_id=$1 GROUP BY po.id,s.name,ar.status ORDER BY po.created_at DESC`,[companyId])).rows;
   }
   async getById(user: AuthenticatedUser,id: string) {
-    const {companyId}=await this.companyFor(user);
+    const membership=await this.companyFor(user); this.assertCompanyWideProcurement(membership); const {companyId}=membership;
     const result=await this.db.query(`SELECT po.*,s.name AS supplier_name FROM purchase_orders po JOIN suppliers s ON s.id=po.supplier_id AND s.company_id=po.company_id WHERE po.company_id=$1 AND po.id=$2`,[companyId,id]);
     if(!result.rows[0]) throw new NotFoundException('Purchase order not found.');
     const items=await this.db.query('SELECT * FROM purchase_order_items WHERE company_id=$1 AND purchase_order_id=$2 ORDER BY created_at,id',[companyId,id]);
     return {...result.rows[0],items:items.rows};
   }
   async create(user: AuthenticatedUser,dto: CreatePurchaseOrderDto) {
-    const membership=await this.companyFor(user); const companyId=membership.companyId;
+    const membership=await this.companyFor(user); this.assertCompanyWideProcurement(membership); const companyId=membership.companyId;
     const id=await this.db.transaction(async client=>{
       const supplier=await client.query("SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true AND status='active'",[dto.supplierId,companyId]);
       if(!supplier.rows[0]) throw new NotFoundException('Active supplier not found in this company.');
@@ -67,7 +70,7 @@ export class PurchaseOrdersService {
     return this.getById(user,id);
   }
   async updateStatus(user: AuthenticatedUser,id:string,dto:UpdatePurchaseOrderStatusDto) {
-    const m=await this.companyFor(user);
+    const m=await this.companyFor(user); this.assertCompanyWideProcurement(m);
     const state=await this.db.transaction(async client=>{
       const res=await client.query<{status:string}>('SELECT status FROM purchase_orders WHERE id=$1 AND company_id=$2 FOR UPDATE',[id,m.companyId]);
       const row=res.rows[0];if(!row)throw new NotFoundException('Purchase order not found.');
@@ -88,7 +91,7 @@ export class PurchaseOrdersService {
     return this.getById(user,id);
   }
   async receive(user:AuthenticatedUser,id:string,dto:ReceivePurchaseOrderDto) {
-    const m=await this.companyFor(user);
+    const m=await this.companyFor(user); this.assertCompanyWideProcurement(m);
     const receiptId = randomUUID();
     await this.accounting.ensureDefaults(m.companyId);
     await this.db.transaction(async client=>{
