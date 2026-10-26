@@ -25,6 +25,28 @@ describe('company tax policy', () => {
     })).toEqual({ treatment: 'standard', rate: 16 });
   });
 
+  it('rejects a standard product rate that differs from the company standard rate', () => {
+    const policy = readCompanyTaxPolicy({
+      taxPolicy: { mode: 'configured', vatRegistered: true, standardRate: 16 },
+    });
+    expect(() => resolveTaxTreatment({
+      policy,
+      productTreatment: 'standard',
+      productRate: 7.5,
+    })).toThrow(BadRequestException);
+  });
+
+  it('rejects a missing company standard rate for standard-rated products', () => {
+    const policy = readCompanyTaxPolicy({
+      taxPolicy: { mode: 'configured', vatRegistered: true },
+    });
+    expect(() => resolveTaxTreatment({
+      policy,
+      productTreatment: 'standard',
+      productRate: 16,
+    })).toThrow(BadRequestException);
+  });
+
   it('rejects unclassified products once company tax policy is enabled', () => {
     const policy = readCompanyTaxPolicy({
       taxPolicy: { mode: 'configured', vatRegistered: true, standardRate: 16 },
