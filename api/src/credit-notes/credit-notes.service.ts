@@ -112,7 +112,7 @@ export class CreditNotesService {
       if (!item.invoiceItemId) {
         throw new BadRequestException('Each credit line must reference an original invoice line.');
       }
-      return { invoiceItemId: item.invoiceItemId, description: item.description.trim(), quantity, requestedTaxRate: item.taxRate };
+      return { invoiceItemId: item.invoiceItemId, description: item.description.trim(), quantity };
     });
     if (new Set(requestedItems.map(item => item.invoiceItemId)).size !== requestedItems.length) {
       throw new BadRequestException('Each original invoice line can only appear once per credit note.');
@@ -124,8 +124,6 @@ export class CreditNotesService {
     let subtotal = 0;
     let tax = 0;
     let total = 0;
-    await this.accounting.ensureDefaults(companyId);
-
     const created = await this.db.transaction(async client => {
       const invoiceResult = await client.query<{
         id: string; customer_id: string; invoice_number: string; issue_date: string; status: string;
@@ -183,9 +181,6 @@ export class CreditNotesService {
         }
         const unitPrice = Math.round(Number(original.unit_price) * 100) / 100;
         const taxRate = Math.round(Number(original.tax_rate) * 100) / 100;
-        if (requested.requestedTaxRate !== undefined && Math.abs(Number(requested.requestedTaxRate) - taxRate) > 0.0001) {
-          throw new BadRequestException('Credit-note tax rate must match the original invoice line tax snapshot.');
-        }
         const lineSubtotal = Math.round(requested.quantity * unitPrice * 100) / 100;
         const remainingLineValue = Math.round((Number(original.quantity) * unitPrice - previouslyCreditedSubtotal) * 100) / 100;
         if (lineSubtotal > remainingLineValue + 0.005) {
@@ -218,6 +213,8 @@ export class CreditNotesService {
       if (total > remaining + 0.005) {
         throw new BadRequestException(`Credit total ${total.toFixed(2)} exceeds the remaining unpaid invoice balance after pending payment reports of ${Math.max(0, remaining).toFixed(2)}.`);
       }
+      // Defaults are only initialized after invoice, branch, line, quantity and balance checks pass.
+      await this.accounting.ensureDefaults(companyId);
       const year = Number(issueDate.slice(0, 4));
       const sequence = await client.query<{ next_number: number }>(
         `INSERT INTO credit_note_sequences(company_id,credit_year,next_number) VALUES($1,$2,1)
