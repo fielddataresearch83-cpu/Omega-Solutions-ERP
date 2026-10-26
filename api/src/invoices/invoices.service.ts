@@ -441,9 +441,14 @@ export class InvoicesService {
       [input.companyId, input.invoiceId],
     );
     let costTotal = 0;
-    for (const line of lines.rows) {
-      if (line.is_service) continue;
-      if (!input.reverse) costTotal += Number(line.quantity) * Number(line.cost_price);
+    // POS checkout already issues stock from its selected warehouse. A later
+    // invoice cancellation must reverse that same warehouse, not assume MAIN.
+    const posWarehouse = await client.query<{ warehouse_id: string | null }>(
+      'SELECT warehouse_id FROM pos_sales WHERE company_id=$1 AND invoice_id=$2 ORDER BY created_at ASC LIMIT 1',
+      [input.companyId, input.invoiceId],
+    );
+    let warehouseId = posWarehouse.rows[0]?.warehouse_id ?? null;
+    if (!warehouseId) {
       const warehouse = await client.query<{ id: string }>(
         "SELECT id FROM warehouses WHERE company_id=$1 AND code='MAIN' AND is_active=true FOR SHARE",
         [input.companyId],
@@ -451,7 +456,11 @@ export class InvoicesService {
       if (!warehouse.rows[0]) {
         throw new BadRequestException('An active MAIN warehouse is required before dispatching physical products.');
       }
-      const warehouseId = warehouse.rows[0].id;
+      warehouseId = warehouse.rows[0].id;
+    }
+    for (const line of lines.rows) {
+      if (line.is_service) continue;
+      if (!input.reverse) costTotal += Number(line.quantity) * Number(line.cost_price);
       await client.query(
         `INSERT INTO inventory_stock_levels(company_id,warehouse_id,product_id,quantity,reserved_quantity,reorder_level)
          SELECT $1,$2,p.id,0,0,p.reorder_level FROM products p WHERE p.id=$3 AND p.company_id=$1 AND p.is_service=false
