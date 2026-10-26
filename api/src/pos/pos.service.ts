@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import type { PoolClient } from 'pg';
 import { AccountingService } from '../accounting/accounting.service.js';
+import { readCompanyTaxPolicy, resolveTaxTreatment } from '../tax/tax-policy.js';
 import { ProductImageStorageService } from '../products/product-image-storage.service.js';
 import type { PosCheckoutDto } from './dto/pos-checkout.dto.js';
 
@@ -253,6 +254,8 @@ export class PosService {
         }
       }
 
+      const companySettings=await client.query<{settings:unknown}>('SELECT settings FROM companies WHERE id=$1',[companyId]);
+      const taxPolicy=readCompanyTaxPolicy(companySettings.rows[0]?.settings);
       const resolved:Array<{productId:string;name:string;sku:string;quantity:number;unitPrice:number;taxRate:number;taxTreatment:string;subtotal:number;tax:number;total:number;cost:number;isService:boolean}>=[];
       let subtotalCents=0,taxCents=0;
       for(const item of dto.items) {
@@ -267,10 +270,11 @@ export class PosService {
         const unitPriceCents=Math.round(requestedUnitPrice*100);
         const qtyMilli=Math.round(item.quantity*1000);
         const lineSubtotal=Math.round(unitPriceCents*qtyMilli/1000);
-        const taxRate=p.tax_treatment==='legacy'?(item.taxRate??0):p.tax_treatment==='standard'?Number(p.tax_rate):0;
+        const tax=resolveTaxTreatment({policy:taxPolicy,productTreatment:p.tax_treatment as 'legacy'|'standard'|'zero_rated'|'exempt'|'out_of_scope',productRate:Number(p.tax_rate),requestedRate:item.taxRate});
+        const taxRate=tax.rate;
         const lineTax=Math.round(lineSubtotal*taxRate/100);
         subtotalCents+=lineSubtotal; taxCents+=lineTax;
-        resolved.push({productId:p.id,name:p.name,sku:p.sku,quantity:qtyMilli/1000,unitPrice:unitPriceCents/100,taxRate,taxTreatment:p.tax_treatment,subtotal:lineSubtotal/100,tax:lineTax/100,total:(lineSubtotal+lineTax)/100,cost:Number(p.cost_price),isService:p.is_service});
+        resolved.push({productId:p.id,name:p.name,sku:p.sku,quantity:qtyMilli/1000,unitPrice:unitPriceCents/100,taxRate,taxTreatment:tax.treatment,subtotal:lineSubtotal/100,tax:lineTax/100,total:(lineSubtotal+lineTax)/100,cost:Number(p.cost_price),isService:p.is_service});
       }
       const totalCents=subtotalCents+taxCents;
       const total=totalCents/100;
