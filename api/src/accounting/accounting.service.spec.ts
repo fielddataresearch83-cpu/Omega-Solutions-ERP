@@ -167,4 +167,11 @@ describe('AccountingService trial balance',()=>{
   await expect(service.trialBalance(user,'2026-02-30')).rejects.toThrow('asOfDate must be a valid YYYY-MM-DD date.');
   expect(db.query).not.toHaveBeenCalled();
  });
+ it('blocks branch-bound users from company-wide accounting reports',async()=>{
+  memberships.getMembershipForCompany.mockResolvedValue({companyId:'company-active',branchId:'branch-a',role:'staff'});
+  const branchUser={...user,branchId:'branch-a',role:'staff' as const};
+  await expect(service.trialBalance(branchUser,'2026-10-15')).rejects.toThrow('Accounting ledgers and reconciliations are company-wide');
+  expect(db.query).not.toHaveBeenCalled();
+ });
+
 });
