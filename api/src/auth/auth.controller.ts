@@ -67,6 +67,12 @@ export class AuthController {
   }
 
 
+  @Get('companies')
+  @UseGuards(JwtAuthGuard)
+  async activeCompanies(@Request() req: { user: AuthenticatedUser }) {
+    return this.authService.getActiveCompanies(req.user.userId);
+  }
+
   @Post('switch-company')
   @UseGuards(JwtAuthGuard)
   async switchCompany(
