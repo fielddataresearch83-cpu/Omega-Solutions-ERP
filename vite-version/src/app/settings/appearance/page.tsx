@@ -147,7 +147,7 @@ export default function AppearanceSettings() {
 
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit">Save preferences</Button>
-            <Button type="button" variant="outline" onClick={cancelChanges}>Reset saved preferences</Button>
+            <Button type="button" variant="outline" onClick={cancelChanges}>Discard unsaved typography changes</Button>
             {saved && <p role="status" className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Preferences saved on this device.</p>}
           </div>
         </form>
