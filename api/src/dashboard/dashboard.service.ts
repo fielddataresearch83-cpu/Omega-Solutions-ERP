@@ -129,6 +129,11 @@ export class DashboardService {
       result.overdueInvoices = overdue.rows.map((row) => ({ ...row, balance: Number(row.balance) }));
     }
 
-    return result;
+    return {
+      ...result,
+      accessMode: catalogue.accessMode,
+      subscription: catalogue.subscription ? { status: catalogue.subscription.status } : null,
+      modules: Object.fromEntries(enabled),
+    };
   }
 }
