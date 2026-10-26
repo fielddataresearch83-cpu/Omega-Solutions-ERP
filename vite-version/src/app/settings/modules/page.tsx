@@ -101,6 +101,31 @@ export default function ModulesSettingsPage() {
               </CardContent>
             </Card>
 
+            <Card>
+              <CardHeader>
+                <CardTitle>Connected business workflows</CardTitle>
+                <CardDescription>Omega modules are designed to share business records, so teams do not have to re-enter the same information in separate systems.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-lg border p-4">
+                  <p className="font-medium">Sell and fulfil</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Sales and POS use inventory availability; completed sales feed invoices and business reports.</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="font-medium">Request and procure</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Requisitions can lead into purchasing contracts and purchase orders, with received goods returning to stock.</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="font-medium">Produce and cost</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Manufacturing uses inventory materials and accounting capabilities to support production costing.</p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="font-medium">Manage your people</p>
+                  <p className="mt-1 text-sm text-muted-foreground">HR and workforce capabilities connect employee records, attendance and payroll workflows.</p>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {catalogue.modules.map((module) => (
                 <Card key={module.code} className="flex flex-col">
