@@ -186,6 +186,14 @@ export default function BillingSettings() {
 
         {error && <Alert variant="destructive"><AlertTitle>Subscription information</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
         {notice && <Alert><AlertTitle>{paymentReference ? "Payment status" : "Request submitted"}</AlertTitle><AlertDescription>{notice}</AlertDescription></Alert>}
+        {current?.subscription && ["business", "enterprise"].includes(current.subscription.planCode) && (
+          <Alert>
+            <AlertTitle>Existing subscription protected</AlertTitle>
+            <AlertDescription>
+              Your existing plan remains at its current price and terms. The new four-tier catalogue applies to new subscriptions and approved plan changes; no automatic repricing has occurred.
+            </AlertDescription>
+          </Alert>
+        )}
         {paymentReference && <div className="flex flex-wrap items-center gap-3"><span className="text-sm text-muted-foreground">Reference: {paymentReference}</span><Button type="button" variant="outline" disabled={checkingPayment} onClick={() => void checkPaymentStatus(paymentReference)}>{checkingPayment && <Loader2 className="mr-2 size-4 animate-spin" />}{checkingPayment ? "Checking…" : "Check payment status"}</Button></div>}
 
         <Card>
@@ -220,7 +228,7 @@ export default function BillingSettings() {
               <PricingPlans
                 plans={formattedPlans}
                 mode="billing"
-                currentPlanId={current?.subscription?.planCode === "business" ? "medium" : current?.subscription?.planCode === "enterprise" ? "professional" : current?.subscription?.planCode}
+                currentPlanId={current?.subscription?.planCode === "business" ? "medium" : current?.subscription?.planCode}
                 onPlanSelect={handlePlanSelect}
               />
             )}
