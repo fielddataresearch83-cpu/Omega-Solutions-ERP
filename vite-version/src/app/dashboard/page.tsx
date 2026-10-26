@@ -95,7 +95,7 @@ export default function Page() {
   }
   const canReadSales = canUseModule("sales") && permissions.has("sales:read")
   const canReadCustomers = canUseModule("sales") && permissions.has("customers:read")
-  const canReadProcurement = canUseModule("procurement") && permissions.has("suppliers:read")
+  const canReadProcurement = canUseModule("procurement") && permissions.has("suppliers:read") && Boolean(dashboard.data?.suppliers)
   const canReadProducts = canUseModule("inventory") && permissions.has("products:read")
   const canReadInventory = canUseModule("inventory") && permissions.has("inventory:read")
 
