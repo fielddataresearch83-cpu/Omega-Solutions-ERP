@@ -14,7 +14,7 @@ describe('AccountingService receivables reconciliation', () => {
   let service: AccountingService;
 
   beforeEach(() => {
-    const client = { query: vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }) };
+    const client = { query: vi.fn((sql: string, params?: unknown[]) => sql.startsWith('SET TRANSACTION') ? Promise.resolve({ rows: [], rowCount: 1 }) : db.query(sql, params)) };
     db = {
       query: vi.fn()
         .mockResolvedValueOnce({ rows: [{ balance: '100.00' }], rowCount: 1 })
@@ -95,7 +95,7 @@ describe('AccountingService payables reconciliation', () => {
         .mockResolvedValueOnce({ rows: [{ balance: '232.00' }], rowCount: 1 })
         .mockResolvedValueOnce({ rows: [{ current: '132.00', days_1_to_30: '100.00', days_31_to_60: '0.00', days_61_plus: '0.00' }], rowCount: 1 }),
       transaction: vi.fn(async (callback: (client: unknown) => Promise<unknown>) =>
-        callback({ query: vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }) }),
+        callback({ query: vi.fn((sql: string, params?: unknown[]) => sql.startsWith('SET TRANSACTION') ? Promise.resolve({ rows: [], rowCount: 1 }) : db.query(sql, params)) }),
       ),
     };
     memberships = {
