@@ -31,7 +31,7 @@ describe('CreditNotesService', () => {
     expect(memberships.getMembershipForCompany).toHaveBeenCalledWith('user-a', 'company-a');
   });
 
-  it('rejects credits that exceed the remaining unpaid balance before inserting a note or journal', async () => {
+  it('rejects credits that exceed the remaining original invoice-line quantity before inserting a note or journal', async () => {
     const client = {
       query: vi.fn()
         .mockResolvedValueOnce({
@@ -62,10 +62,10 @@ describe('CreditNotesService', () => {
       invoiceId: 'invoice-a',
       issueDate: '2026-10-17',
       reason: 'Price correction',
-      items: [{ invoiceItemId: 'invoice-line-a', description: 'Credit adjustment', quantity: 1 }],
+      items: [{ invoiceItemId: 'invoice-line-a', description: 'Credit adjustment', quantity: 3 }],
     })).rejects.toThrow(BadRequestException);
 
-    expect(client.query).toHaveBeenCalledTimes(4);
+    expect(client.query).toHaveBeenCalledTimes(3);
     expect(client.query.mock.calls[0][1]).toEqual(['invoice-a', 'company-a']);
     expect(client.query.mock.calls[1][1]).toEqual(['company-a', 'invoice-a', ['invoice-line-a']]);
     expect(accounting.ensureDefaults).not.toHaveBeenCalled();
@@ -143,12 +143,12 @@ describe('CreditNotesService', () => {
     expect(accounting.ensureDefaults).not.toHaveBeenCalled();
   });
 
-  it('posts a balanced revenue, tax, and receivables journal for a valid credit', async () => {
+  it('allows a fully paid invoice credit and records the excess as customer credit liability', async () => {
     const journalLines: unknown[][] = [];
     const client = {
       query: vi.fn(async (sql: string, params: unknown[] = []) => {
         if (sql.includes('FROM invoices WHERE id=$1 AND company_id=$2 FOR UPDATE')) {
-          return { rows: [{ id: 'invoice-a', customer_id: 'customer-a', invoice_number: 'INV-2026-00001', issue_date: '2026-10-01', status: 'sent', total: '500.00', amount_paid: '0.00', credited_amount: '0.00' }], rowCount: 1 };
+          return { rows: [{ id: 'invoice-a', customer_id: 'customer-a', invoice_number: 'INV-2026-00001', issue_date: '2026-10-01', status: 'sent', total: '116.00', amount_paid: '116.00', credited_amount: '0.00' }], rowCount: 1 };
         }
         if (sql.includes('FROM invoice_items') && sql.includes('FOR UPDATE')) return { rows: [{ id: 'invoice-line-a', description: 'Adjustment', quantity: '2.000', unit_price: '100.00', tax_rate: '16.00', tax_treatment: 'standard' }], rowCount: 1 };
         if (sql.includes('SELECT COALESCE(SUM(cni.quantity)')) return { rows: [{ quantity: '0', subtotal: '0', tax: '0' }], rowCount: 1 };
@@ -191,6 +191,9 @@ describe('CreditNotesService', () => {
     expect(result.credit_note_number).toBe('CN-2026-00001');
     expect(result.total).toBe('116.00');
     expect(journalLines).toHaveLength(3);
+    expect(journalLines.some(line => line[3] === 'Customer credit payable for excess credit value' && Number(line[5]) === 116)).toBe(true);
+    expect(journalLines.some(line => line[3] === 'Reduce customer receivable')).toBe(false);
+    expect(client.query.mock.calls.some(call => String(call[0]).includes('INSERT INTO customer_credit_balances'))).toBe(true);
     const debits = journalLines.reduce((sum, line) => sum + Number(line[4]), 0);
     const credits = journalLines.reduce((sum, line) => sum + Number(line[5]), 0);
     expect(debits).toBe(116);
@@ -218,12 +221,12 @@ describe('CreditNotesService', () => {
     const posting = service as unknown as {
       postJournal: (client: unknown, input: {
         companyId: string; date: string; description: string; sourceId: string; userId: string;
-        subtotal: number; tax: number; total: number;
+        subtotal: number; tax: number; total: number; receivableAmount: number; customerCreditAmount: number;
       }) => Promise<void>;
     };
     await posting.postJournal(client, {
       companyId: 'company-a', date: '2026-10-17', description: `Credit ${treatment}`,
-      sourceId: 'credit-zero-tax', userId: 'user-a', subtotal: 100, tax: 0, total: 100,
+      sourceId: 'credit-zero-tax', userId: 'user-a', subtotal: 100, tax: 0, total: 100, receivableAmount: 100, customerCreditAmount: 0,
     });
     expect(lines).toHaveLength(2);
     expect(lines.reduce((sum, line) => sum + Number(line[4]), 0)).toBe(100);
