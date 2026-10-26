@@ -49,6 +49,8 @@ export class MpesaService {
     const membership = user.companyId
       ? await this.memberships.getMembershipForCompany(user.userId, user.companyId)
       : await this.memberships.getMembership(user.userId);
+    // Reuse invoice authorization so branch-bound members cannot initiate payment for another branch's invoice.
+    await this.invoices.getById(user, invoiceId);
     const phone = this.normalizePhone(phoneInput);
     const amount = Math.round(Number(amountInput) * 100) / 100;
     if (!Number.isFinite(amount) || amount < 1 || !Number.isInteger(amount)) {
@@ -372,8 +374,14 @@ export class MpesaService {
       : await this.memberships.getMembership(user.userId);
     const result = await this.db.query<Record<string, unknown>>(
       `SELECT id,invoice_id,amount,phone_number,status,mpesa_receipt_number,failure_reason,created_at,updated_at
-       FROM mpesa_stk_requests WHERE id=$1 AND company_id=$2`,
-      [requestId, membership.companyId],
+       FROM mpesa_stk_requests m WHERE m.id=$1 AND m.company_id=$2
+         AND ($3::uuid IS NULL OR EXISTS (
+           SELECT 1 FROM invoices i
+           JOIN pos_sales ps ON ps.invoice_id=i.id AND ps.company_id=i.company_id
+           JOIN pos_registers pr ON pr.id=ps.register_id AND pr.company_id=ps.company_id
+           WHERE i.id=m.invoice_id AND i.company_id=m.company_id AND pr.branch_id=$3::uuid
+         ))`,
+      [requestId, membership.companyId, membership.branchId ?? null],
     );
     if (!result.rows[0]) throw new BadRequestException('M-Pesa request not found.');
     return result.rows[0];
