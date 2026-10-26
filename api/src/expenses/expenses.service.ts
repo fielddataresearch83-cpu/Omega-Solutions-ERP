@@ -21,7 +21,6 @@ export class ExpensesService {
   const membership=await this.companyFor(user);this.assertCompanyWide(membership);const companyId=membership.companyId;
   const amount=Math.round(dto.amount*100)/100;
   if(!Number.isFinite(amount)||amount<=0)throw new BadRequestException('Expense amount must be greater than zero.');
-  await this.accounting.ensureDefaults(companyId);
   let expenseId:string;
   try{
    expenseId=await this.db.transaction(async client=>{
@@ -32,6 +31,7 @@ export class ExpensesService {
     const cashSystem=dto.paymentMethod==='cash'?'cash':dto.paymentMethod==='mpesa'?'mpesa':'bank';
     const cashAccount=await client.query<{id:string}>(`SELECT id FROM chart_of_accounts WHERE company_id=$1 AND system_code=$2 AND is_active=true FOR SHARE`,[companyId,cashSystem]);
     if(!cashAccount.rows[0])throw new BadRequestException(`Required payment account "${cashSystem}" is missing or inactive.`);
+    await this.accounting.ensureDefaults(companyId);
     const date=dto.expenseDate??new Date().toISOString().slice(0,10);
     const year=Number(date.slice(0,4));
     const seq=await client.query<{next_number:number}>(`INSERT INTO expense_sequences(company_id,expense_year,next_number) VALUES($1,$2,1)
