@@ -358,6 +358,18 @@ export class InvoicesService {
     const membership = await this.membershipFor(user);
     await this.assertBranchInvoiceAccess(membership, invoiceId);
     const confirmed = await this.db.transaction(async (client) => {
+      // Lock the invoice before the payment row. Payment reporting and credit notes
+      // use this same invoice-first order, avoiding a payment↔invoice deadlock.
+      const invoiceResult = await client.query<{
+        status: InvoiceStatus; customer_id: string; total: string | number; amount_paid: string | number; credited_amount: string | number;
+      }>(
+        'SELECT status, customer_id, total, amount_paid, credited_amount FROM invoices WHERE id=$1 AND company_id=$2 FOR UPDATE',
+        [invoiceId, membership.companyId],
+      );
+      const invoice = invoiceResult.rows[0];
+      if (!invoice || invoice.status === 'draft' || invoice.status === 'cancelled') {
+        throw new BadRequestException('The invoice is unavailable for payment confirmation.');
+      }
       const paymentResult = await client.query<InvoicePaymentRow>(
         `SELECT id, invoice_id, amount, method, reference, paid_at, notes, created_at, status, verified_at, reconciled_at, reconciliation_reference
          FROM invoice_payments
@@ -369,16 +381,6 @@ export class InvoicesService {
       if (!payment) throw new NotFoundException('Payment report not found.');
       if (payment.status !== 'pending') {
         throw new BadRequestException('Only pending payment reports can be confirmed.');
-      }
-      const invoiceResult = await client.query<{
-        status: InvoiceStatus; customer_id: string; total: string | number; amount_paid: string | number; credited_amount: string | number;
-      }>(
-        'SELECT status, customer_id, total, amount_paid, credited_amount FROM invoices WHERE id=$1 AND company_id=$2 FOR UPDATE',
-        [invoiceId, membership.companyId],
-      );
-      const invoice = invoiceResult.rows[0];
-      if (!invoice || invoice.status === 'draft' || invoice.status === 'cancelled') {
-        throw new BadRequestException('The invoice is unavailable for payment confirmation.');
       }
       const paymentAmount = Number(payment.amount);
       const paymentCents = Math.round(paymentAmount * 100);
