@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Bell, Check } from "lucide-react"
+import { Bell, Building2, Check, ChevronsUpDown } from "lucide-react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "cn"
 import { api } from "@/lib/api-client"
+import { useAuth } from "@/contexts/auth-context"
 
 const routeLabels: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -61,11 +62,16 @@ function Breadcrumb() {
 
 export function SiteHeader() {
   const navigate = useNavigate()
+  const { user, switchCompany } = useAuth()
   const [searchOpen, setSearchOpen] = React.useState(false)
   const [notifications, setNotifications] = React.useState<{ id: string; title: string; message: string; time: string; read: boolean; href?: string | null }[]>([])
   const [notificationsLoading, setNotificationsLoading] = React.useState(false)
   const [notificationsError, setNotificationsError] = React.useState("")
   const [unreadCount, setUnreadCount] = React.useState(0)
+  const [companies, setCompanies] = React.useState<{ id: string; name: string; role: string; branchId: string | null }[]>([])
+  const [companyLoading, setCompanyLoading] = React.useState(false)
+  const [companyError, setCompanyError] = React.useState("")
+  const [switchingCompanyId, setSwitchingCompanyId] = React.useState<string | null>(null)
 
   const loadRequestId = React.useRef(0)
   const loadNotifications = React.useCallback(async () => {
@@ -96,6 +102,48 @@ export function SiteHeader() {
   }, [])
 
   React.useEffect(() => { void loadNotifications() }, [loadNotifications])
+
+  React.useEffect(() => {
+    let cancelled = false
+    if (!user?.userId) {
+      setCompanies([])
+      setCompanyError("")
+      return
+    }
+    setCompanyLoading(true)
+    api.get<{ id: string; name: string; role: string; branchId: string | null }[]>("/auth/companies")
+      .then((items) => {
+        if (!cancelled) {
+          setCompanies(items)
+          setCompanyError("")
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setCompanies([])
+          setCompanyError(error instanceof Error ? error.message : (error as { message?: string })?.message ?? "Companies could not be loaded.")
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCompanyLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [user?.userId, user?.companyId])
+
+  const changeCompany = async (companyId: string) => {
+    if (!companyId || companyId === user?.companyId || switchingCompanyId) return
+    setSwitchingCompanyId(companyId)
+    setCompanyError("")
+    try {
+      await switchCompany(companyId)
+      navigate("/dashboard")
+      void loadNotifications()
+    } catch (error) {
+      setCompanyError(error instanceof Error ? error.message : (error as { message?: string })?.message ?? "Company switch failed.")
+    } finally {
+      setSwitchingCompanyId(null)
+    }
+  }
 
   const markAllRead = async () => {
     try {
@@ -149,6 +197,45 @@ export function SiteHeader() {
             <div className="hidden md:block max-w-sm flex-1">
               <SearchTrigger onClick={() => setSearchOpen(true)} />
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="outline" className="max-w-56 gap-2 cursor-pointer" disabled={companyLoading || companies.length === 0}>
+                    <Building2 className="size-4 shrink-0" />
+                    <span className="hidden truncate sm:inline">
+                      {companies.find((company) => company.id === user?.companyId)?.name ?? (companyLoading ? "Loading company…" : "Company")}
+                    </span>
+                    <ChevronsUpDown className="size-3.5 shrink-0 opacity-60" />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end" className="w-72 rounded-lg">
+                <DropdownMenuLabel>Switch company</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {companyError && <div role="alert" className="px-2 py-2 text-xs text-destructive">{companyError}</div>}
+                {companyLoading && <div className="px-2 py-2 text-sm text-muted-foreground">Loading companies…</div>}
+                {!companyLoading && companies.map((company) => (
+                  <DropdownMenuItem
+                    key={company.id}
+                    disabled={Boolean(switchingCompanyId)}
+                    onClick={() => { void changeCompany(company.id) }}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Building2 className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{company.name}</span>
+                      <span className="block text-xs capitalize text-muted-foreground">{company.role.replaceAll("_", " ")}</span>
+                    </span>
+                    {switchingCompanyId === company.id
+                      ? <span className="text-xs text-muted-foreground">Switching…</span>
+                      : company.id === user?.companyId ? <Check className="size-4 text-primary" /> : null}
+                  </DropdownMenuItem>
+                ))}
+                {!companyLoading && companies.length === 0 && !companyError && (
+                  <div className="px-2 py-3 text-sm text-muted-foreground">No active company memberships found.</div>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DropdownMenu onOpenChange={(open) => { if (open) void loadNotifications() }}>
               <DropdownMenuTrigger
                 render={
