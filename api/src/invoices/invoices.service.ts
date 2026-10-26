@@ -135,7 +135,7 @@ export class InvoicesService {
         COUNT(i.id) FILTER (WHERE i.status NOT IN ('draft','cancelled'))::int AS invoice_count,
         COALESCE(SUM(i.total) FILTER (WHERE i.status NOT IN ('draft','cancelled')),0) AS sales_total,
         COALESCE(SUM(i.amount_paid),0) AS collected_total,
-        COALESCE(SUM(GREATEST(i.total-i.amount_paid,0)) FILTER (WHERE i.status NOT IN ('draft','cancelled')),0) AS outstanding_total
+        COALESCE(SUM(GREATEST(i.total-i.amount_paid-COALESCE(i.credited_amount,0),0)) FILTER (WHERE i.status NOT IN ('draft','cancelled')),0) AS outstanding_total
        FROM company_memberships m
        JOIN users u ON u.id=m.user_id
        LEFT JOIN invoices i ON i.created_by=u.id AND i.company_id=m.company_id
