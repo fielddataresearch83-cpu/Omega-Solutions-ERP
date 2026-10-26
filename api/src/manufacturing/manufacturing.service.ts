@@ -133,7 +133,7 @@ export class ManufacturingService {
   return result;
  }
  async listOrderCosts(user:AuthenticatedUser,id:string){
-  const {companyId}=await this.companyFor(user);
+  const {companyId,branchId}=await this.companyFor(user);
   const order=await this.db.query(`SELECT id FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2 AND EXISTS (SELECT 1 FROM warehouses w WHERE w.company_id=manufacturing_production_orders.company_id AND w.id=manufacturing_production_orders.warehouse_id AND ($3::uuid IS NULL OR w.branch_id=$3))`,[companyId,id,branchId]);
   if(!order.rows[0])throw new NotFoundException('Production order not found.');
   return (await this.db.query(`SELECT c.id,c.production_order_id,c.cost_type,c.description,c.amount,c.incurred_on,c.source_account_id,a.code AS source_account_code,a.name AS source_account_name,c.journal_entry_id,c.created_at FROM manufacturing_order_costs c JOIN chart_of_accounts a ON a.id=c.source_account_id AND a.company_id=c.company_id WHERE c.company_id=$1 AND c.production_order_id=$2 ORDER BY c.incurred_on DESC,c.created_at DESC`,[companyId,id])).rows;
