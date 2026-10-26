@@ -50,88 +50,91 @@
 }
 
 :root {
+  color-scheme: light;
   --font-inter: "Inter", system-ui, sans-serif;
   --radius: 0.625rem;
 
-  /* Omega Solutions — Brilliance / Garish Green light theme */
-  --background: #f7f8fa;
-  --foreground: #292d33;
+  /* Omega Solutions: bright, calm surfaces and high-contrast green actions. */
+  --background: #f5f8f6;
+  --foreground: #171c19;
   --card: #ffffff;
-  --card-foreground: #292d33;
+  --card-foreground: #171c19;
   --popover: #ffffff;
-  --popover-foreground: #292d33;
-  --primary: #51bc8f;
-  --primary-foreground: #143c2d;
-  --secondary: #e3e5ea;
-  --secondary-foreground: #292d33;
-  --muted: #eef0f4;
-  --muted-foreground: #555b63;
-  --accent: #e3e5ea;
-  --accent-foreground: #292d33;
+  --popover-foreground: #171c19;
+  --primary: #176b4d;
+  --primary-foreground: #ffffff;
+  --secondary: #e7eee9;
+  --secondary-foreground: #202923;
+  --muted: #edf2ee;
+  --muted-foreground: #4b5750;
+  --accent: #d8f7e7;
+  --accent-foreground: #123d2b;
   --destructive: #b42318;
-  --success: #237653;
+  --success: #176b4d;
   --success-foreground: #ffffff;
-  --warning: #9a5b13;
+  --warning: #8a4b08;
   --warning-foreground: #ffffff;
-  --info: #315e91;
+  --info: #245b8f;
   --info-foreground: #ffffff;
-  --border: #d7dbe2;
-  --input: #aeb2b9;
-  --ring: #51bc8f;
-  --chart-1: #51bc8f;
-  --chart-2: #676c73;
-  --chart-3: #838589;
-  --chart-4: #aeb2b9;
-  --chart-5: #237653;
-  --sidebar: #f1f3f6;
-  --sidebar-foreground: #292d33;
-  --sidebar-primary: #51bc8f;
-  --sidebar-primary-foreground: #143c2d;
-  --sidebar-accent: #e3e5ea;
-  --sidebar-accent-foreground: #292d33;
-  --sidebar-border: #d7dbe2;
-  --sidebar-ring: #51bc8f;
+  --border: #d1dbd4;
+  --input: #aab8ae;
+  --ring: #176b4d;
+  --chart-1: #21845d;
+  --chart-2: #5bc99a;
+  --chart-3: #37443b;
+  --chart-4: #8ba698;
+  --chart-5: #a7f3d0;
+
+  /* The dark navigation rail anchors the brand in both appearance modes. */
+  --sidebar: #09090b;
+  --sidebar-foreground: #f8faf9;
+  --sidebar-primary: #a7f3d0;
+  --sidebar-primary-foreground: #064e3b;
+  --sidebar-accent: #202923;
+  --sidebar-accent-foreground: #f8faf9;
+  --sidebar-border: #303632;
+  --sidebar-ring: #a7f3d0;
 }
 
 .dark {
-  /* Omega Solutions — Wall Street / Garish Green dark theme */
-  --background: #202328;
-  --foreground: #fcfcfd;
-  --card: #2b2f35;
-  --card-foreground: #fcfcfd;
-  --popover: #2b2f35;
-  --popover-foreground: #fcfcfd;
-  --primary: #51bc8f;
-  --primary-foreground: #143c2d;
-  --secondary: #343940;
-  --secondary-foreground: #fcfcfd;
-  --muted: #343940;
-  --muted-foreground: #c4c7cc;
-  --accent: #41464d;
-  --accent-foreground: #fcfcfd;
-  --destructive: #f87171;
-  --success: #70d5a8;
-  --success-foreground: #143c2d;
-  --warning: #f2bd70;
-  --warning-foreground: #292d33;
-  --info: #8ab4e2;
-  --info-foreground: #202328;
-  --border: #41464d;
-  --input: #555b63;
-  --ring: #51bc8f;
-  --chart-1: #51bc8f;
-  --chart-2: #c4c7cc;
-  --chart-3: #aeb2b9;
-  --chart-4: #838589;
-  --chart-5: #70d5a8;
-  --sidebar: #25292f;
-  --sidebar-foreground: #fcfcfd;
-  --sidebar-primary: #51bc8f;
-  --sidebar-primary-foreground: #143c2d;
-  --sidebar-accent: #343940;
-  --sidebar-accent-foreground: #fcfcfd;
-  --sidebar-border: #41464d;
-  --sidebar-ring: #51bc8f;
+  color-scheme: dark;
+  --background: #09090b;
+  --foreground: #f5f7f6;
+  --card: #151816;
+  --card-foreground: #f5f7f6;
+  --popover: #151816;
+  --popover-foreground: #f5f7f6;
+  --primary: #a7f3d0;
+  --primary-foreground: #064e3b;
+  --secondary: #222824;
+  --secondary-foreground: #f1f5f2;
+  --muted: #1b211d;
+  --muted-foreground: #c0cbc3;
+  --accent: #263d31;
+  --accent-foreground: #e5fff1;
+  --destructive: #ff8a80;
+  --success: #8ce4b7;
+  --success-foreground: #063b29;
+  --warning: #ffd18a;
+  --warning-foreground: #3e2708;
+  --info: #9bc9f5;
+  --info-foreground: #102d49;
+  --border: #343d37;
+  --input: #46534a;
+  --ring: #a7f3d0;
+  --chart-1: #a7f3d0;
+  --chart-2: #5bc99a;
+  --chart-3: #d2ded5;
+  --chart-4: #8ba698;
+  --chart-5: #3c9b70;
+  --sidebar: #050506;
+  --sidebar-foreground: #f5f7f6;
+  --sidebar-primary: #a7f3d0;
+  --sidebar-primary-foreground: #064e3b;
+  --sidebar-accent: #202923;
+  --sidebar-accent-foreground: #f5f7f6;
+  --sidebar-border: #303632;
+  --sidebar-ring: #a7f3d0;
 }
 
 @layer base {
@@ -144,58 +147,46 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    color: #064e3b;
+    background: #a7f3d0;
+  }
 }
 
-/* Ensure consistent font rendering across different DPI levels */
 @media (-webkit-min-device-pixel-ratio: 1.5), (min-resolution: 144dpi) {
   body {
     -webkit-font-smoothing: subpixel-antialiased;
   }
 }
 
-/* Fix for sidebar "none" mode height issue */
 .sidebar-none-mode [data-slot="sidebar"] {
   height: 100vh !important;
   min-height: 100vh !important;
 }
 
-/* Fix for right-side inset variant support */
 @media (min-width: 768px) {
   [data-side="right"][data-variant="inset"] ~ [data-slot="sidebar-inset"] {
     margin-right: 0 !important;
   }
-
   [data-side="right"][data-variant="inset"][data-state="collapsed"]
     ~ [data-slot="sidebar-inset"] {
     margin-right: 0.5rem !important;
   }
 }
 
-/* Smooth scrolling for the entire page */
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
-/* Logo carousel animation */
 @keyframes logo-scroll {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-144rem);
-  }
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-144rem); }
 }
+.animate-logo-scroll { animation: logo-scroll 30s linear infinite; }
+.animate-logo-scroll:hover { animation-play-state: paused; }
 
-.animate-logo-scroll {
-  animation: logo-scroll 30s linear infinite;
-}
-
-.animate-logo-scroll:hover {
-  animation-play-state: paused;
-}
-
-/* Route progress bar (components/router/root-layout.tsx). Fades in after
-   150ms so fast navigations don't flash it. */
 @keyframes route-progress-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -204,76 +195,66 @@ html {
   from { transform: translateX(-100%); }
   to { transform: translateX(300%); }
 }
-.route-progress {
-  animation: route-progress-in 150ms ease-out 150ms both;
-}
-.route-progress-bar {
-  animation: route-progress-slide 1.1s ease-in-out infinite;
-}
+.route-progress { animation: route-progress-in 150ms ease-out 150ms both; }
+.route-progress-bar { animation: route-progress-slide 1.1s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
   .route-progress-bar { animation: none; width: 100%; opacity: 0.6; }
+  .animate-logo-scroll { animation: none; }
 }
 
-/* Light-theme component polish: clearer hierarchy without changing dark mode. */
+/* Clear component boundaries and control affordances in light mode. */
 :root:not(.dark) [data-slot="button"].bg-primary {
-  box-shadow: 0 1px 2px rgb(20 60 45 / 10%);
+  box-shadow: 0 1px 2px rgb(9 9 11 / 12%);
 }
-
 :root:not(.dark) [data-slot="button"].bg-primary:hover {
-  background-color: color-mix(in srgb, var(--primary) 88%, #143c2d);
-  box-shadow: 0 3px 8px rgb(20 60 45 / 14%);
+  background-color: #10563d;
+  box-shadow: 0 3px 8px rgb(9 9 11 / 16%);
 }
-
 :root:not(.dark) [data-slot="button"].border-border {
-  border-color: #cbd1da;
+  border-color: #b9c8bd;
   background-color: #ffffff;
 }
-
 :root:not(.dark) [data-slot="button"].border-border:hover {
-  border-color: #aeb8c4;
-  background-color: #eef0f4;
+  border-color: #84988a;
+  background-color: #edf5ef;
 }
-
 :root:not(.dark) [data-slot="card"] {
-  border: 1px solid #e1e4ea;
-  box-shadow: 0 1px 2px rgb(41 45 51 / 3%), 0 5px 18px rgb(41 45 51 / 3%);
+  border: 1px solid #dce5de;
+  box-shadow: 0 1px 2px rgb(23 28 25 / 4%), 0 5px 18px rgb(23 28 25 / 4%);
 }
-
 :root:not(.dark) [data-slot="input"],
 :root:not(.dark) [data-slot="textarea"],
 :root:not(.dark) [data-slot="select-trigger"] {
-  border-color: #c7ccd5;
+  border-color: #aab8ae;
   background-color: #ffffff;
+  color: #171c19;
 }
-
 :root:not(.dark) [data-slot="input"]:hover,
 :root:not(.dark) [data-slot="textarea"]:hover,
 :root:not(.dark) [data-slot="select-trigger"]:hover {
-  border-color: #aeb8c4;
+  border-color: #64816e;
 }
-
-:root:not(.dark) [data-slot="table-header"] {
-  background-color: #f1f3f6;
-}
-
+:root:not(.dark) [data-slot="table-header"] { background-color: #edf3ee; }
 :root:not(.dark) [data-slot="table-head"] {
-  color: #555b63;
+  color: #435248;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
-
-:root:not(.dark) [data-slot="table-row"]:hover {
-  background-color: #f4f7f8;
-}
-
-:root:not(.dark) [data-slot="sidebar"] {
-  box-shadow: inset -1px 0 0 #d7dbe2;
-}
-
+:root:not(.dark) [data-slot="table-row"]:hover { background-color: #f0f7f2; }
+:root:not(.dark) [data-slot="sidebar"] { box-shadow: inset -1px 0 0 #303632; }
 :root:not(.dark) header.sticky {
-  border-color: #e1e4ea;
-  box-shadow: 0 2px 10px rgb(41 45 51 / 3%);
+  border-color: #dce5de;
+  box-shadow: 0 2px 10px rgb(23 28 25 / 4%);
 }
 
+/* Keep secondary copy readable in both themes without overriding semantic states. */
+.dark [data-slot="input"],
+.dark [data-slot="textarea"],
+.dark [data-slot="select-trigger"] {
+  border-color: #46534a;
+}
+.dark [data-slot="table-header"] { background-color: #1b211d; }
+.dark [data-slot="table-row"]:hover { background-color: #1b211d; }
