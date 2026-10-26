@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom"
 import { useEffect, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api-client"
 
 type SubscriptionAccess = {
@@ -28,17 +29,25 @@ export function ProtectedLayout() {
   const location = useLocation()
   const [access, setAccess] = useState<SubscriptionAccess | null>(null)
   const [accessLoaded, setAccessLoaded] = useState(false)
+  const [accessError, setAccessError] = useState(false)
+  const [accessRetry, setAccessRetry] = useState(0)
 
   useEffect(() => {
     if (!user) return
     let cancelled = false
     setAccessLoaded(false)
+    setAccessError(false)
     api.get<SubscriptionAccess>("/subscriptions/current")
       .then((result) => { if (!cancelled) setAccess(result) })
-      .catch(() => { if (!cancelled) setAccess(null) })
+      .catch(() => {
+        if (!cancelled) {
+          setAccess(null)
+          setAccessError(true)
+        }
+      })
       .finally(() => { if (!cancelled) setAccessLoaded(true) })
     return () => { cancelled = true }
-  }, [user])
+  }, [user, accessRetry])
 
   const required = requiredModule(location.pathname)
   const hasSubscription = !!access?.subscription
@@ -61,6 +70,22 @@ export function ProtectedLayout() {
 
   if (user.role === "salesperson" && location.pathname === "/dashboard") {
     return <Navigate to="/sales-dashboard" replace />
+  }
+
+  if (accessLoaded && accessError) {
+    return (
+      <div className="flex min-h-svh items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md rounded-xl border bg-card p-6 text-card-foreground shadow-sm">
+          <h1 className="text-lg font-semibold">Could not verify module access</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Omega could not load this company’s subscription and module access. For your protection, retry before continuing.
+          </p>
+          <Button className="mt-4" onClick={() => setAccessRetry((attempt) => attempt + 1)}>
+            Retry verification
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   if (accessLoaded && hasSubscription && !moduleAllowed) {
