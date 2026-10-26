@@ -104,7 +104,7 @@ export class QuotationsService {
       let taxCents = 0;
 
       for (const item of dto.items) {
-        const productResult = await client.query<{ id: string; name: string; sku: string | null; selling_price: string | number; is_active: boolean }>(
+        const productResult = await client.query<{ id: string; name: string; sku: string | null; selling_price: string | number; is_active: boolean; tax_treatment: string; tax_rate: string | number }>(
           'SELECT id, name, sku, selling_price, is_active, tax_treatment, tax_rate FROM products WHERE id = $1 AND company_id = $2 FOR SHARE',
           [item.productId, membership.companyId],
         );
