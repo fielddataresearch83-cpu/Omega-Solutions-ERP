@@ -104,7 +104,7 @@ export class ContractsService {
     if(!['draft','suspended'].includes(String(row.status))) throw new BadRequestException('Only draft or suspended contracts can be submitted for approval.');
     await this.db.transaction(async client=>{
       await client.query("UPDATE contracts SET status='pending_approval',updated_at=NOW() WHERE company_id=$1 AND id=$2",[membership.companyId,id]);
-      await client.query("INSERT INTO approval_requests(company_id,branch_id,entity_type,entity_id,requester_user_id,status,decision_note,requested_at,decided_at,approver_user_id) VALUES($1,$2,'contract',$3,$4,'pending',NULL,NOW(),NULL,NULL) ON CONFLICT(company_id,entity_type,entity_id) DO UPDATE SET status='pending',requester_user_id=$4,approver_user_id=NULL,decision_note=NULL,requested_at=NOW(),decided_at=NULL",[membership.companyId,membership.branchId,id,user.userId]);
+      await client.query("INSERT INTO approval_requests(company_id,branch_id,entity_type,entity_id,requester_user_id,status,decision_note,requested_at,decided_at,approver_user_id) VALUES($1,$2,'contract',$3,$4,'pending',NULL,NOW(),NULL,NULL) ON CONFLICT(company_id,entity_type,entity_id) DO UPDATE SET status='pending',requester_user_id=$4,approver_user_id=NULL,decision_note=NULL,requested_at=NOW(),decided_at=NULL",[membership.companyId,row.branch_id ?? null,id,user.userId]);
     });
     await this.audit.log({userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'submit_for_approval',entityType:'contract',entityId:id,oldValues:{status:row.status},newValues:{status:'pending_approval'},ipAddress:null});
     return this.get(user,id);
