@@ -220,7 +220,7 @@ export default function BillingSettings() {
               <PricingPlans
                 plans={formattedPlans}
                 mode="billing"
-                currentPlanId={current?.subscription?.planCode}
+                currentPlanId={current?.subscription?.planCode === "business" ? "medium" : current?.subscription?.planCode === "enterprise" ? "professional" : current?.subscription?.planCode}
                 onPlanSelect={handlePlanSelect}
               />
             )}
