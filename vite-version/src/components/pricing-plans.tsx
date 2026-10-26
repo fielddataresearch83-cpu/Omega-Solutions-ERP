@@ -15,6 +15,7 @@ export interface PricingPlan {
   features: string[]
   popular?: boolean
   current?: boolean
+  customPricing?: boolean
 }
 
 interface PricingPlansProps {
@@ -34,21 +35,30 @@ const defaultPlans: PricingPlan[] = [
     features: ["Inventory and stock tracking", "Sales, POS and invoicing", "Basic business reports", "2 users", "1 branch", "Standard online support"],
   },
   {
-    id: "business",
-    name: "Business",
-    description: "Connected operations for growing businesses",
+    id: "medium",
+    name: "Medium",
+    description: "Connected tools for growing businesses",
     price: "KSh 3,000",
     frequency: "/month",
-    features: ["Everything in Starter", "Finance and accounting", "Procurement and approvals", "CRM and customer management", "5 users", "Up to 3 branches", "Priority support"],
+    features: ["Everything in Starter", "Finance and accounting", "Procurement and approvals", "CRM and customer management", "5 users", "Up to 3 branches"],
+  },
+  {
+    id: "professional",
+    name: "Professional",
+    description: "Broader operational control for established businesses",
+    price: "KSh 6,000",
+    frequency: "/month",
+    features: ["Everything in Medium", "Manufacturing and production", "HR and workforce management", "Expanded operational reports", "15 users", "Up to 5 branches"],
     popular: true,
   },
   {
-    id: "enterprise",
+    id: "enterprise_custom",
     name: "Enterprise",
-    description: "Advanced ERP for complex operations",
-    price: "KSh 6,000",
-    frequency: "/month",
-    features: ["Everything in Business", "Manufacturing and production", "HR and workforce management", "Advanced reports and workflows", "10 users", "Up to 5 branches", "Enhanced support"],
+    description: "Tailored ERP for complex and multi-entity organisations",
+    price: "Custom quote",
+    frequency: "",
+    customPricing: true,
+    features: ["Configurable modules and workflows", "Agreed user and branch limits", "Custom integrations and onboarding", "Migration and implementation scope", "Agreed support arrangements"],
   },
 ]
 
@@ -61,6 +71,7 @@ export function PricingPlans({
   const getButtonText = (plan: PricingPlan) => {
     if (mode === "billing") {
       if (currentPlanId === plan.id) return "Current Plan"
+      if (plan.customPricing) return "Request a quote"
       const currentIndex = plans.findIndex((p) => p.id === currentPlanId)
       const planIndex = plans.findIndex((p) => p.id === plan.id)
       if (currentIndex >= 0 && planIndex > currentIndex) return "Request upgrade"
@@ -79,7 +90,7 @@ export function PricingPlans({
     mode === "billing" && currentPlanId === plan.id
 
   return (
-    <div className="grid gap-8 lg:grid-cols-3">
+    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
       {plans.map((tier) => (
         <Card
           key={tier.id}
