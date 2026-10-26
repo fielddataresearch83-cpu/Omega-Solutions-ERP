@@ -200,7 +200,7 @@ export function SiteHeader() {
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
-                  <Button variant="outline" className="max-w-56 gap-2 cursor-pointer" disabled={companyLoading || companies.length === 0}>
+                  <Button variant="outline" className="max-w-56 gap-2 cursor-pointer" disabled={companyLoading || !user?.userId}>
                     <Building2 className="size-4 shrink-0" />
                     <span className="hidden truncate sm:inline">
                       {companies.find((company) => company.id === user?.companyId)?.name ?? (companyLoading ? "Loading company…" : "Company")}
