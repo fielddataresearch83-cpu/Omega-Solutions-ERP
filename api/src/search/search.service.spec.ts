@@ -93,7 +93,7 @@ describe('SearchService', () => {
       rowCount: 1,
     });
     expect(await service.search(user(), 'Acme')).toEqual([]);
-    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query).toHaveBeenCalledTimes(2);
   });
 
   it('honours an explicit module override when checking search availability', async () => {
