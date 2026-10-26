@@ -4,6 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm } from "react-hook-form"
 import { z } from "zod"
 import { BaseLayout } from "@/components/layouts/base-layout"
+import { useTheme } from "@/contexts/theme-context"
+import { useEffect, useState } from "react"
 import {
   Field,
   FieldError,
@@ -34,20 +36,40 @@ const appearanceFormSchema = z.object({
 type AppearanceFormValues = z.infer<typeof appearanceFormSchema>
 
 export default function AppearanceSettings() {
+  const { theme, setTheme } = useTheme()
+  const [saved, setSaved] = useState(false)
   const form = useForm<AppearanceFormValues>({
     resolver: zodResolver(appearanceFormSchema),
     defaultValues: {
-      theme: "dark",
-      fontFamily: "",
-      fontSize: "",
-      sidebarWidth: "",
-      contentWidth: "",
+      theme: theme === "system" ? (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : theme,
+      fontFamily: "system",
+      fontSize: "medium",
+      sidebarWidth: "comfortable",
+      contentWidth: "fluid",
     },
   })
 
+  useEffect(() => {
+    const saved = window.localStorage.getItem("omega-appearance-preferences")
+    if (saved) {
+      try {
+        const preferences = appearanceFormSchema.parse(JSON.parse(saved))
+        form.reset(preferences)
+      } catch {
+        window.localStorage.removeItem("omega-appearance-preferences")
+      }
+    }
+  }, [form])
+
   function onSubmit(data: AppearanceFormValues) {
-    console.log("Form submitted:", data)
-    // Here you would typically save the data
+    window.localStorage.setItem("omega-appearance-preferences", JSON.stringify(data))
+    setTheme(data.theme)
+    const root = document.documentElement
+    root.dataset.fontFamily = data.fontFamily || "system"
+    root.dataset.fontSize = data.fontSize || "medium"
+    root.dataset.sidebarWidth = data.sidebarWidth || "comfortable"
+    root.dataset.contentWidth = data.contentWidth || "fluid"
+    setSaved(true)
   }
 
   return (
@@ -301,11 +323,12 @@ export default function AppearanceSettings() {
             />
           </FieldGroup>
 
-          <div className="flex gap-2 mt-12">
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <Button type="submit" className="cursor-pointer">
               Save Preferences
             </Button>
-            <Button variant="outline" type="button" className="cursor-pointer">
+            {saved && <p role="status" className="text-sm text-muted-foreground">Preferences saved and applied.</p>}
+            <Button variant="outline" type="button" className="cursor-pointer" onClick={() => { form.reset(); setSaved(false) }}>
               Cancel
             </Button>
           </div>
