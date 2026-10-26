@@ -138,6 +138,20 @@ describe('CompaniesService', () => {
     });
   });
 
+  it('persists tax policy in company settings using a bound JSON parameter', async () => {
+    memberships.requireOwnerOrAdmin.mockResolvedValue({ companyId: 'comp-a', branchId: null, role: 'owner' });
+    const policy = { mode: 'configured' as const, vatRegistered: true, standardRate: 16 };
+    db.query
+      .mockResolvedValueOnce({ rows: [COMPANY_A], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ ...COMPANY_A, settings: { taxPolicy: policy } }], rowCount: 1 });
+
+    const result = await service.update(USER_A, 'comp-a', { taxPolicy: policy });
+
+    expect(result.settings).toEqual({ taxPolicy: policy });
+    expect(db.query.mock.calls[1][0]).toContain("'{taxPolicy}', $1::jsonb");
+    expect(db.query.mock.calls[1][1]).toEqual([JSON.stringify(policy), 'comp-a']);
+  });
+
   describe('getById', () => {
     it('throws NotFoundException for non-existent company', async () => {
       db.query.mockResolvedValue({ rows: [], rowCount: 0 });
