@@ -22,7 +22,7 @@ describe('EmployeesService',()=>{
  it('updates a national ID only within the active company and masks it in the response',async()=>{
   db.query.mockResolvedValue({rows:[{id:'employee-1',employee_number:'EMP-1',first_name:'Amina',last_name:'Otieno',updated_at:'2026-10-15'}],rowCount:1});
   const result=await service.updateNationalId(user,'employee-1','12 345-678');
-  expect(db.query).toHaveBeenCalledWith(expect.stringContaining('WHERE id=$1 AND company_id=$2'),['employee-1','company-1','12345678']);
+  expect(db.query).toHaveBeenCalledWith(expect.stringContaining('WHERE id=$1 AND company_id=$2'),['employee-1','company-1','12345678',null]);
   expect(result.nationalIdMasked).toBe('••••5678');
   expect(JSON.stringify(result)).not.toContain('12345678');
   expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({action:'employees.national_id.update',newValues:{nationalIdLast4:'5678'}}));
