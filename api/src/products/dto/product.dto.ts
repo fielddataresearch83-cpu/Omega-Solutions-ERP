@@ -6,6 +6,7 @@ import {
   IsIn,
   MinLength,
   MaxLength,
+  Max,
   Min,
   IsNotEmpty,
 } from 'class-validator';
@@ -69,7 +70,7 @@ export class CreateProductDto {
   @IsNumber()
   @IsOptional()
   @Min(0)
-  @MaxLength(5)
+  @Max(100)
   taxRate?: number;
 
   @IsBoolean()
