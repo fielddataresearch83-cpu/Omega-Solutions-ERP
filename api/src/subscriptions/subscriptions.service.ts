@@ -20,6 +20,20 @@ const MODULE_LABELS: Record<string, string> = {
   hr_workforce: 'HR & Workforce',
 };
 
+
+const MODULE_CATALOGUE = [
+  { code: 'core', category: 'Platform', description: 'Company identity, branches, users, roles, permissions and audit controls.', dependencies: [] },
+  { code: 'inventory', category: 'Operations', description: 'Products, stock levels, warehouses, transfers and stock movements.', dependencies: ['core'] },
+  { code: 'sales', category: 'Commercial', description: 'Customers, quotations, sales orders, invoices and credit notes.', dependencies: ['core'] },
+  { code: 'pos', category: 'Commercial', description: 'Point-of-sale registers, shifts, checkout and salesperson stock workflows.', dependencies: ['sales', 'inventory'] },
+  { code: 'accounting', category: 'Finance', description: 'Chart of accounts, journals, financial reports and reconciliation.', dependencies: ['core'] },
+  { code: 'procurement', category: 'Operations', description: 'Requisitions, purchase orders, supplier bills and purchasing contracts.', dependencies: ['inventory'] },
+  { code: 'manufacturing', category: 'Operations', description: 'Bills of materials, production orders and production costing.', dependencies: ['inventory', 'accounting'] },
+  { code: 'crm', category: 'Commercial', description: 'Leads, opportunities, campaigns, customer segments and support tickets.', dependencies: ['sales'] },
+  { code: 'hr_workforce', category: 'People', description: 'Employees, workforce operations, attendance and payroll.', dependencies: ['core'] },
+  { code: 'reports', category: 'Insights', description: 'Business reporting and cross-module performance visibility.', dependencies: ['core'] },
+] as const;
+
 @Injectable()
 export class SubscriptionsService {
   constructor(private readonly db: DatabaseService) {}
@@ -108,6 +122,76 @@ export class SubscriptionsService {
       },
       accessMode: 'subscription',
       modules: Object.fromEntries(moduleAccess),
+    };
+  }
+
+
+  async getModuleCatalogue(companyId: string) {
+    const subscriptionResult = await this.db.query<{
+      status: string;
+      plan_code: string;
+      plan_name: string;
+      modules: string[];
+    }>(
+      `SELECT s.status, s.plan_code, p.name AS plan_name, p.modules
+       FROM company_subscriptions s
+       JOIN subscription_plans p ON p.code = s.plan_code
+       WHERE s.company_id = $1`,
+      [companyId],
+    );
+
+    const subscription = subscriptionResult.rows[0];
+    const overridesResult = await this.db.query<{ module_code: string; enabled: boolean }>(
+      `SELECT module_code, enabled FROM company_module_overrides
+       WHERE company_id = $1 AND (expires_at IS NULL OR expires_at > NOW())`,
+      [companyId],
+    );
+    const overrides = new Map(overridesResult.rows.map((row) => [row.module_code, row.enabled]));
+    const legacy = !subscription;
+    const subscriptionActive = legacy || ['active', 'trialing'].includes(subscription.status);
+    const planModules = new Set(subscription?.modules ?? MODULE_CATALOGUE.map((module) => module.code));
+
+    const resolve = (code: string, visited = new Set<string>()): { enabled: boolean; missingDependencies: string[] } => {
+      if (visited.has(code)) return { enabled: true, missingDependencies: [] };
+      visited.add(code);
+      const module = MODULE_CATALOGUE.find((entry) => entry.code === code);
+      if (!module) return { enabled: false, missingDependencies: [code] };
+      const entitled = legacy ? true : overrides.has(code) ? overrides.get(code)! : planModules.has(code);
+      if (!subscriptionActive || !entitled) return { enabled: false, missingDependencies: [] };
+      const missingDependencies: string[] = [];
+      for (const dependency of module.dependencies) {
+        const result = resolve(dependency, new Set(visited));
+        if (!result.enabled) missingDependencies.push(dependency, ...result.missingDependencies);
+      }
+      const uniqueMissing = [...new Set(missingDependencies)];
+      return { enabled: uniqueMissing.length === 0, missingDependencies: uniqueMissing };
+    };
+
+    return {
+      accessMode: legacy ? 'legacy_unmetered' : 'subscription',
+      subscription: subscription ? {
+        planCode: subscription.plan_code,
+        planName: subscription.plan_name,
+        status: subscription.status,
+      } : null,
+      modules: MODULE_CATALOGUE.map((module) => {
+        const overrideEnabled = overrides.get(module.code);
+        const includedInPlan = legacy || planModules.has(module.code);
+        const entitled = legacy ? true : overrideEnabled ?? includedInPlan;
+        const access = resolve(module.code);
+        return {
+          ...module,
+          dependencies: [...module.dependencies],
+          includedInPlan,
+          override: overrideEnabled === undefined ? null : overrideEnabled ? 'enabled' : 'disabled',
+          entitled,
+          enabled: access.enabled,
+          missingDependencies: access.missingDependencies,
+          status: !subscriptionActive ? 'subscription_inactive' :
+            !entitled ? 'not_included' :
+            access.missingDependencies.length ? 'missing_dependencies' : 'enabled',
+        };
+      }),
     };
   }
 
