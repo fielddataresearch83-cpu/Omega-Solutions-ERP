@@ -31,7 +31,7 @@ export class DashboardService {
       currency,
       customers: null as null | { count: number; receivables: number | null },
       suppliers: null as null | { count: number; payables: number },
-      inventory: null as null | { activeProducts: number; lowStock: number; costValue: number },
+      inventory: null as null | { activeProducts: number; lowStock: number; costValue: number; lowStockProducts: Array<{ id: string; name: string; sku: string; stock_quantity: number; reorder_level: number }> },
       invoiceTrend: null as null | Array<{ key: string; total: number }>,
       overdueInvoices: null as null | Array<{ id: string; invoice_number: string; customer_name: string; due_date: string; currency: string; balance: number }>,
     };
@@ -68,10 +68,24 @@ export class DashboardService {
          FROM products WHERE company_id = $1`,
         [membership.companyId],
       );
+      const lowStockProducts = await this.db.query<{ id: string; name: string; sku: string; stock_quantity: number; reorder_level: number }>(
+        `SELECT id, name, sku, stock_quantity, reorder_level
+         FROM products
+         WHERE company_id = $1 AND is_active = TRUE AND is_service = FALSE
+           AND stock_quantity <= reorder_level
+         ORDER BY (reorder_level - stock_quantity) DESC, name ASC
+         LIMIT 8`,
+        [membership.companyId],
+      );
       result.inventory = {
         activeProducts: Number(inventory.rows[0]?.active_products ?? 0),
         lowStock: Number(inventory.rows[0]?.low_stock ?? 0),
         costValue: Number(inventory.rows[0]?.cost_value ?? 0),
+        lowStockProducts: lowStockProducts.rows.map((row) => ({
+          ...row,
+          stock_quantity: Number(row.stock_quantity),
+          reorder_level: Number(row.reorder_level),
+        })),
       };
     }
 
