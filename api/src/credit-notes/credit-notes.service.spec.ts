@@ -41,6 +41,8 @@ describe('CreditNotesService', () => {
             amount_paid: '60.00', credited_amount: '10.00',
           }], rowCount: 1,
         })
+        .mockResolvedValueOnce({ rows: [{ id: 'invoice-line-a', description: 'Item A', quantity: '2.000', unit_price: '40.00', tax_rate: '0.00', tax_treatment: 'zero_rated' }], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [{ quantity: '0', subtotal: '0', tax: '0' }], rowCount: 1 })
         .mockResolvedValueOnce({ rows: [{ amount: '0.00' }], rowCount: 1 }),
     };
     const db = {
@@ -60,7 +62,7 @@ describe('CreditNotesService', () => {
       invoiceId: 'invoice-a',
       issueDate: '2026-10-17',
       reason: 'Price correction',
-      items: [{ description: 'Credit adjustment', quantity: 1, unitPrice: 30, taxRate: 10 }],
+      items: [{ invoiceItemId: 'invoice-line-a', description: 'Credit adjustment', quantity: 1 }],
     })).rejects.toThrow(BadRequestException);
 
     expect(client.query).toHaveBeenCalledTimes(2);
@@ -101,7 +103,7 @@ describe('CreditNotesService', () => {
       invoiceId: 'invoice-other-branch',
       issueDate: '2026-10-17',
       reason: 'Price correction',
-      items: [{ description: 'Credit adjustment', quantity: 1, unitPrice: 30, taxRate: 0 }],
+      items: [{ invoiceItemId: 'invoice-line-a', description: 'Credit adjustment', quantity: 1 }],
     })).rejects.toThrow('Invoice not found in this branch.');
 
     expect(client.query).toHaveBeenCalledTimes(2);
@@ -116,7 +118,7 @@ describe('CreditNotesService', () => {
         if (sql.includes('FROM invoices WHERE id=$1 AND company_id=$2 FOR UPDATE')) {
           return { rows: [{ id: 'invoice-a', customer_id: 'customer-a', invoice_number: 'INV-2026-00001', issue_date: '2026-10-01', status: 'sent', total: '500.00', amount_paid: '0.00', credited_amount: '0.00' }], rowCount: 1 };
         }
-        if (sql.includes('INSERT INTO credit_note_sequences')) return { rows: [{ next_number: 1 }], rowCount: 1 };
+        if (sql.includes('FROM invoice_items') && sql.includes('FOR UPDATE')) return { rows: [{ id: 'invoice-line-a', description: 'Adjustment', quantity: '2.000', unit_price: '100.00', tax_rate: '16.00', tax_treatment: 'standard' }], rowCount: 1 };\n        if (sql.includes('SELECT COALESCE(SUM(cni.quantity)')) return { rows: [{ quantity: '0', subtotal: '0', tax: '0' }], rowCount: 1 };\n        if (sql.includes("status='pending'")) return { rows: [{ amount: '0.00' }], rowCount: 1 };\n        if (sql.includes('INSERT INTO credit_note_sequences')) return { rows: [{ next_number: 1 }], rowCount: 1 };
         if (sql.includes('INSERT INTO credit_notes(')) return { rows: [{ id: 'credit-a' }], rowCount: 1 };
         if (sql.includes('INSERT INTO journal_entry_sequences')) return { rows: [{ next_number: 1 }], rowCount: 1 };
         if (sql.includes('INSERT INTO journal_entries(')) return { rows: [{ id: 'journal-a' }], rowCount: 1 };
@@ -148,7 +150,7 @@ describe('CreditNotesService', () => {
 
     const result = await service.create(user, {
       invoiceId: 'invoice-a', issueDate: '2026-10-17', reason: 'Price correction',
-      items: [{ description: 'Adjustment', quantity: 1, unitPrice: 100, taxRate: 16 }],
+      items: [{ invoiceItemId: 'invoice-line-a', description: 'Adjustment', quantity: 1 }],
     });
 
     expect(result.credit_note_number).toBe('CN-2026-00001');
