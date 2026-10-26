@@ -49,14 +49,14 @@ export class MpesaService {
     const membership = user.companyId
       ? await this.memberships.getMembershipForCompany(user.userId, user.companyId)
       : await this.memberships.getMembership(user.userId);
-    // Reuse invoice authorization so branch-bound members cannot initiate payment for another branch's invoice.
-    await this.invoices.getById(user, invoiceId);
     const phone = this.normalizePhone(phoneInput);
     const amount = Math.round(Number(amountInput) * 100) / 100;
     if (!Number.isFinite(amount) || amount < 1 || !Number.isInteger(amount)) {
       throw new BadRequestException('M-Pesa STK payments must be a whole KES amount of at least KES 1.');
     }
 
+    // Reuse invoice authorization so branch-bound members cannot initiate payment for another branch's invoice.
+    await this.invoices.getById(user, invoiceId);
     const invoiceResult = await this.db.query<{
       id: string; invoice_number: string; status: string; total: string | number;
       amount_paid: string | number; credited_amount: string | number;
