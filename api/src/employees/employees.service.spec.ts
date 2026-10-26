@@ -40,7 +40,21 @@ describe('EmployeesService',()=>{
   db.query.mockResolvedValue({rows:[],rowCount:0});
   await service.list(user);
   expect(memberships.getMembershipForCompany).toHaveBeenCalledWith('user-1','company-1');
-  expect(db.query).toHaveBeenCalledWith(expect.stringContaining('WHERE e.company_id=$1'),['company-1']);
+  expect(db.query).toHaveBeenCalledWith(expect.stringContaining('WHERE e.company_id=$1 AND ($2::uuid IS NULL OR e.branch_id=$2)'),['company-1',null]);
+ });
+
+ it('limits employee listing to the membership branch for branch-restricted users',async()=>{
+  const branchUser={...user,branchId:'branch-1',role:'staff'};
+  memberships.getMembershipForCompany.mockResolvedValue({companyId:'company-1',branchId:'branch-1',role:'staff'});
+  db.query.mockResolvedValue({rows:[],rowCount:0});
+  await service.list(branchUser);
+  expect(db.query).toHaveBeenCalledWith(expect.stringContaining('e.branch_id=$2'),['company-1','branch-1']);
+ });
+ it('does not let branch-restricted users create employees in another branch',async()=>{
+  const branchUser={...user,branchId:'branch-1',role:'staff'};
+  memberships.getMembershipForCompany.mockResolvedValue({companyId:'company-1',branchId:'branch-1',role:'staff'});
+  await expect(service.create(branchUser,{employeeNumber:'EMP-3',firstName:'Amina',lastName:'Otieno',branchId:'branch-2'})).rejects.toThrow(BadRequestException);
+  expect(db.query).not.toHaveBeenCalled();
  });
  it('rejects a branch from another company before creating an employee',async()=>{
   db.query.mockResolvedValue({rows:[],rowCount:0});
