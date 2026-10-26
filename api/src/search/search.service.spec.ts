@@ -90,7 +90,7 @@ describe('SearchService', () => {
   it('does not search a module excluded from an active plan', async () => {
     db.query
       .mockResolvedValueOnce({
-        rows: [{ status: 'active', modules: ['core', 'inventory', 'sales', 'pos', 'reports'] }],
+        rows: [{ status: 'active', modules: ['core', 'inventory', 'reports'] }],
         rowCount: 1,
       })
       .mockResolvedValueOnce({ rows: [], rowCount: 0 });
