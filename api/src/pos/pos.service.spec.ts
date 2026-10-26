@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ForbiddenException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -153,6 +154,24 @@ describe('PosService', () => {
   it('rejects invalid cost-of-goods cents before posting', () => {
     expect(() => buildCogsJournalLines(-1)).toThrow();
     expect(() => buildCogsJournalLines(12.5)).toThrow();
+  });
+
+  it('blocks a branch-bound manager from opening a register in another branch', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({
+      companyId: 'company-1', branchId: 'branch-1', role: 'manager',
+    });
+    const client = {
+      query: vi.fn().mockResolvedValue({
+        rows: [{ id: 'register-2', branch_id: 'branch-2' }],
+        rowCount: 1,
+      }),
+    };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+
+    await expect(service.openShift(user, { registerId: 'register-2', openingFloat: 0 }))
+      .rejects.toThrow(ForbiddenException);
+    expect(client.query).toHaveBeenCalledTimes(1);
+    expect(audit.log).not.toHaveBeenCalled();
   });
 
   it('rejects a negative opening float before any database write', async () => {
