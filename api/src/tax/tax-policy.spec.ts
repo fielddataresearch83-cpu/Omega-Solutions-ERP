@@ -36,14 +36,9 @@ describe('company tax policy', () => {
     })).toThrow(BadRequestException);
   });
 
-  it('rejects a missing company standard rate for standard-rated products', () => {
-    const policy = readCompanyTaxPolicy({
+  it('rejects a missing company standard rate while reading configured policy', () => {
+    expect(() => readCompanyTaxPolicy({
       taxPolicy: { mode: 'configured', vatRegistered: true },
-    });
-    expect(() => resolveTaxTreatment({
-      policy,
-      productTreatment: 'standard',
-      productRate: 16,
     })).toThrow(BadRequestException);
   });
 
