@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { CreditNotesService } from './credit-notes.service.js';
-import { CreateCreditNoteDto } from './dto/credit-note.dto.js';
+import { CreateCreditNoteDto, RefundCustomerCreditDto } from './dto/credit-note.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -30,5 +30,11 @@ export class CreditNotesController {
   @RequirePermissions('credit-notes:write')
   create(@Req() req: { user: AuthenticatedUser }, @Body() dto: CreateCreditNoteDto) {
     return this.creditNotes.create(req.user, dto);
+  }
+
+  @Post(':id/refunds')
+  @RequirePermissions('credit-notes:write')
+  recordRefund(@Req() req: { user: AuthenticatedUser }, @Param('id') id: string, @Body() dto: RefundCustomerCreditDto) {
+    return this.creditNotes.recordRefund(req.user, id, dto);
   }
 }
