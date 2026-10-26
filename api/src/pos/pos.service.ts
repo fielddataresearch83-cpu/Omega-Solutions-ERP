@@ -191,7 +191,8 @@ export class PosService {
   }
 
   async checkout(user:AuthenticatedUser,dto:PosCheckoutDto) {
-    const {companyId}=await this.company(user);
+    const membership=await this.company(user);
+    const {companyId,branchId}=membership;
     await this.accounting.ensureDefaults(companyId);
     const today=new Date().toISOString().slice(0,10);
     const totals=await this.db.transaction(async client=>{
@@ -213,6 +214,7 @@ export class PosService {
         'SELECT id,branch_id FROM pos_registers WHERE id=$1 AND company_id=$2 AND is_active=true',
         [shift.register_id,companyId]);
       if(!register.rows[0]) throw new BadRequestException('The shift register is no longer active.');
+      if(branchId && register.rows[0].branch_id!==branchId) throw new ForbiddenException('Your selected branch does not have access to this POS register.');
       const warehouse=await client.query<{id:string;branch_id:string|null}>(
         'SELECT id,branch_id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true',
         [dto.warehouseId,companyId]);
@@ -357,7 +359,8 @@ export class PosService {
   }
 
   async openShift(user: AuthenticatedUser, input: OpenShiftInput) {
-    const { companyId } = await this.company(user);
+    const membership = await this.company(user);
+    const { companyId, branchId } = membership;
     const openingFloat = Number(input.openingFloat);
     if (!input.registerId || !Number.isFinite(openingFloat) || openingFloat < 0 || Math.round(openingFloat * 100) !== openingFloat * 100) {
       throw new BadRequestException('Choose a register and enter a non-negative opening float with at most two decimal places.');
@@ -370,6 +373,7 @@ export class PosService {
           [input.registerId, companyId],
         );
         if (!register.rows[0]) throw new NotFoundException('Active POS register not found in this company.');
+        if (branchId && register.rows[0].branch_id !== branchId) throw new ForbiddenException('Your selected branch does not have access to this POS register.');
         if (!user.permissions.includes('sales:team-read')) {
           const assignment = await client.query<{branch_id:string|null}>(
             `SELECT w.branch_id FROM salesperson_stock_assignments a
