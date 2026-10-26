@@ -24,7 +24,7 @@ export class CreditNotesService {
 
   private async postJournal(client: PoolClient, input: {
     companyId: string; date: string; description: string; sourceId: string; userId: string;
-    subtotal: number; tax: number; total: number;
+    subtotal: number; tax: number; total: number; receivableAmount: number; customerCreditAmount: number;
   }) {
     const year = Number(input.date.slice(0, 4));
     const seq = await client.query<{ next_number: number }>(
@@ -41,7 +41,8 @@ export class CreditNotesService {
     const lines = [
       { system: 'sales_revenue', debit: input.subtotal, credit: 0, description: 'Sales returns and allowances' },
       { system: 'output_tax', debit: input.tax, credit: 0, description: 'Reverse output tax on credit' },
-      { system: 'accounts_receivable', debit: 0, credit: input.total, description: 'Reduce customer receivable' },
+      { system: 'accounts_receivable', debit: 0, credit: input.receivableAmount, description: 'Reduce customer receivable' },
+      { system: 'customer_credits', debit: 0, credit: input.customerCreditAmount, description: 'Customer credit payable for excess credit value' },
     ].filter(line => line.debit > 0 || line.credit > 0);
     let debit = 0, credit = 0;
     for (const line of lines) {
@@ -94,7 +95,95 @@ export class CreditNotesService {
       'SELECT id,invoice_item_id,description,quantity,unit_price,tax_rate,tax_treatment,line_subtotal,tax_amount,line_total FROM credit_note_items WHERE company_id=$1 AND credit_note_id=$2 ORDER BY created_at,id',
       [companyId, id],
     );
-    return { ...result.rows[0], items: items.rows };
+    const creditBalance = await this.db.query(
+      `SELECT id,credit_amount,refunded_amount,(credit_amount-refunded_amount)::numeric(14,2) AS available_amount,created_at,updated_at
+       FROM customer_credit_balances WHERE company_id=$1 AND credit_note_id=$2`,
+      [companyId, id],
+    );
+    const refunds = creditBalance.rows[0] ? await this.db.query(
+      `SELECT id,amount,method,reference,notes,created_by,refunded_at
+       FROM customer_credit_refunds WHERE company_id=$1 AND customer_credit_balance_id=$2 ORDER BY refunded_at DESC`,
+      [companyId, creditBalance.rows[0].id],
+    ) : { rows: [] };
+    return { ...result.rows[0], items: items.rows, customerCredit: creditBalance.rows[0] ? { ...creditBalance.rows[0], refunds: refunds.rows } : null };
+  }
+
+  async recordRefund(user: AuthenticatedUser, creditNoteId: string, dto: {
+    amount: number; method: 'cash' | 'bank' | 'mpesa'; reference: string; notes?: string;
+  }) {
+    const { companyId, branchId } = await this.companyFor(user);
+    const amount = Math.round(Number(dto.amount) * 100) / 100;
+    const reference = dto.reference.trim();
+    if (!Number.isFinite(amount) || amount <= 0) throw new BadRequestException('Refund amount must be greater than zero.');
+    if (!reference) throw new BadRequestException('A refund transaction reference is required.');
+    const refund = await this.db.transaction(async client => {
+      const balanceResult = await client.query<{
+        id: string; customer_id: string; credit_note_id: string; credit_amount: string | number; refunded_amount: string | number;
+      }>(
+        `SELECT b.id,b.customer_id,b.credit_note_id,b.credit_amount,b.refunded_amount
+         FROM customer_credit_balances b
+         JOIN credit_notes cn ON cn.id=b.credit_note_id AND cn.company_id=b.company_id
+         WHERE b.company_id=$1 AND b.credit_note_id=$2 FOR UPDATE OF b`,
+        [companyId, creditNoteId],
+      );
+      const balance = balanceResult.rows[0];
+      if (!balance) throw new NotFoundException('No refundable customer credit exists for this credit note.');
+      if (branchId) {
+        const branchInvoice = await client.query(
+          `SELECT 1 FROM pos_sales ps JOIN pos_registers pr ON pr.id=ps.register_id AND pr.company_id=ps.company_id
+           JOIN credit_notes cn ON cn.invoice_id=ps.invoice_id AND cn.company_id=ps.company_id
+           WHERE cn.company_id=$1 AND cn.id=$2 AND pr.branch_id=$3 LIMIT 1`,
+          [companyId, creditNoteId, branchId],
+        );
+        if (!branchInvoice.rows[0]) throw new NotFoundException('Credit note not found in this branch.');
+      }
+      const available = Math.round((Number(balance.credit_amount) - Number(balance.refunded_amount)) * 100) / 100;
+      if (amount > available + 0.005) throw new BadRequestException(`Refund exceeds the available customer credit of ${available.toFixed(2)}.`);
+      await this.accounting.ensureDefaults(companyId);
+      const inserted = await client.query<{ id: string }>(
+        `INSERT INTO customer_credit_refunds(company_id,customer_credit_balance_id,amount,method,reference,notes,created_by)
+         VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+        [companyId, balance.id, amount, dto.method, reference, dto.notes?.trim() || null, user.userId],
+      );
+      const year = new Date().getFullYear();
+      const seq = await client.query<{ next_number: number }>(
+        `INSERT INTO journal_entry_sequences(company_id,entry_year,next_number) VALUES($1,$2,1)
+         ON CONFLICT(company_id,entry_year) DO UPDATE SET next_number=journal_entry_sequences.next_number+1 RETURNING next_number`,
+        [companyId, year],
+      );
+      const entryNumber = `JE-${year}-${String(seq.rows[0].next_number).padStart(6, '0')}`;
+      const journal = await client.query<{ id: string }>(
+        `INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by)
+         VALUES($1,$2,CURRENT_DATE,$3,'customer_credit_refund',$4,'posted',NOW(),$5) RETURNING id`,
+        [companyId, entryNumber, `Refund customer credit against credit note ${creditNoteId}`, inserted.rows[0].id, user.userId],
+      );
+      const assetSystem = dto.method === 'cash' ? 'cash' : dto.method === 'mpesa' ? 'mpesa' : 'bank';
+      for (const line of [
+        { system: 'customer_credits', debit: amount, credit: 0, description: 'Reduce customer credit liability' },
+        { system: assetSystem, debit: 0, credit: amount, description: 'Refund paid to customer' },
+      ]) {
+        const account = await client.query<{ id: string }>(
+          'SELECT id FROM chart_of_accounts WHERE company_id=$1 AND system_code=$2 AND is_active=true',
+          [companyId, line.system],
+        );
+        if (!account.rows[0]) throw new BadRequestException(`Required accounting account "${line.system}" is missing or inactive.`);
+        await client.query(
+          'INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit) VALUES($1,$2,$3,$4,$5,$6)',
+          [companyId, journal.rows[0].id, account.rows[0].id, line.description, line.debit, line.credit],
+        );
+      }
+      await client.query(
+        'UPDATE customer_credit_balances SET refunded_amount=refunded_amount+$1,updated_at=NOW() WHERE id=$2 AND company_id=$3',
+        [amount, balance.id, companyId],
+      );
+      return inserted.rows[0];
+    });
+    await this.audit.log({
+      userId: user.userId, companyId, branchId: branchId ?? null, action: 'credit_note.refund',
+      entityType: 'customer_credit_refund', entityId: refund.id, oldValues: null,
+      newValues: { creditNoteId, amount, method: dto.method, reference }, ipAddress: null,
+    });
+    return this.getById(user, creditNoteId);
   }
 
   async create(user: AuthenticatedUser, dto: CreateCreditNoteDto) {
@@ -209,10 +298,12 @@ export class CreditNotesService {
         [companyId, invoice.id],
       );
       const pendingPayments = Number(pendingResult.rows[0]?.amount ?? 0);
-      const remaining = Math.round((Number(invoice.total) - Number(invoice.amount_paid) - Number(invoice.credited_amount) - pendingPayments) * 100) / 100;
-      if (total > remaining + 0.005) {
-        throw new BadRequestException(`Credit total ${total.toFixed(2)} exceeds the remaining unpaid invoice balance after pending payment reports of ${Math.max(0, remaining).toFixed(2)}.`);
-      }
+      // Credit notes may be issued for paid invoices. Reduce receivables only by the
+      // amount not already paid or reserved by pending payment reports; the excess is
+      // a customer-credit liability and must be refunded/settled separately.
+      const remainingReceivable = Math.max(0, Math.round((Number(invoice.total) - Number(invoice.amount_paid) - Number(invoice.credited_amount) - pendingPayments) * 100) / 100);
+      const receivableAmount = Math.round(Math.min(total, remainingReceivable) * 100) / 100;
+      const customerCreditAmount = Math.round((total - receivableAmount) * 100) / 100;
       // Defaults are only initialized after invoice, branch, line, quantity and balance checks pass.
       await this.accounting.ensureDefaults(companyId);
       const year = Number(issueDate.slice(0, 4));
@@ -236,13 +327,22 @@ export class CreditNotesService {
       }
       await this.postJournal(client, {
         companyId, date: issueDate, description: `Credit note ${number} against invoice ${invoice.invoice_number}`,
-        sourceId: note.rows[0].id, userId: user.userId, subtotal, tax, total,
+        sourceId: note.rows[0].id, userId: user.userId, subtotal, tax, total, receivableAmount, customerCreditAmount,
       });
+      if (customerCreditAmount > 0) {
+        await client.query(
+          `INSERT INTO customer_credit_balances(company_id,customer_id,credit_note_id,credit_amount)
+           VALUES($1,$2,$3,$4)`,
+          [companyId, invoice.customer_id, note.rows[0].id, customerCreditAmount],
+        );
+      }
       await client.query('UPDATE invoices SET credited_amount=credited_amount+$1,updated_at=NOW() WHERE id=$2 AND company_id=$3', [total, invoice.id, companyId]);
-      await client.query(
-        'UPDATE customers SET outstanding_balance=GREATEST(0,outstanding_balance-$1),updated_at=NOW() WHERE id=$2 AND company_id=$3',
-        [total, invoice.customer_id, companyId],
-      );
+      if (receivableAmount > 0) {
+        await client.query(
+          'UPDATE customers SET outstanding_balance=GREATEST(0,outstanding_balance-$1),updated_at=NOW() WHERE id=$2 AND company_id=$3',
+          [receivableAmount, invoice.customer_id, companyId],
+        );
+      }
       return note.rows[0];
     });
     await this.audit.log({
