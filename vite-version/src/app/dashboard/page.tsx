@@ -18,48 +18,19 @@ import { buttonVariants } from "@/components/ui/button"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { api } from "@/lib/api-client"
 import { formatNumber } from "@/lib/format"
-import type { CustomerRow, ProductRow, SupplierRow } from "@/lib/api-types"
 import { useMyCompany } from "@/hooks/use-company"
 import { useAuth } from "@/contexts/auth-context"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import type { InvoiceApiRow } from "@/lib/api-types"
 
 type SubscriptionAccess = { subscription: null | { status: string }; modules?: Record<string, boolean> }
 
-type ResourceState<T> = {
-  data: T[]
-  loading: boolean
-  error: string | null
-}
-
-function useResource<T>(path: string, enabled = true) {
-  const [state, setState] = React.useState<ResourceState<T>>({
-    data: [],
-    loading: true,
-    error: null,
-  })
-
-  React.useEffect(() => {
-    let active = true
-    if (!enabled) {
-      setState({ data: [], loading: false, error: null })
-      return () => { active = false }
-    }
-    setState((current) => ({ ...current, loading: true, error: null }))
-    api
-      .get<T[]>(path)
-      .then((data) => {
-        if (active) setState({ data: Array.isArray(data) ? data : [], loading: false, error: null })
-      })
-      .catch((error: { message?: string }) => {
-        if (active) setState({ data: [], loading: false, error: error.message ?? "Could not load records" })
-      })
-    return () => {
-      active = false
-    }
-  }, [path, enabled])
-
-  return state
+type DashboardSummary = {
+  currency: string
+  customers: null | { count: number; receivables: number | null }
+  suppliers: null | { count: number; payables: number }
+  inventory: null | { activeProducts: number; lowStock: number; costValue: number; lowStockProducts: Array<{ id: string; name: string; sku: string; stock_quantity: number; reorder_level: number }> }
+  invoiceTrend: null | Array<{ key: string; total: number }>
+  overdueInvoices: null | Array<{ id: string; invoice_number: string; customer_name: string; due_date: string; currency: string; balance: number }>
 }
 
 function StatCard({
@@ -127,42 +98,35 @@ export default function Page() {
   const canReadProcurement = canUseModule("procurement") && permissions.has("suppliers:read")
   const canReadProducts = canUseModule("inventory") && permissions.has("products:read")
   const canReadInventory = canUseModule("inventory") && permissions.has("inventory:read")
-  const customers = useResource<CustomerRow>("/customers", !authLoading && canReadCustomers)
-  const suppliers = useResource<SupplierRow>("/suppliers", !authLoading && canReadProcurement)
-  const products = useResource<ProductRow>("/products", !authLoading && canReadProducts)
-  const invoices = useResource<InvoiceApiRow>("/invoices", !authLoading && canReadSales)
+  const [dashboard, setDashboard] = React.useState<{ data: DashboardSummary | null; loading: boolean; error: string | null }>({
+    data: null, loading: true, error: null,
+  })
 
-  const loading = authLoading || !subscriptionLoaded || customers.loading || suppliers.loading || products.loading || invoices.loading
-  const errors = [
-    customers.error && `Customers: ${customers.error}`,
-    suppliers.error && `Suppliers: ${suppliers.error}`,
-    products.error && `Products: ${products.error}`,
-    invoices.error && `Invoices: ${invoices.error}`,
-  ].filter(Boolean) as string[]
+  React.useEffect(() => {
+    if (authLoading || !user) return
+    let cancelled = false
+    setDashboard((current) => ({ ...current, loading: true, error: null }))
+    api.get<DashboardSummary>("/dashboard/summary")
+      .then((data) => { if (!cancelled) setDashboard({ data, loading: false, error: null }) })
+      .catch((error: { message?: string }) => {
+        if (!cancelled) setDashboard({ data: null, loading: false, error: error.message ?? "Could not load dashboard summary." })
+      })
+    return () => { cancelled = true }
+  }, [authLoading, user?.userId, company?.id])
 
-  const activeProducts = products.data.filter((product) => product.is_active)
-  const lowStock = activeProducts.filter(
-    (product) => !product.is_service && product.stock_quantity <= product.reorder_level,
-  )
-  const inventoryCost = activeProducts.reduce(
-    (total, product) => total + Number(product.cost_price || 0) * Number(product.stock_quantity || 0),
-    0,
-  )
-  const receivables = customers.data.reduce(
-    (total, customer) => total + Number(customer.outstanding_balance || 0),
-    0,
-  )
-  const payables = suppliers.data.reduce(
-    (total, supplier) => total + Number(supplier.outstanding_balance || 0),
-    0,
-  )
+  const loading = authLoading || !subscriptionLoaded || dashboard.loading
+  const errors = dashboard.error ? [dashboard.error] : []
+  const activeProducts = dashboard.data?.inventory?.activeProducts ?? 0
+  const lowStockCount = dashboard.data?.inventory?.lowStock ?? 0
+  const lowStockProducts = dashboard.data?.inventory?.lowStockProducts ?? []
+  const inventoryCost = dashboard.data?.inventory?.costValue ?? 0
+  const receivables = dashboard.data?.customers?.receivables ?? null
+  const payables = dashboard.data?.suppliers?.payables ?? null
   const formatCompanyCurrency = (value: number) => new Intl.NumberFormat("en-KE", {
     style: "currency",
-    currency: company?.currency || "KES",
+    currency: dashboard.data?.currency || company?.currency || "KES",
     maximumFractionDigits: 2,
   }).format(value)
-  const todayDate = new Date()
-  const today = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, "0")}-${String(todayDate.getDate()).padStart(2, "0")}`
   const invoiceTrend = React.useMemo(() => {
     const months: { key: string; label: string; total: number }[] = []
     const now = new Date()
@@ -172,24 +136,13 @@ export default function Page() {
       months.push({ key, label: date.toLocaleDateString(undefined, { month: "short" }), total: 0 })
     }
     const byMonth = new Map(months.map((month) => [month.key, month]))
-    for (const invoice of invoices.data) {
-      if (invoice.status === "draft" || invoice.status === "cancelled") continue
-      if ((invoice.currency || "KES") !== (company?.currency || "KES")) continue
-      const date = invoice.issue_date?.slice(0, 7)
-      const bucket = date ? byMonth.get(date) : undefined
-      if (bucket) bucket.total += Number(invoice.total || 0)
+    for (const month of dashboard.data?.invoiceTrend ?? []) {
+      const bucket = byMonth.get(month.key)
+      if (bucket) bucket.total = month.total
     }
     return months
-  }, [invoices.data, company?.currency])
-  const overdueInvoices = React.useMemo(() => invoices.data
-    .filter((invoice) => !["draft", "cancelled", "paid"].includes(invoice.status) && invoice.due_date < today)
-    .map((invoice) => ({
-      ...invoice,
-      balance: Math.max(0, Number(invoice.total || 0) - Number(invoice.amount_paid || 0) - Number(invoice.credited_amount || 0)),
-    }))
-    .filter((invoice) => invoice.balance > 0)
-    .sort((a, b) => a.due_date.localeCompare(b.due_date))
-    .slice(0, 6), [invoices.data, today])
+  }, [dashboard.data?.invoiceTrend])
+  const overdueInvoices = dashboard.data?.overdueInvoices ?? []
 
   return (
     <BaseLayout>
@@ -244,22 +197,22 @@ export default function Page() {
             <section aria-label="Business summary" className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {canReadCustomers && <StatCard
                 label="Customers"
-                value={formatNumber(customers.data.length)}
+                value={formatNumber(dashboard.data?.customers?.count ?? 0)}
                 detail="Customer records"
                 icon={Users}
                 href="/customers"
               />}
-              {canReadProcurement && <StatCard
+              {canReadProcurement && dashboard.data?.suppliers && <StatCard
                 label="Suppliers"
-                value={formatNumber(suppliers.data.length)}
+                value={formatNumber(dashboard.data?.suppliers?.count ?? 0)}
                 detail="Supplier records"
                 icon={BriefcaseBusiness}
                 href="/suppliers"
               />}
               {canReadProducts && <StatCard
                 label="Active products"
-                value={formatNumber(activeProducts.length)}
-                detail={`${lowStock.length} at or below reorder level`}
+                value={formatNumber(activeProducts)}
+                detail={`${lowStockCount} at or below reorder level`}
                 icon={Package}
                 href="/products"
               />}
@@ -327,7 +280,7 @@ export default function Page() {
             </section>}
 
             <section className="grid min-w-0 gap-4 lg:grid-cols-2" aria-label="Balances">
-              {canReadCustomers && <Card className="relative overflow-hidden border-l-4 border-l-primary">
+              {canReadCustomers && dashboard.data?.customers && <Card className="relative overflow-hidden border-l-4 border-l-primary">
                 <CardHeader className="flex flex-row items-start justify-between gap-3">
                   <div className="space-y-1">
                     <CardDescription>Customer receivables</CardDescription>
@@ -340,7 +293,7 @@ export default function Page() {
                   <Link to="/customers" className={buttonVariants({ variant: "outline", size: "sm" })}>Review customers</Link>
                 </CardContent>
               </Card>}
-              {canReadProcurement && <Card className="relative overflow-hidden border-l-4 border-l-amber-500/70">
+              {canReadProcurement && dashboard.data?.suppliers && <Card className="relative overflow-hidden border-l-4 border-l-amber-500/70">
                 <CardHeader className="flex flex-row items-start justify-between gap-3">
                   <div className="space-y-1">
                     <CardDescription>Supplier payables</CardDescription>
@@ -362,10 +315,10 @@ export default function Page() {
                     <CardTitle className="flex items-center gap-2"><Package className="size-5 text-primary" />Stock requiring attention</CardTitle>
                     <CardDescription>Products at or below their configured reorder level</CardDescription>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${lowStock.length ? "bg-amber-500/10 text-amber-800 dark:text-amber-300" : "bg-primary/10 text-foreground"}`}>{lowStock.length} flagged</span>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums ${lowStockCount ? "bg-amber-500/10 text-amber-800 dark:text-amber-300" : "bg-primary/10 text-foreground"}`}>{lowStockCount} flagged</span>
                 </CardHeader>
                 <CardContent>
-                  {lowStock.length === 0 ? (
+                  {lowStockCount === 0 ? (
                     <div className="flex min-h-24 items-center gap-3 text-sm text-muted-foreground">
                       <Package className="size-5 shrink-0" />
                       No low-stock products in the records currently available.
@@ -382,7 +335,7 @@ export default function Page() {
                           </tr>
                         </thead>
                         <tbody>
-                          {lowStock.slice(0, 8).map((product) => (
+                          {lowStockProducts.map((product) => (
                             <tr key={product.id} className="border-b last:border-0">
                               <td className="max-w-56 truncate py-3 pr-4 font-medium">{product.name}</td>
                               <td className="py-3 pr-4 text-muted-foreground">{product.sku}</td>
@@ -408,10 +361,10 @@ export default function Page() {
                   {canReadProcurement && <Link to="/suppliers" className={buttonVariants({ variant: "outline", className: "justify-start" })}><BriefcaseBusiness className="mr-2 size-4" />Manage suppliers</Link>}
                   {canReadProducts && <Link to="/products" className={buttonVariants({ variant: "outline", className: "justify-start" })}><Package className="mr-2 size-4" />Manage products</Link>}
                   {canReadSales && <Link to="/invoices" className={buttonVariants({ variant: "outline", className: "justify-start" })}><Wallet className="mr-2 size-4" />Sales invoices</Link>}
-                  {lowStock.length > 0 && (
+                  {lowStockCount > 0 && (
                     <p className="flex items-center gap-2 text-sm text-amber-700 sm:col-span-2 xl:col-span-1">
                       <ArrowDownRight className="size-4 shrink-0" />
-                      {lowStock.length} product{lowStock.length === 1 ? "" : "s"} need stock review.
+                      {lowStockCount} product{lowStockCount === 1 ? "" : "s"} need stock review.
                     </p>
                   )}
                 </CardContent>
