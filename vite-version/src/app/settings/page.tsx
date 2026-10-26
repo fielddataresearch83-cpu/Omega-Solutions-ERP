@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Link } from "react-router-dom"
 import { Sun, Moon, Monitor, Save, RotateCcw } from "lucide-react"
 import { BaseLayout } from "@/components/layouts/base-layout"
 import { PageHeader } from "@/components/page-header"
@@ -241,6 +242,16 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Company tax settings</CardTitle>
+            <CardDescription>Configure VAT registration and tax classification rules for invoices, quotations, POS and supplier bills.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button render={<Link to="/settings/tax" />}>Open tax settings</Button>
+          </CardContent>
+        </Card>
       </div>
     </BaseLayout>
   )
