@@ -12,6 +12,7 @@ import type { CreateInvoiceDto, CreateInvoicePaymentDto } from './dto/invoice.dt
 import type { InvoiceItemRow, InvoicePaymentRow, InvoiceRow, InvoiceStatus } from './invoice.types.js';
 import type { PoolClient } from 'pg';
 import { AccountingService } from '../accounting/accounting.service.js';
+import { readCompanyTaxPolicy, resolveTaxTreatment } from '../tax/tax-policy.js';
 
 const INVOICE_SELECT = `
   SELECT i.id, i.company_id, i.customer_id, c.name AS customer_name,
@@ -209,6 +210,8 @@ export class InvoicesService {
       );
       const invoiceNumber = `INV-${year}-${String(sequence.rows[0].next_number).padStart(5, '0')}`;
 
+      const companySettings = await client.query<{ settings: unknown }>('SELECT settings FROM companies WHERE id = $1', [membership.companyId]);
+      const taxPolicy = readCompanyTaxPolicy(companySettings.rows[0]?.settings);
       let subtotalCents = 0;
       let taxCents = 0;
       const resolved: Array<{
@@ -234,18 +237,15 @@ export class InvoicesService {
         const quantityMilli = Math.round(item.quantity * 1000);
         const quantity = quantityMilli / 1000;
         const lineSubtotalCents = Math.round(unitPriceCents * quantityMilli / 1000);
-        const taxRate = product.tax_treatment === 'legacy'
-          ? (item.taxRate ?? 0)
-          : product.tax_treatment === 'standard'
-            ? Number(product.tax_rate)
-            : 0;
+        const tax = resolveTaxTreatment({ policy: taxPolicy, productTreatment: product.tax_treatment as 'legacy' | 'standard' | 'zero_rated' | 'exempt' | 'out_of_scope', productRate: Number(product.tax_rate), requestedRate: item.taxRate });
+        const taxRate = tax.rate;
         const lineTaxCents = Math.round(lineSubtotalCents * taxRate / 100);
         const lineTotalCents = lineSubtotalCents + lineTaxCents;
         subtotalCents += lineSubtotalCents;
         taxCents += lineTaxCents;
         resolved.push({
           productId: product.id, name: product.name, sku: product.sku, quantity,
-          unitPriceCents, taxRate, taxTreatment: product.tax_treatment, lineSubtotalCents, lineTaxCents, lineTotalCents,
+          unitPriceCents, taxRate, taxTreatment: tax.treatment, lineSubtotalCents, lineTaxCents, lineTotalCents,
         });
       }
 
