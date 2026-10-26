@@ -1,4 +1,4 @@
-import { ArrayMinSize, IsArray, IsDateString, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsDateString, IsNumber, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateCreditNoteItemDto {
@@ -13,18 +13,6 @@ export class CreateCreditNoteItemDto {
   @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0.001)
   quantity!: number;
-
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0.01)
-  unitPrice!: number;
-
-  @Type(() => Number)
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsOptional()
-  @Min(0)
-  @Max(100)
-  taxRate?: number;
 }
 
 export class CreateCreditNoteDto {
