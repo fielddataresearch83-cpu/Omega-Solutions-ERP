@@ -256,8 +256,8 @@ export class PosService {
       const resolved:Array<{productId:string;name:string;sku:string;quantity:number;unitPrice:number;taxRate:number;subtotal:number;tax:number;total:number;cost:number;isService:boolean}>=[];
       let subtotalCents=0,taxCents=0;
       for(const item of dto.items) {
-        const productResult=await client.query<{id:string;name:string;sku:string;selling_price:string|number;cost_price:string|number;is_active:boolean;is_service:boolean}>(
-          'SELECT id,name,sku,selling_price,cost_price,is_active,is_service FROM products WHERE id=$1 AND company_id=$2 FOR SHARE',
+        const productResult=await client.query<{id:string;name:string;sku:string;selling_price:string|number;cost_price:string|number;is_active:boolean;is_service:boolean;tax_treatment:string;tax_rate:string|number}>(
+          'SELECT id,name,sku,selling_price,cost_price,is_active,is_service,tax_treatment,tax_rate FROM products WHERE id=$1 AND company_id=$2 FOR SHARE',
           [item.productId,companyId]);
         const p=productResult.rows[0];
         if(!p||!p.is_active) throw new BadRequestException('Every checkout item must be an active product from this company.');
@@ -267,7 +267,7 @@ export class PosService {
         const unitPriceCents=Math.round(requestedUnitPrice*100);
         const qtyMilli=Math.round(item.quantity*1000);
         const lineSubtotal=Math.round(unitPriceCents*qtyMilli/1000);
-        const taxRate=item.taxRate??0;
+        const taxRate=p.tax_treatment==='legacy'?(item.taxRate??0):p.tax_treatment==='standard'?Number(p.tax_rate):0;
         const lineTax=Math.round(lineSubtotal*taxRate/100);
         subtotalCents+=lineSubtotal; taxCents+=lineTax;
         resolved.push({productId:p.id,name:p.name,sku:p.sku,quantity:qtyMilli/1000,unitPrice:unitPriceCents/100,taxRate,subtotal:lineSubtotal/100,tax:lineTax/100,total:(lineSubtotal+lineTax)/100,cost:Number(p.cost_price),isService:p.is_service});
