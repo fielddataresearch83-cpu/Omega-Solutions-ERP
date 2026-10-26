@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -150,6 +150,18 @@ describe('CompaniesService', () => {
     expect(result.settings).toEqual({ taxPolicy: policy });
     expect(db.query.mock.calls[1][0]).toContain("'{taxPolicy}', $1::jsonb");
     expect(db.query.mock.calls[1][1]).toEqual([JSON.stringify(policy), 'comp-a']);
+  });
+
+  it('rejects an explicit null standard tax rate without writing company settings', async () => {
+    memberships.requireOwnerOrAdmin.mockResolvedValue({ companyId: 'comp-a', branchId: null, role: 'owner' });
+    db.query.mockResolvedValueOnce({ rows: [COMPANY_A], rowCount: 1 });
+
+    await expect(service.update(USER_A, 'comp-a', {
+      taxPolicy: { mode: 'configured', vatRegistered: true, standardRate: null } as never,
+    })).rejects.toThrow(BadRequestException);
+
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(audit.log).not.toHaveBeenCalled();
   });
 
   describe('getById', () => {
