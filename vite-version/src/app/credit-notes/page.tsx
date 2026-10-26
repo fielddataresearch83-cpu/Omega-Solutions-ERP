@@ -33,7 +33,6 @@ export default function CreditNotesPage() {
   const [reason, setReason] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [quantity, setQuantity] = React.useState("1");
-  const [unitPrice, setUnitPrice] = React.useState("");
   const [originalItems, setOriginalItems] = React.useState<OriginalInvoiceItem[]>([]);
   const [invoiceItemId, setInvoiceItemId] = React.useState("");
   const selectedOriginalItem = originalItems.find(item => item.id === invoiceItemId);
