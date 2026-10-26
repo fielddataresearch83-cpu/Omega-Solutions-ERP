@@ -27,7 +27,7 @@ describe('CreditNotesService', () => {
 
     expect(result).toHaveLength(1);
     expect(db.query.mock.calls[0][0]).toContain('WHERE cn.company_id=$1');
-    expect(db.query.mock.calls[0][1]).toEqual(['company-a']);
+    expect(db.query.mock.calls[0][1]).toEqual(['company-a', null]);
     expect(memberships.getMembershipForCompany).toHaveBeenCalledWith('user-a', 'company-a');
   });
 
@@ -67,6 +67,48 @@ describe('CreditNotesService', () => {
     expect(client.query.mock.calls[0][1]).toEqual(['invoice-a', 'company-a']);
     expect(client.query.mock.calls[1][1]).toEqual(['company-a', 'invoice-a']);
   });
+
+  it('limits branch-bound credit note creation to invoices sold through that branch', async () => {
+    const branchUser: AuthenticatedUser = { ...user, branchId: 'branch-a', role: 'staff' };
+    const client = {
+      query: vi.fn()
+        .mockResolvedValueOnce({
+          rows: [{
+            id: 'invoice-other-branch', customer_id: 'customer-a', invoice_number: 'INV-2026-00002',
+            issue_date: '2026-10-01', status: 'sent', total: '500.00',
+            amount_paid: '0.00', credited_amount: '0.00',
+          }], rowCount: 1,
+        })
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }),
+    };
+    const db = {
+      query: vi.fn(),
+      transaction: vi.fn(async (callback: (client: unknown) => Promise<unknown>) => callback(client)),
+    };
+    const memberships = {
+      getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-a', branchId: 'branch-a', role: 'staff' }),
+      getMembership: vi.fn(),
+    };
+    const accounting = { ensureDefaults: vi.fn().mockResolvedValue(undefined) };
+    const service = new CreditNotesService(
+      db as unknown as DatabaseService,
+      memberships as unknown as MembershipsService,
+      { log: vi.fn() } as unknown as AuditService,
+      accounting as unknown as AccountingService,
+    );
+
+    await expect(service.create(branchUser, {
+      invoiceId: 'invoice-other-branch',
+      issueDate: '2026-10-17',
+      reason: 'Price correction',
+      items: [{ description: 'Credit adjustment', quantity: 1, unitPrice: 30, taxRate: 0 }],
+    })).rejects.toThrow('Invoice not found in this branch.');
+
+    expect(client.query).toHaveBeenCalledTimes(2);
+    expect(client.query.mock.calls[1][1]).toEqual(['company-a', 'invoice-other-branch', 'branch-a']);
+    expect(accounting.ensureDefaults).toHaveBeenCalledWith('company-a');
+  });
+
   it('posts a balanced revenue, tax, and receivables journal for a valid credit', async () => {
     const journalLines: unknown[][] = [];
     const client = {
