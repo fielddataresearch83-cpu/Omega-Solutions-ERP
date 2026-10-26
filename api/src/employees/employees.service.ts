@@ -76,16 +76,17 @@ export class EmployeesService {
   }
 
   async listLeaveRequests(user: AuthenticatedUser) {
-    const {companyId}=await this.membershipFor(user);
+    const membership=await this.membershipFor(user);
+    const {companyId}=membership;
     return (await this.db.query(`SELECT l.id,l.company_id,l.employee_id,e.employee_number,e.first_name,e.last_name,l.leave_type,l.start_date,l.end_date,l.reason,l.status,l.reviewed_by,l.reviewed_at,l.review_note,l.created_at,l.updated_at
       FROM employee_leave_requests l JOIN employees e ON e.id=l.employee_id AND e.company_id=l.company_id
-      WHERE l.company_id=$1 ORDER BY l.created_at DESC`,[companyId])).rows;
+      WHERE l.company_id=$1 AND ($2::uuid IS NULL OR e.branch_id=$2) ORDER BY l.created_at DESC`,[companyId,membership.branchId])).rows;
   }
   async createLeaveRequest(user: AuthenticatedUser,dto: CreateLeaveRequestDto) {
     const membership=await this.membershipFor(user);
     if(dto.endDate<dto.startDate) throw new BadRequestException('Leave end date must be on or after its start date.');
     const result=await this.db.transaction(async client=>{
-      const employee=await client.query('SELECT id FROM employees WHERE id=$1 AND company_id=$2 FOR UPDATE',[dto.employeeId,membership.companyId]);
+      const employee=await client.query('SELECT id FROM employees WHERE id=$1 AND company_id=$2 AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',[dto.employeeId,membership.companyId,membership.branchId]);
       if(!employee.rows.length) throw new NotFoundException('Employee not found in this company.');
       const overlap=await client.query(`SELECT id FROM employee_leave_requests WHERE company_id=$1 AND employee_id=$2 AND status IN ('pending','approved')
         AND start_date <= $4::date AND end_date >= $3::date LIMIT 1`,[membership.companyId,dto.employeeId,dto.startDate,dto.endDate]);
@@ -99,9 +100,9 @@ export class EmployeesService {
   async reviewLeaveRequest(user: AuthenticatedUser,id:string,dto:ReviewLeaveRequestDto) {
     const membership=await this.membershipFor(user);
     const result=await this.db.query(`UPDATE employee_leave_requests SET status=$3,reviewed_by=$4,reviewed_at=NOW(),review_note=$5,updated_at=NOW()
-      WHERE id=$1 AND company_id=$2 AND status='pending' RETURNING *`,[id,membership.companyId,dto.status,user.userId,dto.reviewNote?.trim()||null]);
+      WHERE id=$1 AND company_id=$2 AND status='pending' AND EXISTS (SELECT 1 FROM employees e WHERE e.id=employee_leave_requests.employee_id AND e.company_id=$2 AND ($6::uuid IS NULL OR e.branch_id=$6)) RETURNING *`,[id,membership.companyId,dto.status,user.userId,dto.reviewNote?.trim()||null,membership.branchId]);
     if(!result.rows.length) {
-      const exists=await this.db.query('SELECT id FROM employee_leave_requests WHERE id=$1 AND company_id=$2',[id,membership.companyId]);
+      const exists=await this.db.query('SELECT l.id FROM employee_leave_requests l JOIN employees e ON e.id=l.employee_id AND e.company_id=l.company_id WHERE l.id=$1 AND l.company_id=$2 AND ($3::uuid IS NULL OR e.branch_id=$3)',[id,membership.companyId,membership.branchId]);
       if(!exists.rows.length) throw new NotFoundException('Leave request not found in this company.');
       throw new ConflictException('Only pending leave requests can be reviewed.');
     }
