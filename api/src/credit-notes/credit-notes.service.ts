@@ -112,7 +112,7 @@ export class CreditNotesService {
       if (!item.invoiceItemId) {
         throw new BadRequestException('Each credit line must reference an original invoice line.');
       }
-      return { invoiceItemId: item.invoiceItemId, description: item.description.trim(), quantity };
+      return { invoiceItemId: item.invoiceItemId, description: item.description.trim(), quantity, requestedTaxRate: item.taxRate };
     });
     let calculated: Array<{
       invoiceItemId: string; description: string; quantity: number; unitPrice: number;
@@ -180,6 +180,9 @@ export class CreditNotesService {
         }
         const unitPrice = Math.round(Number(original.unit_price) * 100) / 100;
         const taxRate = Math.round(Number(original.tax_rate) * 100) / 100;
+        if (requested.requestedTaxRate !== undefined && Math.abs(Number(requested.requestedTaxRate) - taxRate) > 0.0001) {
+          throw new BadRequestException('Credit-note tax rate must match the original invoice line tax snapshot.');
+        }
         const lineSubtotal = Math.round(requested.quantity * unitPrice * 100) / 100;
         const remainingLineValue = Math.round((Number(original.quantity) * unitPrice - previouslyCreditedSubtotal) * 100) / 100;
         if (lineSubtotal > remainingLineValue + 0.005) {
