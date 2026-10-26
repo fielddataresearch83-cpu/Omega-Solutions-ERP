@@ -234,4 +234,74 @@ describe('CreditNotesService', () => {
     expect(lines.every(line => Number(line[4]) >= 0 && Number(line[5]) >= 0)).toBe(true);
   });
 
+  it('records a customer credit refund with a balanced liability and cash journal', async () => {
+    const journalLines: unknown[][] = [];
+    const client = {
+      query: vi.fn(async (sql: string, params: unknown[] = []) => {
+        if (sql.includes('FROM customer_credit_balances b') && sql.includes('FOR UPDATE OF b')) {
+          return { rows: [{ id: 'balance-a', customer_id: 'customer-a', credit_note_id: 'credit-a', credit_amount: '100.00', refunded_amount: '0.00' }], rowCount: 1 };
+        }
+        if (sql.includes('INSERT INTO customer_credit_refunds')) return { rows: [{ id: 'refund-a' }], rowCount: 1 };
+        if (sql.includes('INSERT INTO journal_entry_sequences')) return { rows: [{ next_number: 2 }], rowCount: 1 };
+        if (sql.includes('INSERT INTO journal_entries(')) return { rows: [{ id: 'journal-refund-a' }], rowCount: 1 };
+        if (sql.includes('SELECT id FROM chart_of_accounts')) return { rows: [{ id: 'account-' + String(params[1]) }], rowCount: 1 };
+        if (sql.includes('INSERT INTO journal_entry_lines')) journalLines.push(params);
+        return { rows: [], rowCount: 1 };
+      }),
+    };
+    const db = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes('FROM credit_notes cn')) return { rows: [{ id: 'credit-a', total: '116.00' }], rowCount: 1 };
+        if (sql.includes('FROM customer_credit_balances WHERE')) return { rows: [{ id: 'balance-a', credit_amount: '100.00', refunded_amount: '40.00', available_amount: '60.00' }], rowCount: 1 };
+        if (sql.includes('FROM customer_credit_refunds')) return { rows: [{ id: 'refund-a', amount: '40.00', method: 'bank', reference: 'BANK-REF-1' }], rowCount: 1 };
+        return { rows: [], rowCount: 1 };
+      }),
+      transaction: vi.fn(async (callback: (client: unknown) => Promise<unknown>) => callback(client)),
+    };
+    const audit = { log: vi.fn().mockResolvedValue(undefined) };
+    const accounting = { ensureDefaults: vi.fn().mockResolvedValue(undefined) };
+    const memberships = { getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-a', branchId: null, role: 'owner' }), getMembership: vi.fn() };
+    const service = new CreditNotesService(
+      db as unknown as DatabaseService,
+      memberships as unknown as MembershipsService,
+      audit as unknown as AuditService,
+      accounting as unknown as AccountingService,
+    );
+
+    const result = await service.recordRefund(user, 'credit-a', { amount: 40, method: 'bank', reference: 'BANK-REF-1' });
+
+    expect(result.customerCredit.available_amount).toBe('60.00');
+    expect(journalLines).toHaveLength(2);
+    expect(journalLines.reduce((sum, line) => sum + Number(line[4]), 0)).toBe(40);
+    expect(journalLines.reduce((sum, line) => sum + Number(line[5]), 0)).toBe(40);
+    expect(client.query.mock.calls.some(call => String(call[0]).includes('UPDATE customer_credit_balances'))).toBe(true);
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'credit_note.refund', entityId: 'refund-a' }));
+  });
+
+  it('rejects a refund above the available customer credit', async () => {
+    const client = {
+      query: vi.fn().mockResolvedValueOnce({
+        rows: [{ id: 'balance-a', customer_id: 'customer-a', credit_note_id: 'credit-a', credit_amount: '25.00', refunded_amount: '5.00' }],
+        rowCount: 1,
+      }),
+    };
+    const db = {
+      query: vi.fn(),
+      transaction: vi.fn(async (callback: (client: unknown) => Promise<unknown>) => callback(client)),
+    };
+    const accounting = { ensureDefaults: vi.fn() };
+    const memberships = { getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-a', branchId: null, role: 'owner' }), getMembership: vi.fn() };
+    const service = new CreditNotesService(
+      db as unknown as DatabaseService,
+      memberships as unknown as MembershipsService,
+      { log: vi.fn() } as unknown as AuditService,
+      accounting as unknown as AccountingService,
+    );
+
+    await expect(service.recordRefund(user, 'credit-a', { amount: 21, method: 'cash', reference: 'CASH-REF-2' }))
+      .rejects.toThrow('Refund exceeds the available customer credit of 20.00.');
+    expect(accounting.ensureDefaults).not.toHaveBeenCalled();
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
 });
