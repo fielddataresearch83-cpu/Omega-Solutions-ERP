@@ -12,6 +12,7 @@ import type { CreateProductDto, UpdateProductDto } from './dto/product.dto.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import { AccountingService } from '../accounting/accounting.service.js';
 import { ProductImageStorageService } from './product-image-storage.service.js';
+import { readCompanyTaxPolicy, resolveTaxTreatment } from '../tax/tax-policy.js';
 
 const PRODUCT_COLUMNS = `
   id, company_id, sku, name, description, image_url, image_storage_key, category, unit,
@@ -36,6 +37,22 @@ export class ProductsService {
       return this.memberships.getMembershipForCompany(user.userId, user.companyId);
     }
     return this.memberships.getMembership(user.userId);
+  }
+
+  private async validateConfiguredTaxRate(companyId: string, treatment: string | undefined, rate: number | undefined) {
+    if (treatment !== 'standard') return;
+    const result = await this.db.query<{ settings: unknown }>(
+      'SELECT settings FROM companies WHERE id = $1',
+      [companyId],
+    );
+    const policy = readCompanyTaxPolicy(result.rows[0]?.settings);
+    if (policy.mode === 'configured') {
+      resolveTaxTreatment({
+        policy,
+        productTreatment: 'standard',
+        productRate: Number(rate ?? 0),
+      });
+    }
   }
 
   async list(user: AuthenticatedUser, search?: string): Promise<ProductRow[]> {
@@ -71,6 +88,7 @@ export class ProductsService {
     if (dto.taxTreatment === 'standard' && !(Number(dto.taxRate) > 0 && Number(dto.taxRate) <= 100)) {
       throw new BadRequestException('Standard-rated products require an explicitly configured tax rate greater than 0 and no more than 100%.');
     }
+    await this.validateConfiguredTaxRate(membership.companyId, dto.taxTreatment, dto.taxRate);
 
     if (isService && initialStock > 0) {
       throw new BadRequestException('Service items cannot have an initial stock quantity.');
@@ -242,6 +260,7 @@ export class ProductsService {
     if (resultingTreatment === 'standard' && !(resultingRate > 0 && resultingRate <= 100)) {
       throw new BadRequestException('Standard-rated products require an explicitly configured tax rate greater than 0 and no more than 100%.');
     }
+    await this.validateConfiguredTaxRate(membership.companyId, resultingTreatment, resultingRate);
 
     if (dto.stockQuantity !== undefined && Number(dto.stockQuantity) !== Number(existing.stock_quantity)) {
       throw new BadRequestException('Use Inventory > Stock Movements to change stock quantities so the stock ledger remains accurate.');
