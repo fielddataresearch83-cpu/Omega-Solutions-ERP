@@ -9,6 +9,7 @@ type Mock=ReturnType<typeof vi.fn>;
 describe('ManufacturingService',()=>{
  it('filters production order listings to the assigned branch',async()=>{
   const branchUser={...user,branchId:'branch-1'};
+  memberships.getMembershipForCompany.mockResolvedValueOnce({companyId:'company-active',branchId:'branch-1',role:'staff'});
   db.query.mockResolvedValue({rows:[],rowCount:0});
   await service.listOrders(branchUser);
   expect(db.query).toHaveBeenCalledWith(expect.stringContaining('w.branch_id=$2'),['company-active','branch-1']);
@@ -23,6 +24,7 @@ describe('ManufacturingService',()=>{
 
  it('rejects starting an order outside the assigned branch before any stock reservation',async()=>{
   const branchUser={...user,branchId:'branch-1'};
+  memberships.getMembershipForCompany.mockResolvedValueOnce({companyId:'company-active',branchId:'branch-1',role:'staff'});
   const client={query:vi.fn().mockResolvedValue({rows:[],rowCount:0})};
   db.transaction.mockImplementation(async(callback:(client:unknown)=>Promise<unknown>)=>callback(client));
   await expect(service.startOrder(branchUser,'order-other-branch')).rejects.toThrow('Production order not found.');
