@@ -62,7 +62,6 @@ export class SupplierBillsService {
     if(billDate && dueDate && dueDate < billDate) {
       throw new BadRequestException('Supplier bill due date cannot be earlier than its bill date.');
     }
-    await this.accounting.ensureDefaults(companyId);
     let id: string;
     try {
     id=await this.db.transaction(async client=>{
@@ -111,6 +110,7 @@ export class SupplierBillsService {
         lines.push({description:item.description.trim(),qty:item.quantity,cost:item.unitCost,rate:taxConfig.rate,treatment:taxConfig.treatment,sub,tax,total:sub+tax,poItemId:item.purchaseOrderItemId??null,receiptValue:Math.round(item.quantity*receiptUnitCost*100)/100});
       }
       if(subtotal+taxAmount<=0)throw new BadRequestException('Supplier bill total must be greater than zero to post to the ledger.');
+      await this.accounting.ensureDefaults(companyId);
       const inserted=await client.query<{id:string}>(`INSERT INTO supplier_bills(company_id,supplier_id,purchase_order_id,bill_number,supplier_invoice_number,bill_date,due_date,status,subtotal,tax_amount,total,notes,created_by)
         VALUES($1,$2,$3,$4,$5,COALESCE($6::date,CURRENT_DATE),$7::date,'open',$8,$9,$10,$11,$12) RETURNING id`,
         [companyId,dto.supplierId,dto.purchaseOrderId??null,number,dto.supplierInvoiceNumber??null,dto.billDate??null,dto.dueDate??null,subtotal,taxAmount,subtotal+taxAmount,dto.notes??null,user.userId]);
@@ -143,13 +143,13 @@ export class SupplierBillsService {
   }
   async recordPayment(user:AuthenticatedUser,id:string,dto:RecordSupplierBillPaymentDto) {
     const m=await this.companyFor(user);this.assertCompanyWide(m);
-    await this.accounting.ensureDefaults(m.companyId);
     await this.db.transaction(async client=>{
       const res=await client.query<{total:string|number;paid_amount:string|number;status:string}>('SELECT total,paid_amount,status FROM supplier_bills WHERE id=$1 AND company_id=$2 FOR UPDATE',[id,m.companyId]);
       const bill=res.rows[0];if(!bill)throw new NotFoundException('Supplier bill not found.');
       if(bill.status==='void')throw new BadRequestException('A void bill cannot receive payments.');
       const balance=Number(bill.total)-Number(bill.paid_amount);
       if(dto.amount>balance+0.000001)throw new BadRequestException('Payment exceeds the outstanding bill balance.');
+      await this.accounting.ensureDefaults(m.companyId);
       const payment=await client.query<{id:string}>(`INSERT INTO supplier_bill_payments(company_id,supplier_bill_id,amount,payment_date,method,reference,notes,created_by)
        VALUES($1,$2,$3,COALESCE($4::date,CURRENT_DATE),$5,$6,$7,$8) RETURNING id`,[m.companyId,id,dto.amount,dto.paymentDate??null,dto.method,dto.reference??null,dto.notes??null,user.userId]);
       const cashAccount=dto.method==='cash'?'cash':dto.method==='mpesa'?'mpesa':'bank';
