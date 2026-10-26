@@ -78,7 +78,7 @@ export function PricingPlans({
       if (currentIndex >= 0 && planIndex < currentIndex) return "Request downgrade"
       return "Request plan"
     }
-    return "Get Started"
+    return plan.customPricing ? "Request a quote" : "Get Started"
   }
 
   const getButtonVariant = (plan: PricingPlan) => {
@@ -136,7 +136,13 @@ export function PricingPlans({
               size="lg"
               variant={getButtonVariant(tier)}
               disabled={isButtonDisabled(tier)}
-              onClick={() => onPlanSelect?.(tier.id)}
+              onClick={() => {
+                if (mode === "pricing" && tier.customPricing) {
+                  window.location.assign("/contact")
+                  return
+                }
+                onPlanSelect?.(tier.id)
+              }}
               aria-label={`${getButtonText(tier)} - ${tier.name} plan`}
             >
               {getButtonText(tier)}
