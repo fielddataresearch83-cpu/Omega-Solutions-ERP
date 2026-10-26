@@ -68,6 +68,7 @@ describe('CreditNotesService', () => {
     expect(client.query).toHaveBeenCalledTimes(4);
     expect(client.query.mock.calls[0][1]).toEqual(['invoice-a', 'company-a']);
     expect(client.query.mock.calls[1][1]).toEqual(['company-a', 'invoice-a', ['invoice-line-a']]);
+    expect(accounting.ensureDefaults).not.toHaveBeenCalled();
   });
 
   it('rejects duplicate references to the same original invoice line in one credit note', async () => {
