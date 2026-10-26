@@ -35,6 +35,8 @@ export function createProduct(data: {
   costPrice?: number
   stockQuantity?: number
   reorderLevel?: number
+  taxTreatment?: 'legacy' | 'standard' | 'zero_rated' | 'exempt' | 'out_of_scope'
+  taxRate?: number
   isService?: boolean
   isActive?: boolean
 }) {
