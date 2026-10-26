@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
@@ -79,6 +79,28 @@ describe('RequisitionsService approval submission', () => {
     });
 
     await expect(service.submit(user, 'req-1')).rejects.toThrow(BadRequestException);
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO approval_requests'))).toBe(false);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('prevents branch-bound members from creating requisitions for another branch', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-a', role: 'staff' });
+    const branchUser = { ...user, branchId: 'branch-a' };
+    await expect(service.create(branchUser, {
+      branchId: 'branch-b', title: 'Office supplies', items: [{ productId: 'product-1', quantity: 1 }],
+    } as any)).rejects.toThrow(ForbiddenException);
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('prevents branch-bound members from submitting another branch requisition', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-a', role: 'staff' });
+    const branchUser = { ...user, branchId: 'branch-a' };
+    client.query.mockResolvedValueOnce({
+      rows: [{ id: 'req-2', company_id: 'company-1', branch_id: 'branch-b', requester_user_id: branchUser.userId, status: 'draft' }],
+      rowCount: 1,
+    });
+    await expect(service.submit(branchUser, 'req-2')).rejects.toThrow('Requisition not found in this branch.');
     expect(client.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO approval_requests'))).toBe(false);
     expect(audit.log).not.toHaveBeenCalled();
   });
