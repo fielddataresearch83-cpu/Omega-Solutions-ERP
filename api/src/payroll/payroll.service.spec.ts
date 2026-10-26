@@ -323,4 +323,16 @@ describe('PayrollService tenant and workflow guards',()=>{
   expect(query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO employee_pay_settings'))).toBe(false);
  });
 
+ it('blocks company-wide payroll access for branch-bound memberships',async()=>{
+  const db={query:vi.fn(),transaction:vi.fn()} as never;
+  const memberships={getMembershipForCompany:vi.fn().mockResolvedValue({companyId:'company-a',branchId:'branch-a',role:'staff'})} as never;
+  const service=new PayrollService(db,memberships);
+  const user={userId:'user-a',email:'a@b.test',fullName:'A',companyId:'company-a',branchId:'branch-a',role:'staff',permissions:['payroll:read','payroll:write','payroll:approve']};
+  await expect(service.listRuns(user)).rejects.toThrow('Payroll runs and company statutory settings are company-wide');
+  await expect(service.getCompanyStatutorySettings(user)).rejects.toThrow('Payroll runs and company statutory settings are company-wide');
+  await expect(service.createRun(user,{periodStart:'2026-11-01',periodEnd:'2026-11-30'})).rejects.toThrow('Payroll runs and company statutory settings are company-wide');
+  await expect(service.exportAnnualTaxSummary(user,'2026')).rejects.toThrow('Payroll runs and company statutory settings are company-wide');
+  expect((db as {query:ReturnType<typeof vi.fn>}).query).not.toHaveBeenCalled();
+ });
+
 });
