@@ -6,6 +6,7 @@ export class CreateSupplierBillItemDto {
   @Type(() => Number) @IsNumber({ maxDecimalPlaces: 3 }) @Min(0.001) quantity!: number;
   @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) unitCost!: number;
   @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100) taxRate?: number;
+  @IsOptional() @IsIn(['legacy', 'standard', 'zero_rated', 'exempt', 'out_of_scope']) taxTreatment?: 'legacy' | 'standard' | 'zero_rated' | 'exempt' | 'out_of_scope';
   @IsOptional() @IsUUID() purchaseOrderItemId?: string;
 }
 export class CreateSupplierBillDto {
