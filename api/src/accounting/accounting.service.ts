@@ -132,7 +132,7 @@ export class AccountingService {
 
  async listJournals(user:AuthenticatedUser){
   const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
-  const {companyId}=membership;await this.ensureDefaults(companyId);
+  const {companyId}=membership;
   return (await this.db.query(`SELECT j.id,j.company_id,j.entry_number,j.entry_date,j.description,j.source_type,j.source_id,j.status,j.posted_at,j.created_at,
    COALESCE(SUM(l.debit),0)::numeric(14,2) AS total_debits,COALESCE(SUM(l.credit),0)::numeric(14,2) AS total_credits
    FROM journal_entries j LEFT JOIN journal_entry_lines l ON l.journal_entry_id=j.id AND l.company_id=j.company_id
