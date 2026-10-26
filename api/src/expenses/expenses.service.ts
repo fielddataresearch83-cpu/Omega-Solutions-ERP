@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -10,14 +10,15 @@ import type { CreateExpenseDto } from './dto/expense.dto.js';
 export class ExpensesService {
  constructor(private readonly db:DatabaseService,private readonly memberships:MembershipsService,private readonly audit:AuditService,private readonly accounting:AccountingService){}
  private companyFor(user:AuthenticatedUser){return user.companyId?this.memberships.getMembershipForCompany(user.userId,user.companyId):this.memberships.getMembership(user.userId);}
+ private assertCompanyWide(membership:{branchId?:string|null}){if(membership.branchId)throw new ForbiddenException('Expenses and their accounting entries are company-wide. A company-wide finance member must access them.');}
  async list(user:AuthenticatedUser){
-  const {companyId}=await this.companyFor(user);
+  const membership=await this.companyFor(user);this.assertCompanyWide(membership);const {companyId}=membership;
   return (await this.db.query(`SELECT e.id,e.company_id,e.expense_number,e.expense_date,e.description,e.category,e.amount,e.payment_method,e.reference,e.expense_account_id,a.code AS account_code,a.name AS account_name,e.journal_entry_id,e.created_at
    FROM expenses e JOIN chart_of_accounts a ON a.id=e.expense_account_id AND a.company_id=e.company_id
    WHERE e.company_id=$1 ORDER BY e.expense_date DESC,e.created_at DESC`,[companyId])).rows;
  }
  async create(user:AuthenticatedUser,dto:CreateExpenseDto){
-  const membership=await this.companyFor(user);const companyId=membership.companyId;
+  const membership=await this.companyFor(user);this.assertCompanyWide(membership);const companyId=membership.companyId;
   const amount=Math.round(dto.amount*100)/100;
   if(!Number.isFinite(amount)||amount<=0)throw new BadRequestException('Expense amount must be greater than zero.');
   await this.accounting.ensureDefaults(companyId);
