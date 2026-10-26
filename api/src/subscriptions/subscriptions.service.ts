@@ -199,7 +199,7 @@ export class SubscriptionsService {
 
   async requestPlanChange(companyId: string, userId: string, planCode: string, note?: string) {
     const normalizedCode = planCode.trim().toLowerCase();
-    if (!/^(starter|medium|professional|enterprise_custom|business|enterprise)$/.test(normalizedCode)) {
+    if (!/^(starter|medium|professional|enterprise_custom)$/.test(normalizedCode)) {
       throw new BadRequestException('Choose Starter, Medium, Professional, or Enterprise.');
     }
     const plan = await this.db.query<{ code: string }>(
