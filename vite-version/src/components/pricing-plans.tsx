@@ -138,7 +138,7 @@ export function PricingPlans({
               disabled={isButtonDisabled(tier)}
               onClick={() => {
                 if (mode === "pricing" && tier.customPricing) {
-                  window.location.assign("/contact")
+                  window.location.assign("/#contact")
                   return
                 }
                 onPlanSelect?.(tier.id)
