@@ -166,4 +166,37 @@ describe('CreditNotesService', () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'credit_note.create', companyId: 'company-a' }));
   });
 
+  it.each(['zero_rated', 'exempt'])('posts a balanced zero-tax journal for %s credits', async (treatment) => {
+    const lines: unknown[][] = [];
+    const client = {
+      query: vi.fn(async (sql: string, params: unknown[] = []) => {
+        if (sql.includes('INSERT INTO journal_entry_sequences')) return { rows: [{ next_number: 2 }], rowCount: 1 };
+        if (sql.includes('INSERT INTO journal_entries(')) return { rows: [{ id: 'journal-zero-tax' }], rowCount: 1 };
+        if (sql.includes('SELECT id FROM chart_of_accounts')) return { rows: [{ id: 'account-' + String(params[1]) }], rowCount: 1 };
+        if (sql.includes('INSERT INTO journal_entry_lines')) lines.push(params);
+        return { rows: [], rowCount: 1 };
+      }),
+    };
+    const service = new CreditNotesService(
+      {} as DatabaseService,
+      {} as MembershipsService,
+      {} as AuditService,
+      {} as AccountingService,
+    );
+    const posting = service as unknown as {
+      postJournal: (client: unknown, input: {
+        companyId: string; date: string; description: string; sourceId: string; userId: string;
+        subtotal: number; tax: number; total: number;
+      }) => Promise<void>;
+    };
+    await posting.postJournal(client, {
+      companyId: 'company-a', date: '2026-10-17', description: `Credit ${treatment}`,
+      sourceId: 'credit-zero-tax', userId: 'user-a', subtotal: 100, tax: 0, total: 100,
+    });
+    expect(lines).toHaveLength(2);
+    expect(lines.reduce((sum, line) => sum + Number(line[4]), 0)).toBe(100);
+    expect(lines.reduce((sum, line) => sum + Number(line[5]), 0)).toBe(100);
+    expect(lines.every(line => Number(line[4]) >= 0 && Number(line[5]) >= 0)).toBe(true);
+  });
+
 });
