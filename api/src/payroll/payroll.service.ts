@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
@@ -21,6 +21,7 @@ const payFields=['monthlyBasicSalary','monthlyTaxableAllowances','monthlyTaxable
 export class PayrollService {
  constructor(private readonly db:DatabaseService,private readonly memberships:MembershipsService){}
  private membershipFor(user:AuthenticatedUser){return user.companyId?this.memberships.getMembershipForCompany(user.userId,user.companyId):this.memberships.getMembership(user.userId);}
+ private assertCompanyWidePayroll(membership:{branchId?:string|null}){if(membership.branchId)throw new ForbiddenException('Payroll runs and company statutory settings are company-wide. A company-wide payroll administrator must perform this action.');}
  private assertRunTotalsReconcile(run:Record<string,unknown>,items:Array<Record<string,unknown>>){
   const sum=(field:string)=>items.reduce((total,item)=>total+Number(item[field]??0),0);
   const same=(actual:unknown,expected:number)=>Number.isFinite(Number(actual))&&Number.isFinite(expected)&&Math.abs(Number(actual)-expected)<=0.01;
@@ -44,7 +45,8 @@ export class PayrollService {
   if(!reconciles)throw new ConflictException('Payroll run totals do not reconcile with its saved employee items. Approval/posting is blocked; review and correct the run through an audited correction process first. No journal was created.');
  }
  async getCompanyStatutorySettings(user:AuthenticatedUser,effectiveFromValue?:string){
-  const {companyId}=await this.membershipFor(user);
+  const membership=await this.membershipFor(user);this.assertCompanyWidePayroll(membership);
+  const {companyId}=membership;
   const effectiveFrom=effectiveFromValue??new Date().toISOString().slice(0,10);
   if(!validDate(effectiveFrom))throw new BadRequestException('effectiveFrom must be a valid YYYY-MM-DD date.');
   const result=await this.db.query(`SELECT id,company_id,effective_from,nssf_method,nssf_employee_flat,nssf_employer_flat,nssf_employee_rate,nssf_employer_rate,nssf_pensionable_pay_cap,housing_levy_enabled,housing_levy_employee_rate,housing_levy_employer_rate,created_at
@@ -52,7 +54,8 @@ export class PayrollService {
   return result.rows[0]??{company_id:companyId,effective_from:effectiveFrom,nssf_method:'YEAR4',nssf_employee_flat:'200.00',nssf_employer_flat:'200.00',nssf_employee_rate:'0.060000',nssf_employer_rate:'0.060000',nssf_pensionable_pay_cap:'108000.00',housing_levy_enabled:null,housing_levy_employee_rate:'0.015000',housing_levy_employer_rate:'0.015000',configurationSource:'default'};
  }
  async setCompanyStatutorySettings(user:AuthenticatedUser,dto:Record<string,unknown>){
-  const {companyId}=await this.membershipFor(user);
+  const membership=await this.membershipFor(user);this.assertCompanyWidePayroll(membership);
+  const {companyId}=membership;
   const effectiveFrom=dto.effectiveFrom??new Date().toISOString().slice(0,10);
   if(typeof effectiveFrom!=='string'||!validDate(effectiveFrom))throw new BadRequestException('effectiveFrom must be a valid YYYY-MM-DD date.');
   const nssfMethod=String(dto.nssfMethod??'YEAR4') as NssfMethod;
@@ -105,12 +108,14 @@ export class PayrollService {
   return result.rows[0];
  }
  async listRuns(user:AuthenticatedUser){
-  const {companyId}=await this.membershipFor(user);
+  const membership=await this.membershipFor(user);this.assertCompanyWidePayroll(membership);
+  const {companyId}=membership;
   return (await this.db.query(`SELECT id,company_id,period_start,period_end,status,employee_count,gross_total,employee_deductions_total,net_pay_total,employer_cost_total,journal_entry_id,created_at,approved_at,posted_at
    FROM payroll_runs WHERE company_id=$1 ORDER BY period_start DESC,created_at DESC`,[companyId])).rows;
  }
  async getRun(user:AuthenticatedUser,id:string){
-  const {companyId}=await this.membershipFor(user);
+  const membership=await this.membershipFor(user);this.assertCompanyWidePayroll(membership);
+  const {companyId}=membership;
   const run=await this.db.query(`SELECT id,company_id,period_start,period_end,status,employee_count,gross_total,employee_deductions_total,net_pay_total,employer_cost_total,journal_entry_id,created_at,approved_at,posted_at
    FROM payroll_runs WHERE id=$1 AND company_id=$2`,[id,companyId]);
   if(!run.rows.length)throw new NotFoundException('Payroll run not found in this company.');
@@ -119,7 +124,7 @@ export class PayrollService {
   return {...run.rows[0],items:items.rows};
  }
  async createRun(user:AuthenticatedUser,dto:{periodStart:string;periodEnd:string}){
-  const membership=await this.membershipFor(user);
+  const membership=await this.membershipFor(user);this.assertCompanyWidePayroll(membership);
   if(!validDate(dto.periodStart)||!validDate(dto.periodEnd)||dto.periodEnd<dto.periodStart)throw new BadRequestException('Provide a valid periodStart and periodEnd (YYYY-MM-DD), with the end on or after the start.');
   const periodYear=Number(dto.periodStart.slice(0,4)),periodMonth=Number(dto.periodStart.slice(5,7));
   const expectedStart=`${dto.periodStart.slice(0,7)}-01`;
@@ -196,7 +201,8 @@ export class PayrollService {
   */
  async exportAnnualTaxSummary(user:AuthenticatedUser,yearValue:string){
   if(!/^20\d{2}$/.test(yearValue)||Number(yearValue)<2026||Number(yearValue)>2100)throw new BadRequestException('year must be a four-digit year from 2026 to 2100. Earlier years require verified historical statutory rules.');
-  const {companyId}=await this.membershipFor(user);
+  const membership=await this.membershipFor(user);this.assertCompanyWidePayroll(membership);
+  const {companyId}=membership;
   const result=await this.db.query(`SELECT i.employee_id,i.employee_number,i.employee_name,
     SUM(i.gross_cash_pay)::numeric(14,2) AS gross_cash_pay,
     SUM(i.taxable_benefits)::numeric(14,2) AS taxable_benefits,
@@ -251,7 +257,7 @@ export class PayrollService {
   return {filename,contentType:'text/csv; charset=utf-8',disclaimer:'Internal payroll support schedule generated from the saved payroll calculation snapshot. Not an official authority filing, not proof of submission or payment, and may require authority-specific identifiers, templates, and review before use.',csv};
  }
  async approveRun(user:AuthenticatedUser,id:string){
-  const membership=await this.membershipFor(user);
+  const membership=await this.membershipFor(user);this.assertCompanyWidePayroll(membership);
   return this.db.transaction(async client=>{
    const run=await client.query(`SELECT * FROM payroll_runs WHERE id=$1 AND company_id=$2 FOR UPDATE`,[id,membership.companyId]);
    if(!run.rows.length)throw new NotFoundException('Payroll run not found in this company.');
@@ -265,7 +271,7 @@ export class PayrollService {
   });
  }
  async postRun(user:AuthenticatedUser,id:string){
-  const membership=await this.membershipFor(user);
+  const membership=await this.membershipFor(user);this.assertCompanyWidePayroll(membership);
   return this.db.transaction(async client=>{
    const runResult=await client.query('SELECT * FROM payroll_runs WHERE id=$1 AND company_id=$2 FOR UPDATE',[id,membership.companyId]);
    if(!runResult.rows.length)throw new NotFoundException('Payroll run not found in this company.');
