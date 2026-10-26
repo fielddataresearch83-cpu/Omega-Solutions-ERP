@@ -47,8 +47,14 @@ export class SearchService {
       `SELECT i.id, i.invoice_number AS title, 'Invoice' AS type, '/invoices' AS url,
               COALESCE(c.name, '') || ' · ' || i.status AS subtitle
        FROM invoices i LEFT JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id
-       WHERE i.company_id=$1 AND (i.invoice_number ILIKE $2 OR c.name ILIKE $2)
-       ORDER BY i.created_at DESC LIMIT 5`, [user.companyId, pattern]);
+       WHERE i.company_id=$1
+         AND ($3::uuid IS NULL OR EXISTS (
+           SELECT 1 FROM pos_sales ps
+           JOIN pos_registers pr ON pr.id=ps.register_id AND pr.company_id=ps.company_id
+           WHERE ps.company_id=i.company_id AND ps.invoice_id=i.id AND pr.branch_id=$3::uuid
+         ))
+         AND (i.invoice_number ILIKE $2 OR c.name ILIKE $2)
+       ORDER BY i.created_at DESC LIMIT 5`, [user.companyId, pattern, user.branchId ?? null]);
     add(permissions.has('employees:read'),
       `SELECT id, concat(first_name, ' ', last_name) AS title, 'Employee' AS type, '/employees' AS url,
               COALESCE(employee_number, work_email, '') AS subtitle
