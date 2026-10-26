@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { readCompanyTaxPolicy, resolveTaxTreatment } from '../tax/tax-policy.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import type { CreateQuotationDto } from './dto/quotation.dto.js';
 import type { QuotationItemRow, QuotationRow, QuotationStatus } from './quotation.types.js';
@@ -99,6 +100,8 @@ export class QuotationsService {
         [membership.companyId, year],
       );
       const number = `QUO-${year}-${String(seq.rows[0].next_number).padStart(5, '0')}`;
+      const companySettings = await client.query<{ settings: unknown }>('SELECT settings FROM companies WHERE id = $1', [membership.companyId]);
+      const taxPolicy = readCompanyTaxPolicy(companySettings.rows[0]?.settings);
       const resolved: Array<{ productId: string; name: string; sku: string | null; quantity: number; priceCents: number; taxRate: number; taxTreatment: string; subtotalCents: number; taxCents: number }> = [];
       let subtotalCents = 0;
       let taxCents = 0;
@@ -114,15 +117,12 @@ export class QuotationsService {
         const quantityMilli = Math.round(item.quantity * 1000);
         const quantity = quantityMilli / 1000;
         const lineSubtotalCents = Math.round(priceCents * quantityMilli / 1000);
-        const taxRate = product.tax_treatment === 'legacy'
-          ? (item.taxRate ?? 0)
-          : product.tax_treatment === 'standard'
-            ? Number(product.tax_rate)
-            : 0;
+        const tax = resolveTaxTreatment({ policy: taxPolicy, productTreatment: product.tax_treatment as 'legacy' | 'standard' | 'zero_rated' | 'exempt' | 'out_of_scope', productRate: Number(product.tax_rate), requestedRate: item.taxRate });
+        const taxRate = tax.rate;
         const lineTaxCents = Math.round(lineSubtotalCents * taxRate / 100);
         subtotalCents += lineSubtotalCents;
         taxCents += lineTaxCents;
-        resolved.push({ productId: product.id, name: product.name, sku: product.sku, quantity, priceCents, taxRate, taxTreatment: product.tax_treatment, subtotalCents: lineSubtotalCents, taxCents: lineTaxCents });
+        resolved.push({ productId: product.id, name: product.name, sku: product.sku, quantity, priceCents, taxRate, taxTreatment: tax.treatment, subtotalCents: lineSubtotalCents, taxCents: lineTaxCents });
       }
 
       const inserted = await client.query<{ id: string }>(
