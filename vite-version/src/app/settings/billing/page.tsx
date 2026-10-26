@@ -14,6 +14,7 @@ type Plan = {
   name: string
   description: string
   monthlyPriceKes: number
+  isCustomPricing?: boolean
   currency: string
   limits: { users: number; branches: number }
   modules: { code: string; name: string }[]
@@ -59,6 +60,14 @@ export default function BillingSettings() {
     setError(null)
     setNotice(null)
     try {
+      if (planCode === "enterprise_custom") {
+        const result = await api.post<{ message: string }>(
+          "/subscriptions/change-requests",
+          { planCode, note: "Enterprise custom pricing quote requested." },
+        )
+        setNotice(result.message)
+        return
+      }
       if (!current?.subscription) {
         const checkout = await api.post<{
           authorizationUrl: string
@@ -143,13 +152,16 @@ export default function BillingSettings() {
     id: plan.code,
     name: plan.name,
     description: plan.description,
-    price: `KSh ${plan.monthlyPriceKes.toLocaleString("en-KE")}`,
-    frequency: "/month",
-    popular: plan.code === "business",
+    price: plan.isCustomPricing ? "Custom quote" : `KSh ${plan.monthlyPriceKes.toLocaleString("en-KE")}`,
+    frequency: plan.isCustomPricing ? "" : "/month",
+    customPricing: plan.isCustomPricing,
+    popular: plan.code === "medium",
     features: [
       ...plan.modules.map((module) => moduleBenefits[module.code] ?? module.name),
-      `${plan.limits.users} users`,
-      `${plan.limits.branches} branch${plan.limits.branches === 1 ? "" : "es"}`,
+      ...(plan.isCustomPricing ? ["Tailored user and branch limits", "Custom integrations and onboarding", "Agreed support and service scope"] : [
+        `${plan.limits.users} users`,
+        `${plan.limits.branches} branch${plan.limits.branches === 1 ? "" : "es"}`,
+      ]),
     ],
   }))
 
