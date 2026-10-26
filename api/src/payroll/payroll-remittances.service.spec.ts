@@ -204,4 +204,13 @@ describe('PayrollRemittancesService', () => {
     expect(client.query).toHaveBeenCalledTimes(3);
   });
 
+  it('blocks company-wide remittance access for branch-bound memberships', async () => {
+    const db = { query: vi.fn(), transaction: vi.fn() } as never;
+    const memberships = { getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-a', branchId: 'branch-a', role: 'staff' }) } as never;
+    const service = new PayrollRemittancesService(db, memberships);
+    const branchUser = { ...user, companyId: 'company-a', branchId: 'branch-a', role: 'staff' };
+    await expect(service.list(branchUser)).rejects.toThrow('Payroll remittances are company-wide');
+    expect((db as { query: ReturnType<typeof vi.fn> }).query).not.toHaveBeenCalled();
+  });
+
 });
