@@ -33,6 +33,7 @@ import {
   ShieldCheck,
   CreditCard,
   FileSignature,
+  Layers3,
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { NavMain } from "@/components/nav-main"
@@ -138,6 +139,7 @@ const navGroups: NavGroup[] = [
       { title: "Users & Roles", url: "/users-roles", icon: UserCog },
       { title: "Audit Logs", url: "/audit-logs", icon: ScrollText },
       { title: "Settings", url: "/settings", icon: Settings },
+      { title: "Modules", url: "/settings/modules", icon: Layers3 },
       { title: "Plans & Billing", url: "/settings/billing", icon: CreditCard },
     ],
   },
