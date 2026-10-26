@@ -77,13 +77,13 @@ export class ManufacturingService {
   return this.getBom(user,createdId);
  }
  async listOrders(user:AuthenticatedUser){
-  const {companyId}=await this.companyFor(user);
+  const {companyId,branchId}=await this.companyFor(user);
   return (await this.db.query(`SELECT o.id,o.company_id,o.order_number,o.bom_id,b.code AS bom_code,b.name AS bom_name,b.product_id,p.name AS product_name,o.warehouse_id,w.name AS warehouse_name,o.planned_quantity,o.produced_quantity,o.status,o.planned_start_date,o.planned_end_date,o.actual_start_at,o.completed_at,o.notes,o.created_at,o.updated_at,COALESCE((SELECT SUM(m.required_quantity*m.unit_cost) FROM manufacturing_order_materials m WHERE m.company_id=o.company_id AND m.production_order_id=o.id),0)::numeric AS estimated_material_cost,
    COALESCE((SELECT SUM(c.amount) FROM manufacturing_order_costs c WHERE c.company_id=o.company_id AND c.production_order_id=o.id AND c.cost_type='labour'),0)::numeric AS labour_cost,
    COALESCE((SELECT SUM(c.amount) FROM manufacturing_order_costs c WHERE c.company_id=o.company_id AND c.production_order_id=o.id AND c.cost_type='overhead'),0)::numeric AS overhead_cost
    FROM manufacturing_production_orders o JOIN manufacturing_boms b ON b.id=o.bom_id AND b.company_id=o.company_id
    JOIN products p ON p.id=b.product_id AND p.company_id=o.company_id JOIN warehouses w ON w.id=o.warehouse_id AND w.company_id=o.company_id
-   WHERE o.company_id=$1 ORDER BY o.created_at DESC LIMIT 200`,[companyId])).rows;
+   WHERE o.company_id=$1 AND ($2::uuid IS NULL OR w.branch_id=$2) ORDER BY o.created_at DESC LIMIT 200`,[companyId,branchId])).rows;
  }
  async createOrder(user:AuthenticatedUser,dto:CreateProductionOrderDto){
   const {companyId,branchId}=await this.companyFor(user);
@@ -91,7 +91,7 @@ export class ManufacturingService {
   const orderId=await this.db.transaction(async client=>{
    const bom=await client.query<{id:string;output_quantity:string|number;product_id:string}>(`SELECT id,output_quantity,product_id FROM manufacturing_boms WHERE company_id=$1 AND id=$2 AND status='active' FOR SHARE`,[companyId,dto.bomId]);
    if(!bom.rows[0])throw new NotFoundException('Active bill of materials not found.');
-   const warehouse=await client.query(`SELECT id FROM warehouses WHERE company_id=$1 AND id=$2 AND is_active=true FOR SHARE`,[companyId,dto.warehouseId]);
+   const warehouse=await client.query(`SELECT id FROM warehouses WHERE company_id=$1 AND id=$2 AND is_active=true AND ($3::uuid IS NULL OR branch_id=$3) FOR SHARE`,[companyId,dto.warehouseId,branchId]);
    if(!warehouse.rows[0])throw new NotFoundException('Active warehouse not found in this company.');
    const nowYear=new Date().getFullYear();
    const seq=await client.query<{next_number:number}>(`INSERT INTO manufacturing_order_sequences(company_id,entry_year,next_number) VALUES($1,$2,1)
@@ -115,7 +115,7 @@ export class ManufacturingService {
  async startOrder(user:AuthenticatedUser,id:string){
   const {companyId,branchId}=await this.companyFor(user);
   const result=await this.db.transaction(async client=>{
-   const order=await client.query<{id:string;status:string;warehouse_id:string;planned_quantity:string|number;bom_id:string}>(`SELECT id,status,warehouse_id,planned_quantity,bom_id FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2 FOR UPDATE`,[companyId,id]);
+   const order=await client.query<{id:string;status:string;warehouse_id:string;planned_quantity:string|number;bom_id:string}>(`SELECT id,status,warehouse_id,planned_quantity,bom_id FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2 AND EXISTS (SELECT 1 FROM warehouses w WHERE w.company_id=manufacturing_production_orders.company_id AND w.id=manufacturing_production_orders.warehouse_id AND ($3::uuid IS NULL OR w.branch_id=$3)) FOR UPDATE`,[companyId,id,branchId]);
    if(!order.rows[0])throw new NotFoundException('Production order not found.');
    if(order.rows[0].status!=='planned')throw new ConflictException('Only planned production orders can be started.');
    const materials=await client.query<{material_product_id:string;required_quantity:string|number;reserved_quantity:string|number}>(`SELECT material_product_id,required_quantity,reserved_quantity FROM manufacturing_order_materials WHERE company_id=$1 AND production_order_id=$2 ORDER BY material_product_id FOR UPDATE`,[companyId,id]);
@@ -134,7 +134,7 @@ export class ManufacturingService {
  }
  async listOrderCosts(user:AuthenticatedUser,id:string){
   const {companyId}=await this.companyFor(user);
-  const order=await this.db.query(`SELECT id FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2`,[companyId,id]);
+  const order=await this.db.query(`SELECT id FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2 AND EXISTS (SELECT 1 FROM warehouses w WHERE w.company_id=manufacturing_production_orders.company_id AND w.id=manufacturing_production_orders.warehouse_id AND ($3::uuid IS NULL OR w.branch_id=$3))`,[companyId,id,branchId]);
   if(!order.rows[0])throw new NotFoundException('Production order not found.');
   return (await this.db.query(`SELECT c.id,c.production_order_id,c.cost_type,c.description,c.amount,c.incurred_on,c.source_account_id,a.code AS source_account_code,a.name AS source_account_name,c.journal_entry_id,c.created_at FROM manufacturing_order_costs c JOIN chart_of_accounts a ON a.id=c.source_account_id AND a.company_id=c.company_id WHERE c.company_id=$1 AND c.production_order_id=$2 ORDER BY c.incurred_on DESC,c.created_at DESC`,[companyId,id])).rows;
  }
@@ -142,7 +142,7 @@ export class ManufacturingService {
   const {companyId,branchId}=await this.companyFor(user); const description=dto.description.trim();
   if(!description)throw new BadRequestException('A cost description is required.');
   const result=await this.db.transaction(async client=>{
-   const order=await client.query<{id:string;status:string}>(`SELECT id,status FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2 FOR UPDATE`,[companyId,id]);
+   const order=await client.query<{id:string;status:string}>(`SELECT id,status FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2 AND EXISTS (SELECT 1 FROM warehouses w WHERE w.company_id=manufacturing_production_orders.company_id AND w.id=manufacturing_production_orders.warehouse_id AND ($3::uuid IS NULL OR w.branch_id=$3)) FOR UPDATE`,[companyId,id,branchId]);
    if(!order.rows[0])throw new NotFoundException('Production order not found.');
    if(order.rows[0].status!=='in_progress')throw new ConflictException('Labour and overhead costs can only be recorded against an in-progress production order.');
    const account=await client.query<{id:string;account_type:string}>(`SELECT id,account_type FROM chart_of_accounts WHERE company_id=$1 AND id=$2 AND is_active=true FOR SHARE`,[companyId,dto.sourceAccountId]);
@@ -159,7 +159,7 @@ export class ManufacturingService {
  async completeOrder(user:AuthenticatedUser,id:string){
   const {companyId,branchId}=await this.companyFor(user);
   const result=await this.db.transaction(async client=>{
-   const order=await client.query<{id:string;status:string;warehouse_id:string;planned_quantity:string|number;produced_quantity:string|number;bom_id:string;product_id:string;product_cost:string|number}>(`SELECT o.id,o.status,o.warehouse_id,o.planned_quantity,o.produced_quantity,o.bom_id,b.product_id,p.cost_price AS product_cost FROM manufacturing_production_orders o JOIN manufacturing_boms b ON b.id=o.bom_id AND b.company_id=o.company_id JOIN products p ON p.id=b.product_id AND p.company_id=o.company_id WHERE o.company_id=$1 AND o.id=$2 FOR UPDATE OF o`,[companyId,id]);
+   const order=await client.query<{id:string;status:string;warehouse_id:string;planned_quantity:string|number;produced_quantity:string|number;bom_id:string;product_id:string;product_cost:string|number}>(`SELECT o.id,o.status,o.warehouse_id,o.planned_quantity,o.produced_quantity,o.bom_id,b.product_id,p.cost_price AS product_cost FROM manufacturing_production_orders o JOIN manufacturing_boms b ON b.id=o.bom_id AND b.company_id=o.company_id JOIN products p ON p.id=b.product_id AND p.company_id=o.company_id WHERE o.company_id=$1 AND o.id=$2 AND EXISTS (SELECT 1 FROM warehouses w WHERE w.company_id=o.company_id AND w.id=o.warehouse_id AND ($3::uuid IS NULL OR w.branch_id=$3)) FOR UPDATE OF o`,[companyId,id,branchId]);
    if(!order.rows[0])throw new NotFoundException('Production order not found.');
    if(order.rows[0].status!=='in_progress')throw new ConflictException('Only in-progress production orders can be completed.');
    const materials=await client.query<{material_product_id:string;required_quantity:string|number;reserved_quantity:string|number;consumed_quantity:string|number;unit_cost:string|number}>(`SELECT material_product_id,required_quantity,reserved_quantity,consumed_quantity,unit_cost FROM manufacturing_order_materials WHERE company_id=$1 AND production_order_id=$2 ORDER BY material_product_id FOR UPDATE`,[companyId,id]);
@@ -203,7 +203,7 @@ export class ManufacturingService {
   const {companyId,branchId}=await this.companyFor(user);
   let previousStatus='planned';
   const result=await this.db.transaction(async client=>{
-   const order=await client.query<{id:string;status:string;warehouse_id:string}>(`SELECT id,status,warehouse_id FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2 FOR UPDATE`,[companyId,id]);
+   const order=await client.query<{id:string;status:string;warehouse_id:string}>(`SELECT id,status,warehouse_id FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2 AND EXISTS (SELECT 1 FROM warehouses w WHERE w.company_id=manufacturing_production_orders.company_id AND w.id=manufacturing_production_orders.warehouse_id AND ($3::uuid IS NULL OR w.branch_id=$3)) FOR UPDATE`,[companyId,id,branchId]);
    if(!order.rows[0])throw new NotFoundException('Production order not found.');
    if(order.rows[0].status!=='planned'&&order.rows[0].status!=='in_progress')throw new ConflictException('Only planned or in-progress orders can be cancelled.');
    if(order.rows[0].status==='in_progress'){
