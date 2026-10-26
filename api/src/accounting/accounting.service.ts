@@ -84,20 +84,23 @@ export class AccountingService {
  async payablesReconciliation(user:AuthenticatedUser){
   const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
   const {companyId}=membership;await this.ensureDefaults(companyId);
-  const [control,subledger,aging]=await Promise.all([
-   this.db.query(`SELECT COALESCE(SUM(CASE WHEN a.normal_side='debit' THEN l.debit-l.credit ELSE l.credit-l.debit END) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS balance
+  const [control,subledger,aging]=await this.db.transaction(async client=>{
+   await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+   return Promise.all([
+   client.query(`SELECT COALESCE(SUM(CASE WHEN a.normal_side='debit' THEN l.debit-l.credit ELSE l.credit-l.debit END) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS balance
     FROM chart_of_accounts a LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
     LEFT JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id AND j.status='posted'
     WHERE a.company_id=$1 AND a.system_code='accounts_payable' GROUP BY a.id`,[companyId]),
-   this.db.query(`SELECT COALESCE(SUM(b.total-b.paid_amount),0)::numeric(14,2) AS balance
+   client.query(`SELECT COALESCE(SUM(b.total-b.paid_amount),0)::numeric(14,2) AS balance
     FROM supplier_bills b WHERE b.company_id=$1 AND b.status<>'void'`,[companyId]),
-   this.db.query(`SELECT
+   client.query(`SELECT
     COALESCE(SUM(CASE WHEN b.due_date IS NULL OR b.due_date>=CURRENT_DATE THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS current,
     COALESCE(SUM(CASE WHEN b.due_date<CURRENT_DATE AND b.due_date>=CURRENT_DATE-30 THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS days_1_to_30,
     COALESCE(SUM(CASE WHEN b.due_date<CURRENT_DATE-30 AND b.due_date>=CURRENT_DATE-60 THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS days_31_to_60,
     COALESCE(SUM(CASE WHEN b.due_date<CURRENT_DATE-60 THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS days_61_plus
     FROM supplier_bills b WHERE b.company_id=$1 AND b.status<>'void'`,[companyId])
-  ]);
+   ]);
+  });
   const controlBalance=Number(control.rows[0]?.balance??0),billBalance=Number(subledger.rows[0]?.balance??0);
   const variance=Math.round((controlBalance-billBalance)*100)/100;
   return {companyId,asOf:new Date().toISOString().slice(0,10),controlAccountBalance:controlBalance,supplierBillsBalance:billBalance,variance,reconciled:Math.abs(variance)<=0.01,ageing:{current:Number(aging.rows[0]?.current??0),days1to30:Number(aging.rows[0]?.days_1_to_30??0),days31to60:Number(aging.rows[0]?.days_31_to_60??0),days61plus:Number(aging.rows[0]?.days_61_plus??0)}};
@@ -106,20 +109,23 @@ export class AccountingService {
  async receivablesReconciliation(user:AuthenticatedUser){
   const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
   const {companyId}=membership;await this.ensureDefaults(companyId);
-  const [control,subledger,aging]=await Promise.all([
-   this.db.query(`SELECT COALESCE(SUM(CASE WHEN a.normal_side='debit' THEN l.debit-l.credit ELSE l.credit-l.debit END) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS balance
+  const [control,subledger,aging]=await this.db.transaction(async client=>{
+   await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
+   return Promise.all([
+   client.query(`SELECT COALESCE(SUM(CASE WHEN a.normal_side='debit' THEN l.debit-l.credit ELSE l.credit-l.debit END) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS balance
     FROM chart_of_accounts a LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
     LEFT JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id AND j.status='posted'
     WHERE a.company_id=$1 AND a.system_code='accounts_receivable' GROUP BY a.id`,[companyId]),
-   this.db.query(`SELECT COALESCE(SUM(GREATEST(i.total-i.amount_paid-i.credited_amount,0)),0)::numeric(14,2) AS balance
+   client.query(`SELECT COALESCE(SUM(GREATEST(i.total-i.amount_paid-i.credited_amount,0)),0)::numeric(14,2) AS balance
     FROM invoices i WHERE i.company_id=$1 AND i.status NOT IN ('draft','cancelled')`,[companyId]),
-   this.db.query(`SELECT
+   client.query(`SELECT
     COALESCE(SUM(CASE WHEN i.due_date>=CURRENT_DATE THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS current,
     COALESCE(SUM(CASE WHEN i.due_date<CURRENT_DATE AND i.due_date>=CURRENT_DATE-30 THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS days_1_to_30,
     COALESCE(SUM(CASE WHEN i.due_date<CURRENT_DATE-30 AND i.due_date>=CURRENT_DATE-60 THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS days_31_to_60,
     COALESCE(SUM(CASE WHEN i.due_date<CURRENT_DATE-60 THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS days_61_plus
     FROM invoices i WHERE i.company_id=$1 AND i.status NOT IN ('draft','cancelled')`,[companyId])
-  ]);
+   ]);
+  });
   const controlBalance=Number(control.rows[0]?.balance??0),invoiceBalance=Number(subledger.rows[0]?.balance??0);
   const variance=Math.round((controlBalance-invoiceBalance)*100)/100;
   return {companyId,asOf:new Date().toISOString().slice(0,10),controlAccountBalance:controlBalance,customerInvoicesBalance:invoiceBalance,variance,reconciled:Math.abs(variance)<=0.01,ageing:{current:Number(aging.rows[0]?.current??0),days1to30:Number(aging.rows[0]?.days_1_to_30??0),days31to60:Number(aging.rows[0]?.days_31_to_60??0),days61plus:Number(aging.rows[0]?.days_61_plus??0)}};
