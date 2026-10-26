@@ -126,6 +126,7 @@ export class InvoicesService {
 
   async getSalesTeamSummary(user: AuthenticatedUser) {
     const membership = await this.membershipFor(user);
+    if (membership.branchId) throw new ForbiddenException('Sales team summaries are company-wide. A company-wide sales administrator must access this report.');
     const result = await this.db.query<{
       user_id: string; full_name: string; role: string; invoice_count: number;
       sales_total: string | number; collected_total: string | number; outstanding_total: string | number;
