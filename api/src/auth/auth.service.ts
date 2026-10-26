@@ -132,14 +132,14 @@ export class AuthService {
       user = { id: userId, email, full_name: fullName, is_active: true };
       membership = { companyId: created.companyId, branchId: null, role: 'owner' };
     } else {
-      membership = await this.getUserMembership(user.id);
+      membership = await this.getUserMembership(user.id, dto.companyId);
       if (!membership.companyId) {
         throw new UnauthorizedException('This account has no active company membership. Contact your administrator.');
       }
     }
 
     const mfaStatus = await this.mfaService.status(user.id);
-    if (mfaStatus.enabled) return this.createMfaChallenge(user.id, user.email);
+    if (mfaStatus.enabled) return this.createMfaChallenge(user.id, user.email, membership.companyId);
 
     const payload: JwtPayload = {
       sub: user.id,
@@ -245,7 +245,7 @@ export class AuthService {
       };
     });
     const mfaStatus = await this.mfaService.status(joined.userId);
-    if (mfaStatus.enabled) return this.createMfaChallenge(joined.userId, joined.email);
+    if (mfaStatus.enabled) return this.createMfaChallenge(joined.userId, joined.email, joined.companyId);
     const payload: JwtPayload = {
       sub: joined.userId, email: joined.email, companyId: joined.companyId,
       branchId: joined.branchId, role: joined.role,
