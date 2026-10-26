@@ -44,13 +44,14 @@ export class SubscriptionsService {
       name: string;
       description: string;
       monthly_price_kes: number;
+      is_custom_pricing: boolean;
       max_users: number;
       max_branches: number;
       modules: string[];
     }>(
-      `SELECT code, name, description, monthly_price_kes, max_users, max_branches, modules
+      `SELECT code, name, description, monthly_price_kes, is_custom_pricing, max_users, max_branches, modules
        FROM subscription_plans WHERE is_active = TRUE
-       ORDER BY monthly_price_kes ASC`,
+       ORDER BY is_custom_pricing ASC, monthly_price_kes ASC`,
     );
 
     return result.rows.map((plan) => ({
@@ -58,6 +59,7 @@ export class SubscriptionsService {
       name: plan.name,
       description: plan.description,
       monthlyPriceKes: Number(plan.monthly_price_kes),
+      isCustomPricing: plan.is_custom_pricing,
       currency: 'KES',
       billingPeriod: 'monthly',
       limits: { users: plan.max_users, branches: plan.max_branches },
@@ -197,8 +199,8 @@ export class SubscriptionsService {
 
   async requestPlanChange(companyId: string, userId: string, planCode: string, note?: string) {
     const normalizedCode = planCode.trim().toLowerCase();
-    if (!/^(starter|business|enterprise)$/.test(normalizedCode)) {
-      throw new BadRequestException('Choose Starter, Business, or Enterprise.');
+    if (!/^(starter|medium|professional|enterprise_custom|business|enterprise)$/.test(normalizedCode)) {
+      throw new BadRequestException('Choose Starter, Medium, Professional, or Enterprise.');
     }
     const plan = await this.db.query<{ code: string }>(
       'SELECT code FROM subscription_plans WHERE code = $1 AND is_active = TRUE',
@@ -219,9 +221,12 @@ export class SubscriptionsService {
       [companyId, userId, normalizedCode, note?.trim().slice(0, 1000) || null],
     );
 
+    const isEnterpriseQuote = normalizedCode === 'enterprise_custom';
     return {
       request: result.rows[0],
-      message: 'Plan request submitted. Current access has not changed; activation requires billing confirmation.',
+      message: isEnterpriseQuote
+        ? 'Enterprise quote request submitted. Our team must agree the price, user and branch limits, and onboarding scope before activation.'
+        : 'Plan request submitted. Current access has not changed; activation requires billing confirmation.',
     };
   }
   async requestModuleChange(companyId: string, userId: string, moduleCode: string, note?: string) {
