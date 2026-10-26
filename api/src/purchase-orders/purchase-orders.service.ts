@@ -92,8 +92,11 @@ export class PurchaseOrdersService {
   }
   async receive(user:AuthenticatedUser,id:string,dto:ReceivePurchaseOrderDto) {
     const m=await this.companyFor(user); this.assertCompanyWideProcurement(m);
+    if (!dto.items?.length) throw new BadRequestException('Select at least one purchase order line to receive.');
+    if (new Set(dto.items.map(item => item.itemId)).size !== dto.items.length) {
+      throw new BadRequestException('Each purchase order line can only appear once per receipt.');
+    }
     const receiptId = randomUUID();
-    await this.accounting.ensureDefaults(m.companyId);
     await this.db.transaction(async client=>{
       const res=await client.query<{id:string;order_number:string;status:string}>('SELECT id,order_number,status FROM purchase_orders WHERE id=$1 AND company_id=$2 FOR UPDATE',[id,m.companyId]);
       const po=res.rows[0];if(!po)throw new NotFoundException('Purchase order not found.');
@@ -101,21 +104,45 @@ export class PurchaseOrdersService {
       const wh=await client.query('SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true',[dto.warehouseId,m.companyId]);
       if(!wh.rows[0])throw new NotFoundException('Active warehouse not found in this company.');
       let receiptValue = 0;
-      for(const r of dto.items){
-        const lineRes=await client.query<{id:string;product_id:string;quantity:string|number;received_quantity:string|number;unit_cost:string|number;product_name:string}>('SELECT id,product_id,quantity,received_quantity,unit_cost,product_name FROM purchase_order_items WHERE id=$1 AND purchase_order_id=$2 AND company_id=$3 FOR UPDATE',[r.itemId,id,m.companyId]);
-        const line=lineRes.rows[0];if(!line)throw new NotFoundException('Purchase order line not found.');
-        if(r.quantity>Number(line.quantity)-Number(line.received_quantity)+0.0000001)throw new BadRequestException(`Receipt exceeds remaining quantity for "${line.product_name}".`);
+      const planned: Array<{
+        item: (typeof dto.items)[number];
+        line: { id: string; product_id: string; quantity: string | number; received_quantity: string | number; unit_cost: string | number; product_name: string };
+      }> = [];
+      // Lock and validate every line before creating accounting defaults or changing stock.
+      for (const r of dto.items) {
+        const lineRes = await client.query<{
+          id: string; product_id: string; quantity: string | number; received_quantity: string | number;
+          unit_cost: string | number; product_name: string;
+        }>(
+          'SELECT id,product_id,quantity,received_quantity,unit_cost,product_name FROM purchase_order_items WHERE id=$1 AND purchase_order_id=$2 AND company_id=$3 FOR UPDATE',
+          [r.itemId, id, m.companyId],
+        );
+        const line = lineRes.rows[0];
+        if (!line) throw new NotFoundException('Purchase order line not found.');
+        if (!Number.isFinite(r.quantity) || r.quantity <= 0) throw new BadRequestException('Receipt quantities must be positive.');
+        if (r.quantity > Number(line.quantity) - Number(line.received_quantity) + 0.0000001) {
+          throw new BadRequestException(`Receipt exceeds remaining quantity for "${line.product_name}".`);
+        }
         receiptValue += Math.round(r.quantity * Number(line.unit_cost) * 100) / 100;
+        planned.push({ item: r, line });
+      }
+      await this.accounting.ensureDefaults(m.companyId);
+      for (const { item: r, line } of planned) {
         await client.query(`INSERT INTO inventory_stock_levels(company_id,warehouse_id,product_id,quantity,reserved_quantity,reorder_level,average_unit_cost)
         SELECT $1,$2,$3,$4,0,p.reorder_level,$5 FROM products p WHERE p.id=$3 AND p.company_id=$1
         ON CONFLICT(warehouse_id,product_id) DO UPDATE SET
           average_unit_cost=CASE WHEN inventory_stock_levels.quantity+EXCLUDED.quantity>0
             THEN ((inventory_stock_levels.quantity*inventory_stock_levels.average_unit_cost)+(EXCLUDED.quantity*EXCLUDED.average_unit_cost))/(inventory_stock_levels.quantity+EXCLUDED.quantity)
             ELSE EXCLUDED.average_unit_cost END,
-          quantity=inventory_stock_levels.quantity+EXCLUDED.quantity,updated_at=NOW()`,[m.companyId,dto.warehouseId,line.product_id,r.quantity,Number(line.unit_cost)]);
-        await client.query(`INSERT INTO inventory_stock_movements(company_id,product_id,warehouse_id,movement_type,quantity,unit_cost,reference,notes,created_by) VALUES($1,$2,$3,'receipt',$4,$5,$6,$7,$8)`,[m.companyId,line.product_id,dto.warehouseId,r.quantity,Number(line.unit_cost),dto.reference??po.order_number,dto.notes??`Received against purchase order ${po.order_number}`,user.userId]);
-        await client.query('UPDATE purchase_order_items SET received_quantity=received_quantity+$1 WHERE id=$2 AND company_id=$3',[r.quantity,line.id,m.companyId]);
-        await client.query('UPDATE products SET stock_quantity=(SELECT COALESCE(SUM(quantity),0) FROM inventory_stock_levels WHERE company_id=$1 AND product_id=$2),updated_at=NOW() WHERE id=$2 AND company_id=$1',[m.companyId,line.product_id]);
+          quantity=inventory_stock_levels.quantity+EXCLUDED.quantity,updated_at=NOW()`,
+          [m.companyId, dto.warehouseId, line.product_id, r.quantity, Number(line.unit_cost)]);
+        await client.query(`INSERT INTO inventory_stock_movements(company_id,product_id,warehouse_id,movement_type,quantity,unit_cost,reference,notes,created_by)
+          VALUES($1,$2,$3,'receipt',$4,$5,$6,$7,$8)`,
+          [m.companyId, line.product_id, dto.warehouseId, r.quantity, Number(line.unit_cost), dto.reference ?? po.order_number, dto.notes ?? `Received against purchase order ${po.order_number}`, user.userId]);
+        await client.query('UPDATE purchase_order_items SET received_quantity=received_quantity+$1 WHERE id=$2 AND company_id=$3',
+          [r.quantity, line.id, m.companyId]);
+        await client.query('UPDATE products SET stock_quantity=(SELECT COALESCE(SUM(quantity),0) FROM inventory_stock_levels WHERE company_id=$1 AND product_id=$2),updated_at=NOW() WHERE id=$2 AND company_id=$1',
+          [m.companyId, line.product_id]);
       }
       await this.postReceiptJournal(client, { companyId: m.companyId, userId: user.userId, orderNumber: po.order_number, orderId: po.id, receiptId, receiptValue });
       const sums=await client.query<{ordered:string|number;received:string|number}>('SELECT COALESCE(SUM(quantity),0) ordered,COALESCE(SUM(received_quantity),0) received FROM purchase_order_items WHERE purchase_order_id=$1 AND company_id=$2',[id,m.companyId]);
