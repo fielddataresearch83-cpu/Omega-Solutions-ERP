@@ -17,6 +17,7 @@ describe('ManufacturingService',()=>{
 
  it('does not expose production costs for an order outside the assigned branch',async()=>{
   const branchUser={...user,branchId:'branch-1'};
+  memberships.getMembershipForCompany.mockResolvedValueOnce({companyId:'company-active',branchId:'branch-1',role:'staff'});
   db.query.mockResolvedValue({rows:[],rowCount:0});
   await expect(service.listOrderCosts(branchUser,'order-other-branch')).rejects.toThrow('Production order not found.');
   expect(db.query).toHaveBeenCalledWith(expect.stringContaining('w.branch_id=$3'),['company-active','order-other-branch','branch-1']);
