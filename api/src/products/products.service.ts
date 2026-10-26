@@ -115,11 +115,15 @@ export class ProductsService {
         let warehouse = await client.query<{ id: string }>(
           `SELECT id FROM warehouses
            WHERE company_id = $1 AND is_active = true
+             AND ($2::uuid IS NULL OR branch_id = $2)
            ORDER BY created_at ASC, id ASC LIMIT 1`,
-          [membership.companyId],
+          [membership.companyId, membership.branchId],
         );
 
-        if (!warehouse.rows[0]) {
+        // Only company-wide members may create the legacy company-wide default.
+        // A branch-bound member must never place opening stock into another
+        // branch's warehouse or create an unassigned warehouse as a workaround.
+        if (!warehouse.rows[0] && !membership.branchId) {
           warehouse = await client.query<{ id: string }>(
             `INSERT INTO warehouses(company_id, code, name, capacity, is_active)
              VALUES($1, 'MAIN', 'Main Warehouse', 0, true)
@@ -139,7 +143,11 @@ export class ProductsService {
 
         const warehouseId = warehouse.rows[0]?.id;
         if (!warehouseId) {
-          throw new BadRequestException('Create an active warehouse before setting initial stock.');
+          throw new BadRequestException(
+            membership.branchId
+              ? 'Create an active warehouse in your assigned branch before setting initial stock.'
+              : 'Create an active warehouse before setting initial stock.',
+          );
         }
 
         await client.query(
