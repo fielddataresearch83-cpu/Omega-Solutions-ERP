@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -28,8 +28,15 @@ export class SalesOrdersService {
       : this.memberships.getMembership(user.userId);
   }
 
+  private assertCompanyWideAccess(membership: { branchId?: string | null }): void {
+    if (membership.branchId) {
+      throw new ForbiddenException('Sales orders are company-wide records and can only be accessed by company-wide members.');
+    }
+  }
+
   async list(user: AuthenticatedUser): Promise<SalesOrderRow[]> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWideAccess(membership);
     const result = await this.db.query<SalesOrderRow>(
       `${SELECT_ORDERS} WHERE so.company_id = $1 GROUP BY so.id, c.name, q.quotation_number ORDER BY so.created_at DESC`,
       [membership.companyId],
@@ -39,6 +46,7 @@ export class SalesOrdersService {
 
   async getById(user: AuthenticatedUser, id: string): Promise<SalesOrderRow> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWideAccess(membership);
     const result = await this.db.query<SalesOrderRow>(
       `${SELECT_ORDERS} WHERE so.company_id = $1 AND so.id = $2 GROUP BY so.id, c.name, q.quotation_number`,
       [membership.companyId, id],
@@ -56,6 +64,7 @@ export class SalesOrdersService {
 
   async createFromQuotation(user: AuthenticatedUser, quotationId: string): Promise<SalesOrderRow> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWideAccess(membership);
     let createdNewOrder = false;
     const orderId = await this.db.transaction(async (client) => {
       const result = await client.query<Record<string, unknown>>(
@@ -109,6 +118,7 @@ export class SalesOrdersService {
 
   async updateStatus(user: AuthenticatedUser, id: string, next: string, warehouseId?: string): Promise<SalesOrderRow> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWideAccess(membership);
     let fromStatus: SalesOrderStatus = 'confirmed';
     let costOfGoods = 0;
     if (next === 'fulfilled') await this.accounting.ensureDefaults(membership.companyId);
