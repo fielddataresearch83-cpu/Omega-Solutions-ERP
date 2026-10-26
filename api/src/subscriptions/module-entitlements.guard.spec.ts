@@ -30,6 +30,14 @@ describe('ModuleEntitlementsGuard', () => {
     const {guard}=makeGuard('pos',[{status:'active',modules:['core','inventory','sales','pos']}],[{module_code:'inventory',enabled:false}]);
     await expect(guard.canActivate(context())).rejects.toBeInstanceOf(ForbiddenException);
   });
+  it('blocks procurement when accounting is not included in the plan', async () => {
+    const {guard}=makeGuard('procurement',[{status:'active',modules:['core','inventory','sales','procurement']}]);
+    await expect(guard.canActivate(context())).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('allows procurement when inventory and accounting dependencies are included', async () => {
+    const {guard}=makeGuard('procurement',[{status:'active',modules:['core','inventory','sales','accounting','procurement']}]);
+    await expect(guard.canActivate(context())).resolves.toBe(true);
+  });
   it('blocks inactive subscriptions', async () => {
     const {guard}=makeGuard('inventory',[{status:'past_due',modules:['core','inventory']}]);
     await expect(guard.canActivate(context())).rejects.toBeInstanceOf(ForbiddenException);
