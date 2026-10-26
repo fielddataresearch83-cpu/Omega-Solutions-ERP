@@ -91,7 +91,7 @@ export class CreditNotesService {
     );
     if (!result.rows[0]) throw new NotFoundException('Credit note not found.');
     const items = await this.db.query(
-      'SELECT id,description,quantity,unit_price,tax_rate,line_subtotal,tax_amount,line_total FROM credit_note_items WHERE company_id=$1 AND credit_note_id=$2 ORDER BY created_at,id',
+      'SELECT id,invoice_item_id,description,quantity,unit_price,tax_rate,tax_treatment,line_subtotal,tax_amount,line_total FROM credit_note_items WHERE company_id=$1 AND credit_note_id=$2 ORDER BY created_at,id',
       [companyId, id],
     );
     return { ...result.rows[0], items: items.rows };
@@ -104,21 +104,23 @@ export class CreditNotesService {
     if (!reason) throw new BadRequestException('A credit note reason is required.');
     if (!dto.items?.length) throw new BadRequestException('Add at least one credit note line.');
 
-    const calculated = dto.items.map(item => {
+    const requestedItems = dto.items.map(item => {
       const quantity = Math.round(Number(item.quantity) * 1000) / 1000;
-      const unitPrice = Math.round(Number(item.unitPrice) * 100) / 100;
-      const taxRate = Math.round(Number(item.taxRate ?? 0) * 100) / 100;
-      const subtotal = Math.round(quantity * unitPrice * 100) / 100;
-      const tax = Math.round(subtotal * taxRate) / 100;
-      const total = Math.round((subtotal + tax) * 100) / 100;
-      if (!item.description.trim() || quantity <= 0 || unitPrice <= 0 || taxRate < 0 || taxRate > 100 || subtotal <= 0) {
-        throw new BadRequestException('Each credit note line needs a description, positive quantity and price, and a valid tax rate.');
+      if (!item.description.trim() || !Number.isFinite(quantity) || quantity <= 0) {
+        throw new BadRequestException('Each credit line must have a description and a positive quantity.');
       }
-      return { description: item.description.trim(), quantity, unitPrice, taxRate, subtotal, tax, total };
+      if (!item.invoiceItemId) {
+        throw new BadRequestException('Each credit line must reference an original invoice line.');
+      }
+      return { invoiceItemId: item.invoiceItemId, description: item.description.trim(), quantity };
     });
-    const subtotal = Math.round(calculated.reduce((sum, item) => sum + item.subtotal, 0) * 100) / 100;
-    const tax = Math.round(calculated.reduce((sum, item) => sum + item.tax, 0) * 100) / 100;
-    const total = Math.round((subtotal + tax) * 100) / 100;
+    let calculated: Array<{
+      invoiceItemId: string; description: string; quantity: number; unitPrice: number;
+      taxRate: number; taxTreatment: string; subtotal: number; tax: number; total: number;
+    }> = [];
+    let subtotal = 0;
+    let tax = 0;
+    let total = 0;
     await this.accounting.ensureDefaults(companyId);
 
     const created = await this.db.transaction(async client => {
@@ -143,6 +145,64 @@ export class CreditNotesService {
       if (invoice.status === 'draft' || invoice.status === 'cancelled') {
         throw new BadRequestException('Credit notes can only be issued against sent or settled invoices.');
       }
+      const originalLines = await client.query<{
+        id: string; description: string; quantity: string | number; unit_price: string | number;
+        tax_rate: string | number; tax_treatment: string;
+      }>(
+        `SELECT id, product_name AS description, quantity, unit_price, tax_rate, tax_treatment
+         FROM invoice_items
+         WHERE company_id=$1 AND invoice_id=$2 AND id = ANY($3::uuid[])
+         FOR UPDATE`,
+        [companyId, invoice.id, requestedItems.map(item => item.invoiceItemId)],
+      );
+      if (originalLines.rows.length !== new Set(requestedItems.map(item => item.invoiceItemId)).size) {
+        throw new BadRequestException('Every credit line must reference a distinct line from the selected original invoice.');
+      }
+      calculated = [];
+      for (const requested of requestedItems) {
+        const original = originalLines.rows.find(line => line.id === requested.invoiceItemId);
+        if (!original) throw new BadRequestException('The selected original invoice line was not found.');
+        const credited = await client.query<{ quantity: string | number; subtotal: string | number; tax: string | number }>(
+          `SELECT COALESCE(SUM(cni.quantity),0) AS quantity,
+             COALESCE(SUM(cni.line_subtotal),0) AS subtotal,
+             COALESCE(SUM(cni.tax_amount),0) AS tax
+           FROM credit_note_items cni
+           JOIN credit_notes cn ON cn.id=cni.credit_note_id AND cn.company_id=cni.company_id
+           WHERE cni.company_id=$1 AND cn.invoice_id=$2 AND cni.invoice_item_id=$3`,
+          [companyId, invoice.id, original.id],
+        );
+        const previouslyCreditedQty = Number(credited.rows[0]?.quantity ?? 0);
+        const previouslyCreditedSubtotal = Number(credited.rows[0]?.subtotal ?? 0);
+        const originalQty = Number(original.quantity);
+        const remainingQty = Math.round((originalQty - previouslyCreditedQty) * 1000) / 1000;
+        if (requested.quantity > remainingQty + 0.0001) {
+          throw new BadRequestException(`Credit quantity exceeds the remaining eligible quantity (${Math.max(0, remainingQty).toFixed(3)}) for invoice line ${original.id}.`);
+        }
+        const unitPrice = Math.round(Number(original.unit_price) * 100) / 100;
+        const taxRate = Math.round(Number(original.tax_rate) * 100) / 100;
+        const lineSubtotal = Math.round(requested.quantity * unitPrice * 100) / 100;
+        const remainingLineValue = Math.round((Number(original.quantity) * unitPrice - previouslyCreditedSubtotal) * 100) / 100;
+        if (lineSubtotal > remainingLineValue + 0.005) {
+          throw new BadRequestException('Credit value exceeds the remaining eligible value of the original invoice line.');
+        }
+        const lineTax = Math.round(lineSubtotal * taxRate) / 100;
+        const lineTotal = Math.round((lineSubtotal + lineTax) * 100) / 100;
+        calculated.push({
+          invoiceItemId: original.id,
+          description: requested.description,
+          quantity: requested.quantity,
+          unitPrice,
+          taxRate,
+          taxTreatment: original.tax_treatment ?? 'legacy',
+          subtotal: lineSubtotal,
+          tax: lineTax,
+          total: lineTotal,
+        });
+      }
+      subtotal = Math.round(calculated.reduce((sum, item) => sum + item.subtotal, 0) * 100) / 100;
+      tax = Math.round(calculated.reduce((sum, item) => sum + item.tax, 0) * 100) / 100;
+      total = Math.round((subtotal + tax) * 100) / 100;
+      if (subtotal <= 0 || total <= 0) throw new BadRequestException('Credit note must have a positive subtotal and total.');
       const pendingResult = await client.query<{ amount: string | number }>(
         "SELECT COALESCE(SUM(amount),0) AS amount FROM invoice_payments WHERE company_id=$1 AND invoice_id=$2 AND status='pending'",
         [companyId, invoice.id],
@@ -166,9 +226,9 @@ export class CreditNotesService {
       );
       for (const item of calculated) {
         await client.query(
-          `INSERT INTO credit_note_items(company_id,credit_note_id,description,quantity,unit_price,tax_rate,line_subtotal,tax_amount,line_total)
-           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-          [companyId, note.rows[0].id, item.description, item.quantity, item.unitPrice, item.taxRate, item.subtotal, item.tax, item.total],
+          `INSERT INTO credit_note_items(company_id,credit_note_id,invoice_item_id,description,quantity,unit_price,tax_rate,tax_treatment,line_subtotal,tax_amount,line_total)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [companyId, note.rows[0].id, item.invoiceItemId, item.description, item.quantity, item.unitPrice, item.taxRate, item.taxTreatment, item.subtotal, item.tax, item.total],
         );
       }
       await this.postJournal(client, {
