@@ -1,4 +1,4 @@
-import { ArrayMinSize, IsArray, IsDateString, IsNumber, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsDateString, IsIn, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateCreditNoteItemDto {
@@ -31,4 +31,23 @@ export class CreateCreditNoteDto {
   @ValidateNested({ each: true })
   @Type(() => CreateCreditNoteItemDto)
   items!: CreateCreditNoteItemDto[];
+}
+
+export class RefundCustomerCreditDto {
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  amount!: number;
+
+  @IsIn(['cash', 'bank', 'mpesa'])
+  method!: 'cash' | 'bank' | 'mpesa';
+
+  @IsString()
+  @MaxLength(120)
+  reference!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
 }
