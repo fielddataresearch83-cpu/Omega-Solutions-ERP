@@ -99,7 +99,7 @@ export class QuotationsService {
         [membership.companyId, year],
       );
       const number = `QUO-${year}-${String(seq.rows[0].next_number).padStart(5, '0')}`;
-      const resolved: Array<{ productId: string; name: string; sku: string | null; quantity: number; priceCents: number; taxRate: number; subtotalCents: number; taxCents: number }> = [];
+      const resolved: Array<{ productId: string; name: string; sku: string | null; quantity: number; priceCents: number; taxRate: number; taxTreatment: string; subtotalCents: number; taxCents: number }> = [];
       let subtotalCents = 0;
       let taxCents = 0;
 
@@ -122,7 +122,7 @@ export class QuotationsService {
         const lineTaxCents = Math.round(lineSubtotalCents * taxRate / 100);
         subtotalCents += lineSubtotalCents;
         taxCents += lineTaxCents;
-        resolved.push({ productId: product.id, name: product.name, sku: product.sku, quantity, priceCents, taxRate, subtotalCents: lineSubtotalCents, taxCents: lineTaxCents });
+        resolved.push({ productId: product.id, name: product.name, sku: product.sku, quantity, priceCents, taxRate, taxTreatment: product.tax_treatment, subtotalCents: lineSubtotalCents, taxCents: lineTaxCents });
       }
 
       const inserted = await client.query<{ id: string }>(
@@ -132,9 +132,9 @@ export class QuotationsService {
       );
       for (const item of resolved) {
         await client.query(
-          `INSERT INTO quotation_items (company_id, quotation_id, product_id, product_name, sku, quantity, unit_price, tax_rate, line_subtotal, tax_amount, line_total)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-          [membership.companyId, inserted.rows[0].id, item.productId, item.name, item.sku, item.quantity, item.priceCents / 100, item.taxRate, item.subtotalCents / 100, item.taxCents / 100, (item.subtotalCents + item.taxCents) / 100],
+          `INSERT INTO quotation_items (company_id, quotation_id, product_id, product_name, sku, quantity, unit_price, tax_rate, tax_treatment, line_subtotal, tax_amount, line_total)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          [membership.companyId, inserted.rows[0].id, item.productId, item.name, item.sku, item.quantity, item.priceCents / 100, item.taxRate, item.taxTreatment, item.subtotalCents / 100, item.taxCents / 100, (item.subtotalCents + item.taxCents) / 100],
         );
       }
       return { id: inserted.rows[0].id, number };
