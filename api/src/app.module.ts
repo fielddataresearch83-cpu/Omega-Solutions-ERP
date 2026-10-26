@@ -36,6 +36,7 @@ import { SearchModule } from './search/search.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
 import { EntitlementsModule } from './subscriptions/entitlements.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
 
 @Module({
   imports: [
@@ -45,7 +46,7 @@ import { EntitlementsModule } from './subscriptions/entitlements.module.js';
     SalesOrdersModule, CrmModule, InventoryModule, PurchaseOrdersModule, SupplierBillsModule,
     AccountingModule, ManufacturingModule, EmployeesModule, ExpensesModule, PayrollModule,
     WorkforceModule, PosModule, RequisitionsModule, ContractsModule, ApprovalsModule, UsersRolesModule,
-    CreditNotesModule, SearchModule, NotificationsModule, SubscriptionsModule, EntitlementsModule,
+    CreditNotesModule, SearchModule, NotificationsModule, SubscriptionsModule, EntitlementsModule, DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
