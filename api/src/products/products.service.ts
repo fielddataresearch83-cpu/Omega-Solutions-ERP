@@ -94,10 +94,6 @@ export class ProductsService {
       throw new BadRequestException('Service items cannot have an initial stock quantity.');
     }
 
-    if (!isService && initialStock > 0 && Number(dto.costPrice ?? 0) > 0) {
-      await this.accounting.ensureDefaults(membership.companyId);
-    }
-
     const product = await this.db.transaction(async (client) => {
       const existing = await client.query<{ id: string }>(
         'SELECT id FROM products WHERE company_id = $1 AND sku = $2',
@@ -198,6 +194,8 @@ export class ProductsService {
 
         const openingValue = Math.round(initialStock * Number(dto.costPrice ?? 0) * 100) / 100;
         if (openingValue > 0) {
+          // Wait until SKU, warehouse, and opening-stock validations pass before creating defaults.
+          await this.accounting.ensureDefaults(membership.companyId);
           const year = new Date().getFullYear();
           const seq = await client.query<{ next_number: number }>(
             `INSERT INTO journal_entry_sequences(company_id,entry_year,next_number) VALUES($1,$2,1)
