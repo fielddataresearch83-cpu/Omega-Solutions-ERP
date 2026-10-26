@@ -27,6 +27,8 @@ export class SearchService {
     if (!term || !user.companyId) return [];
     const pattern = `%${term.replace(/[\\\\%_]/g, '\\\\$&')}%`;
     const permissions = new Set(user.permissions ?? []);
+    if (!['customers:read', 'products:read', 'inventory:read', 'suppliers:read', 'sales:read', 'employees:read']
+      .some((permission) => permissions.has(permission))) return [];
     const subscription = await this.db.query<{ status: string; modules: string[] }>(
       `SELECT s.status, p.modules
        FROM company_subscriptions s
