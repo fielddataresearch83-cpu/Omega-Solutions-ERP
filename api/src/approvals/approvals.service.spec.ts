@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
@@ -146,6 +146,16 @@ describe('ApprovalsService', () => {
       ['company-1', 'company-wide-contract', 'branch-2'],
     );
     expect(client.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO approval_requests'))).toBe(false);
+  });
+
+  it('blocks branch-bound members from submitting company-wide purchase orders for approval', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-2', role: 'manager' });
+
+    await expect(service.submitPurchaseOrder(user, 'po-1')).rejects.toThrow(ForbiddenException);
+
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(client.query).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
   });
 
   it('submits a draft purchase order for approval within the active company', async () => {
