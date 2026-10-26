@@ -82,7 +82,7 @@ export class AccountingService {
  }
  async payablesReconciliation(user:AuthenticatedUser){
   const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
-  const {companyId}=membership;await this.ensureDefaults(companyId);
+  const {companyId}=membership;
   const [control,subledger,aging]=await this.db.transaction(async client=>{
    await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
    return Promise.all([
