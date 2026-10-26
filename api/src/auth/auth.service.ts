@@ -286,10 +286,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    const membership = await this.getUserMembership(user.id, dto.companyId);
     const mfaStatus = await this.mfaService.status(user.id);
-    if (mfaStatus.enabled) return this.createMfaChallenge(user.id, user.email);
-
-    const membership = await this.getUserMembership(user.id);
+    if (mfaStatus.enabled) return this.createMfaChallenge(user.id, user.email, membership.companyId);
 
     const payload: JwtPayload = {
       sub: user.id,
@@ -313,17 +312,17 @@ export class AuthService {
     };
   }
 
-  private createMfaChallenge(userId: string, email: string): { mfaRequired: true; mfaChallengeToken: string } {
+  private createMfaChallenge(userId: string, email: string, companyId?: string | null): { mfaRequired: true; mfaChallengeToken: string } {
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error('JWT_SECRET is missing from the environment.');
     return {
       mfaRequired: true,
-      mfaChallengeToken: this.jwtService.sign({ sub: userId, email, mfaChallenge: true }, { secret, expiresIn: '5m' }),
+      mfaChallengeToken: this.jwtService.sign({ sub: userId, email, ...(companyId ? { companyId } : {}), mfaChallenge: true }, { secret, expiresIn: '5m' }),
     };
   }
 
   async completeMfaChallenge(challengeToken: string, code: string): Promise<TokenPair & { user: Omit<AuthenticatedUser, 'permissions'> }> {
-    let challenge: { sub: string; email: string; mfaChallenge?: boolean };
+    let challenge: { sub: string; email: string; companyId?: string; mfaChallenge?: boolean };
     try {
       challenge = this.jwtService.verify(challengeToken, { secret: process.env.JWT_SECRET });
     } catch {
@@ -335,7 +334,7 @@ export class AuthService {
     const valid = (await this.mfaService.verifyUserCode(challenge.sub, code)) ||
       (await this.mfaService.useRecoveryCode(challenge.sub, code));
     if (!valid) throw new UnauthorizedException('Invalid authenticator or recovery code.');
-    const profile = await this.getUserProfile(challenge.sub);
+    const profile = await this.getUserProfile(challenge.sub, challenge.companyId);
     const payload: JwtPayload = {
       sub: profile.userId, email: profile.email, companyId: profile.companyId,
       branchId: profile.branchId, role: profile.role, mfaVerified: true,
