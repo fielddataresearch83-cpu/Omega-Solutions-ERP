@@ -67,7 +67,9 @@ export class PosService {
   }
 
   async createRegister(user: AuthenticatedUser, input: RegisterInput) {
-    const { companyId } = await this.company(user);
+    const membership = await this.company(user);
+    const { companyId, branchId } = membership;
+    if (branchId && input.branchId !== branchId) throw new ForbiddenException('You can only create POS registers for your assigned branch.');
     const code = input.code?.trim().toUpperCase();
     const name = input.name?.trim();
     if (!code || code.length > 32) throw new BadRequestException('Register code is required and must be at most 32 characters.');
@@ -147,17 +149,20 @@ export class PosService {
     return r.rows[0]??null;
   }
   async listSalespersonAssignments(user: AuthenticatedUser) {
-    const {companyId}=await this.company(user);
-    return (await this.db.query(`SELECT a.id,a.user_id,a.warehouse_id,a.is_active,u.full_name AS salesperson_name,u.email AS salesperson_email,w.code AS warehouse_code,w.name AS warehouse_name FROM salesperson_stock_assignments a JOIN users u ON u.id=a.user_id JOIN warehouses w ON w.id=a.warehouse_id AND w.company_id=a.company_id WHERE a.company_id=$1 ORDER BY a.is_active DESC,u.full_name`,[companyId])).rows;
+    const {companyId,branchId}=await this.company(user);
+    return (await this.db.query(`SELECT a.id,a.user_id,a.warehouse_id,a.is_active,u.full_name AS salesperson_name,u.email AS salesperson_email,w.code AS warehouse_code,w.name AS warehouse_name FROM salesperson_stock_assignments a JOIN users u ON u.id=a.user_id JOIN warehouses w ON w.id=a.warehouse_id AND w.company_id=a.company_id WHERE a.company_id=$1 AND ($2::uuid IS NULL OR w.branch_id=$2::uuid) ORDER BY a.is_active DESC,u.full_name`,[companyId,branchId??null])).rows;
   }
   async assignSalespersonWarehouse(user: AuthenticatedUser,input:{userId:string;warehouseId:string}) {
-    const {companyId}=await this.company(user);
+    const membership = await this.company(user);
+    const {companyId,branchId}=membership;
     if(!input.userId||!input.warehouseId||input.userId===user.userId) throw new BadRequestException('Choose a salesperson and warehouse.');
     const saved=await this.db.transaction(async client=>{
-      const m=await client.query(`SELECT m.user_id FROM company_memberships m JOIN users u ON u.id=m.user_id WHERE m.company_id=$1 AND m.user_id=$2 AND m.is_active=true AND u.is_active=true AND m.role IN ('staff','salesperson') FOR SHARE`,[companyId,input.userId]);
+      const m=await client.query<{user_id:string;branch_id:string|null}>(`SELECT m.user_id,m.branch_id FROM company_memberships m JOIN users u ON u.id=m.user_id WHERE m.company_id=$1 AND m.user_id=$2 AND m.is_active=true AND u.is_active=true AND m.role IN ('staff','salesperson') FOR SHARE`,[companyId,input.userId]);
       if(!m.rows[0]) throw new BadRequestException('Salesperson must be active staff in this company.');
-      const w=await client.query('SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE',[input.warehouseId,companyId]);
+      if(branchId && m.rows[0].branch_id!==branchId) throw new ForbiddenException('You can only assign salespeople within your assigned branch.');
+      const w=await client.query<{id:string;branch_id:string|null}>('SELECT id,branch_id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE',[input.warehouseId,companyId]);
       if(!w.rows[0]) throw new BadRequestException('Choose an active warehouse belonging to this company.');
+      if(branchId && w.rows[0].branch_id!==branchId) throw new ForbiddenException('You can only assign warehouses within your assigned branch.');
       const duplicate=await client.query('SELECT user_id FROM salesperson_stock_assignments WHERE company_id=$1 AND warehouse_id=$2 AND is_active=true AND user_id<>$3 FOR UPDATE',[companyId,input.warehouseId,input.userId]);
       if(duplicate.rows[0]) throw new BadRequestException('Warehouse already assigned to another salesperson.');
       return (await client.query(`INSERT INTO salesperson_stock_assignments(company_id,user_id,warehouse_id,assigned_by,is_active) VALUES($1,$2,$3,$4,true) ON CONFLICT(company_id,user_id) DO UPDATE SET warehouse_id=EXCLUDED.warehouse_id,assigned_by=EXCLUDED.assigned_by,is_active=true,updated_at=NOW() RETURNING id,user_id,warehouse_id,is_active`,[companyId,input.userId,input.warehouseId,user.userId])).rows[0];
