@@ -32,6 +32,10 @@ export class LoginDto {
   @IsString()
   @MinLength(1)
   password!: string;
+
+  @IsUUID()
+  @IsOptional()
+  companyId?: string;
 }
 
 export class RefreshDto {
