@@ -42,7 +42,7 @@ describe('QuotationsService branch isolation', () => {
         .mockResolvedValueOnce({ rows: [{ id: 'quotation-1', company_id: 'company-1', status: 'draft' }], rowCount: 1 })
         .mockResolvedValueOnce({ rows: [], rowCount: 1 }),
     };
-    db.transaction.mockImplementation(async (callback: (client: typeof client) => Promise<unknown>) => callback(client));
+    db.transaction.mockImplementation(async (callback: (client: any) => Promise<unknown>) => callback(client));
     memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: null });
     vi.spyOn(service, 'getById').mockResolvedValue({ id: 'quotation-1', status: 'sent' } as any);
 
