@@ -56,13 +56,13 @@ export default function SupplierBillsPage(){
  React.useEffect(()=>{void refresh()},[refresh]);
  const chooseOrder=async(id:string)=>{
   setPurchaseOrderId(id);
-  if(!id){setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16"}]);return}
+  if(!id){setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16",taxTreatment:"legacy"}]);return}
   setError("");
   try{
    const po=await api.get<PO>(`/purchase-orders/${id}`);
    setSupplierId(po.supplier_id);
    const received=(po.items??[]).filter(i=>Number(i.received_quantity)>0).map(i=>({description:i.product_name,quantity:String(i.received_quantity),unitCost:String(i.unit_cost),taxRate:String(i.tax_rate??0),taxTreatment:"legacy" as const,purchaseOrderItemId:i.id}));
-   if(!received.length){setError("This order has no received quantities available to bill yet.");setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16"}]);return}
+   if(!received.length){setError("This order has no received quantities available to bill yet.");setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16",taxTreatment:"legacy"}]);return}
    setLines(received);
   }catch(e){setError(messageOf(e))}
  };
@@ -73,7 +73,7 @@ export default function SupplierBillsPage(){
   setSaving(true);setError("");
   try{
    await api.post("/supplier-bills",{supplierId,purchaseOrderId:purchaseOrderId||undefined,supplierInvoiceNumber:supplierInvoiceNumber.trim()||undefined,billDate:billDate||undefined,dueDate:dueDate||undefined,notes:notes.trim()||undefined,items:lines.map(l=>({description:l.description.trim(),quantity:Number(l.quantity),unitCost:Number(l.unitCost),taxRate:Number(l.taxRate||0),taxTreatment:l.taxTreatment,purchaseOrderItemId:l.purchaseOrderItemId}))});
-   setShowForm(false);setPurchaseOrderId("");setSupplierInvoiceNumber("");setDueDate("");setNotes("");setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16"}]);await refresh();
+   setShowForm(false);setPurchaseOrderId("");setSupplierInvoiceNumber("");setDueDate("");setNotes("");setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16",taxTreatment:"legacy"}]);await refresh();
   }catch(e){setError(messageOf(e))}finally{setSaving(false)}
  };
  const recordPayment=async()=>{
@@ -107,7 +107,7 @@ export default function SupplierBillsPage(){
     <div className="flex flex-col gap-1"><Label htmlFor="bill-date">Bill date</Label><Input id="bill-date" type="date" value={billDate} onChange={e=>setBillDate(e.target.value)}/></div>
     <div className="flex flex-col gap-1"><Label htmlFor="bill-due">Due date</Label><Input id="bill-due" type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)}/></div>
    </div>
-   <div className="flex flex-col gap-3"><div className="flex items-center justify-between"><h3 className="text-sm font-medium">Bill lines</h3>{!purchaseOrderId&&<Button type="button" variant="outline" size="sm" onClick={()=>setLines(v=>[...v,{description:"",quantity:"1",unitCost:"0",taxRate:"16"}])}><Plus className="size-3.5"/>Add line</Button>}</div>
+   <div className="flex flex-col gap-3"><div className="flex items-center justify-between"><h3 className="text-sm font-medium">Bill lines</h3>{!purchaseOrderId&&<Button type="button" variant="outline" size="sm" onClick={()=>setLines(v=>[...v,{description:"",quantity:"1",unitCost:"0",taxRate:"16",taxTreatment:"legacy"}])}><Plus className="size-3.5"/>Add line</Button>}</div>
     {lines.map((line,index)=><div key={line.purchaseOrderItemId??index} className="grid gap-3 rounded-lg border p-3 md:grid-cols-[minmax(180px,2fr)_100px_130px_100px_minmax(170px,1fr)_auto]">
      <div className="flex flex-col gap-1"><Label>Description</Label><Input value={line.description} onChange={e=>setLines(v=>v.map((x,i)=>i===index?{...x,description:e.target.value}:x))} disabled={!!purchaseOrderId}/></div>
      <div className="flex flex-col gap-1"><Label>Quantity</Label><Input type="number" min="0.001" step="0.001" value={line.quantity} onChange={e=>setLines(v=>v.map((x,i)=>i===index?{...x,quantity:e.target.value}:x))}/></div>
