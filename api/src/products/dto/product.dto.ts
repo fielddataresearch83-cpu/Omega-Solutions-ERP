@@ -3,11 +3,14 @@ import {
   IsNumber,
   IsBoolean,
   IsOptional,
+  IsIn,
   MinLength,
   MaxLength,
   Min,
   IsNotEmpty,
 } from 'class-validator';
+
+export type ProductTaxTreatment = 'legacy' | 'standard' | 'zero_rated' | 'exempt' | 'out_of_scope';
 
 export class CreateProductDto {
   @IsString()
@@ -58,6 +61,16 @@ export class CreateProductDto {
   @IsOptional()
   @Min(0)
   reorderLevel?: number;
+
+  @IsIn(['legacy', 'standard', 'zero_rated', 'exempt', 'out_of_scope'])
+  @IsOptional()
+  taxTreatment?: ProductTaxTreatment;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  @MaxLength(5)
+  taxRate?: number;
 
   @IsBoolean()
   @IsOptional()
@@ -120,6 +133,15 @@ export class UpdateProductDto {
   @IsOptional()
   @Min(0)
   reorderLevel?: number;
+
+  @IsIn(['legacy', 'standard', 'zero_rated', 'exempt', 'out_of_scope'])
+  @IsOptional()
+  taxTreatment?: ProductTaxTreatment;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  taxRate?: number;
 
   @IsBoolean()
   @IsOptional()
