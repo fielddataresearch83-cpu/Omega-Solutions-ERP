@@ -220,7 +220,7 @@ export class InvoicesService {
       for (const item of dto.items) {
         const productResult = await client.query<{
           id: string; name: string; sku: string; selling_price: string | number;
-          is_active: boolean; is_service: boolean;
+          is_active: boolean; is_service: boolean; tax_treatment: string; tax_rate: string | number;
         }>(
           `SELECT id, name, sku, selling_price, is_active, is_service, tax_treatment, tax_rate
            FROM products WHERE id = $1 AND company_id = $2 FOR SHARE`,
