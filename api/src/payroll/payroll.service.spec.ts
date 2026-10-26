@@ -303,4 +303,24 @@ describe('PayrollService tenant and workflow guards',()=>{
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes("UPDATE payroll_runs SET status='posted'"))).toBe(false);
  });
 
+ it('scopes employee pay settings reads to a branch-bound membership',async()=>{
+  const db={query:vi.fn().mockResolvedValue({rows:[]}),transaction:vi.fn()} as never;
+  const memberships={getMembershipForCompany:vi.fn().mockResolvedValue({companyId:'company-a',branchId:'branch-a',role:'staff'})} as never;
+  const service=new PayrollService(db,memberships);
+  await expect(service.getEmployeePaySettings({userId:'user-a',email:'a@b.test',fullName:'A',companyId:'company-a',branchId:'branch-a',role:'staff',permissions:['payroll:read']},'employee-b')).rejects.toThrow('Pay settings not found');
+  const query=(db as {query:ReturnType<typeof vi.fn>}).query;
+  expect(query.mock.calls[0][0]).toContain('e.branch_id=$3');
+  expect(query.mock.calls[0][1]).toEqual(['employee-b','company-a','branch-a']);
+ });
+ it('does not write pay settings for an employee outside the active branch',async()=>{
+  const db={query:vi.fn().mockResolvedValue({rows:[]}),transaction:vi.fn()} as never;
+  const memberships={getMembershipForCompany:vi.fn().mockResolvedValue({companyId:'company-a',branchId:'branch-a',role:'staff'})} as never;
+  const service=new PayrollService(db,memberships);
+  await expect(service.setEmployeePaySettings({userId:'user-a',email:'a@b.test',fullName:'A',companyId:'company-a',branchId:'branch-a',role:'staff',permissions:['payroll:write']},'employee-b',{})).rejects.toThrow('Employee not found');
+  const query=(db as {query:ReturnType<typeof vi.fn>}).query;
+  expect(query.mock.calls[0][0]).toContain('branch_id=$3');
+  expect(query.mock.calls[0][1]).toEqual(['employee-b','company-a','branch-a']);
+  expect(query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO employee_pay_settings'))).toBe(false);
+ });
+
 });
