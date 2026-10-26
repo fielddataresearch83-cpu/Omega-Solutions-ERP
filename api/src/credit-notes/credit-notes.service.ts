@@ -114,6 +114,9 @@ export class CreditNotesService {
       }
       return { invoiceItemId: item.invoiceItemId, description: item.description.trim(), quantity, requestedTaxRate: item.taxRate };
     });
+    if (new Set(requestedItems.map(item => item.invoiceItemId)).size !== requestedItems.length) {
+      throw new BadRequestException('Each original invoice line can only appear once per credit note.');
+    }
     let calculated: Array<{
       invoiceItemId: string; description: string; quantity: number; unitPrice: number;
       taxRate: number; taxTreatment: string; subtotal: number; tax: number; total: number;
