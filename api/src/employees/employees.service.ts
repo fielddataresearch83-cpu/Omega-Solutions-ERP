@@ -12,15 +12,19 @@ export class EmployeesService {
     return user.companyId ? this.memberships.getMembershipForCompany(user.userId,user.companyId) : this.memberships.getMembership(user.userId);
   }
   async list(user: AuthenticatedUser) {
-    const {companyId}=await this.membershipFor(user);
+    const membership=await this.membershipFor(user);
     return (await this.db.query(`SELECT e.id,e.company_id,e.branch_id,b.name AS branch_name,e.employee_number,e.first_name,e.last_name,e.work_email,e.phone,e.job_title,e.department,e.employment_status,e.hire_date,e.created_at,e.updated_at,(e.kra_pin IS NOT NULL) AS has_kra_pin,(e.nssf_number IS NOT NULL) AS has_nssf_number,(e.sha_number IS NOT NULL) AS has_sha_number,(e.nhif_number IS NOT NULL) AS has_nhif_number
       FROM employees e LEFT JOIN branches b ON b.id=e.branch_id AND b.company_id=e.company_id
-      WHERE e.company_id=$1 ORDER BY e.last_name,e.first_name`,[companyId])).rows;
+      WHERE e.company_id=$1 AND ($2::uuid IS NULL OR e.branch_id=$2) ORDER BY e.last_name,e.first_name`,[membership.companyId,membership.branchId])).rows;
   }
   async create(user: AuthenticatedUser,dto: CreateEmployeeDto) {
     const membership=await this.membershipFor(user);
-    if(dto.branchId) {
-      const branch=await this.db.query('SELECT id FROM branches WHERE id=$1 AND company_id=$2 AND is_active=true',[dto.branchId,membership.companyId]);
+    if(membership.branchId && dto.branchId && dto.branchId!==membership.branchId) {
+      throw new BadRequestException('You can only create employees assigned to your own branch.');
+    }
+    const employeeBranchId=membership.branchId??dto.branchId??null;
+    if(employeeBranchId) {
+      const branch=await this.db.query('SELECT id FROM branches WHERE id=$1 AND company_id=$2 AND is_active=true',[employeeBranchId,membership.companyId]);
       if(!branch.rows.length) throw new BadRequestException('The branch must be active and belong to this company.');
     }
     const nationalId=dto.nationalId?.trim().replace(/[^0-9]/g,'')||null;
@@ -36,7 +40,7 @@ export class EmployeesService {
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::date,$16)
         RETURNING id,company_id,branch_id,employee_number,first_name,last_name,work_email,phone,job_title,department,employment_status,hire_date,created_at,updated_at,
           (kra_pin IS NOT NULL) AS has_kra_pin,(nssf_number IS NOT NULL) AS has_nssf_number,(sha_number IS NOT NULL) AS has_sha_number,(nhif_number IS NOT NULL) AS has_nhif_number`,
-      [membership.companyId,dto.branchId??null,dto.employeeNumber.trim(),nationalId,kraPin,nssfNumber,shaNumber,nhifNumber,dto.firstName.trim(),dto.lastName.trim(),dto.workEmail?.trim().toLowerCase()??null,dto.phone?.trim()??null,dto.jobTitle?.trim()??null,dto.department?.trim()??null,dto.hireDate??null,user.userId]);
+      [membership.companyId,employeeBranchId,dto.employeeNumber.trim(),nationalId,kraPin,nssfNumber,shaNumber,nhifNumber,dto.firstName.trim(),dto.lastName.trim(),dto.workEmail?.trim().toLowerCase()??null,dto.phone?.trim()??null,dto.jobTitle?.trim()??null,dto.department?.trim()??null,dto.hireDate??null,user.userId]);
       const employee=result.rows[0];
       await this.audit.log({userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'employees.create',entityType:'employee',entityId:String(employee.id),oldValues:null,newValues:{employeeNumber:employee.employee_number,nationalIdLast4:nationalId?.slice(-4)??null,kraPinLast4:kraPin?.slice(-4)??null,nssfNumberLast4:nssfNumber?.slice(-4)??null,shaNumberLast4:shaNumber?.slice(-4)??null,nhifNumberLast4:nhifNumber?.slice(-4)??null},ipAddress:null});
       return employee;
