@@ -1,0 +1,93 @@
+import { ForbiddenException } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
+import { DatabaseService } from '../database.service.js';
+import { MembershipsService } from '../memberships/memberships.service.js';
+import { AuditService } from '../audit/audit.service.js';
+import { ContractsService } from './contracts.service.js';
+
+type Mock = ReturnType<typeof vi.fn>;
+
+describe('ContractsService branch mutation authorization', () => {
+  let service: ContractsService;
+  let db: { query: Mock; transaction: Mock };
+  let memberships: { getMembership: Mock; getMembershipForCompany: Mock };
+  let audit: { log: Mock };
+  const user = { userId: 'user-branch-a', companyId: 'company-1', branchId: 'branch-a' } as any;
+
+  beforeEach(async () => {
+    db = {
+      query: vi.fn(),
+      transaction: vi.fn(),
+    };
+    memberships = {
+      getMembership: vi.fn(),
+      getMembershipForCompany: vi.fn().mockResolvedValue({
+        companyId: 'company-1',
+        branchId: 'branch-a',
+        role: 'staff',
+      }),
+    };
+    audit = { log: vi.fn().mockResolvedValue(undefined) };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ContractsService,
+        { provide: DatabaseService, useValue: db },
+        { provide: MembershipsService, useValue: memberships },
+        { provide: AuditService, useValue: audit },
+      ],
+    }).compile();
+    service = module.get(ContractsService);
+  });
+
+  it('allows branch-bound members to view company-wide contracts but blocks editing them', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [{ id: 'contract-shared', company_id: 'company-1', branch_id: null, status: 'draft' }],
+      rowCount: 1,
+    });
+
+    await expect(service.update(user, 'contract-shared', { title: 'Changed title' }))
+      .rejects.toThrow(ForbiddenException);
+
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('blocks adding obligations to a company-wide contract from a branch-bound membership', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [{ id: 'contract-shared', company_id: 'company-1', branch_id: null, status: 'active' }],
+      rowCount: 1,
+    });
+
+    await expect(service.addObligation(user, 'contract-shared', { title: 'Renewal review' }))
+      .rejects.toThrow(ForbiddenException);
+
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('allows mutation checks to proceed for a contract assigned to the member branch', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [{ id: 'contract-a', company_id: 'company-1', branch_id: 'branch-a', status: 'draft' }],
+      rowCount: 1,
+    });
+    db.transaction.mockImplementation(async (callback: (client: { query: Mock }) => Promise<unknown>) =>
+      callback({ query: vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }) }),
+    );
+    db.query.mockResolvedValueOnce({
+      rows: [{ id: 'contract-a', company_id: 'company-1', branch_id: 'branch-a', status: 'draft' }],
+      rowCount: 1,
+    }).mockResolvedValueOnce({ rows: [], rowCount: 0 }).mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    await service.update(user, 'contract-a', { title: 'Branch contract' });
+
+    expect(db.transaction).toHaveBeenCalledTimes(1);
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+      companyId: 'company-1',
+      branchId: 'branch-a',
+      action: 'update',
+      entityType: 'contract',
+      entityId: 'contract-a',
+    }));
+  });
+});
