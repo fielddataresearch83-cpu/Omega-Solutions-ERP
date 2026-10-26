@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { SalesOrdersService } from './sales-orders.service.js';
 
 describe('SalesOrdersService inventory fulfilment', () => {
@@ -48,6 +48,18 @@ describe('SalesOrdersService inventory fulfilment', () => {
     expect(memberships.getMembershipForCompany).toHaveBeenCalledWith('user-1', 'company-2');
     expect(memberships.getMembership).not.toHaveBeenCalled();
     expect(db.query).toHaveBeenCalledWith(expect.stringContaining('WHERE so.company_id = $1'), ['company-2']);
+  });
+
+  it('blocks branch-bound members from company-wide sales orders before querying data', async () => {
+    memberships.getMembership.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-1' });
+
+    await expect(service.list(user)).rejects.toThrow(ForbiddenException);
+    await expect(service.getById(user, 'order-1')).rejects.toThrow(ForbiddenException);
+    await expect(service.updateStatus(user, 'order-1', 'cancelled')).rejects.toThrow(ForbiddenException);
+
+    expect(db.query).not.toHaveBeenCalled();
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
   });
 
   it('deducts available stock, records an issue movement, and marks the order fulfilled atomically', async () => {
