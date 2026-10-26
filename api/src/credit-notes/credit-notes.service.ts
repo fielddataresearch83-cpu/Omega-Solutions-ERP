@@ -95,7 +95,7 @@ export class CreditNotesService {
       'SELECT id,invoice_item_id,description,quantity,unit_price,tax_rate,tax_treatment,line_subtotal,tax_amount,line_total FROM credit_note_items WHERE company_id=$1 AND credit_note_id=$2 ORDER BY created_at,id',
       [companyId, id],
     );
-    const creditBalance = await this.db.query(
+    const creditBalance = await this.db.query<{ id: string; credit_amount: string | number; refunded_amount: string | number; available_amount: string | number; created_at: Date; updated_at: Date }>(
       `SELECT id,credit_amount,refunded_amount,(credit_amount-refunded_amount)::numeric(14,2) AS available_amount,created_at,updated_at
        FROM customer_credit_balances WHERE company_id=$1 AND credit_note_id=$2`,
       [companyId, id],
