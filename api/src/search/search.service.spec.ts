@@ -94,7 +94,7 @@ describe('SearchService', () => {
         rowCount: 1,
       })
       .mockResolvedValueOnce({ rows: [], rowCount: 0 });
-    expect(await service.search(user(), 'Acme')).toEqual([]);
+    expect(await service.search(user({ permissions: ['suppliers:read'] }), 'Acme')).toEqual([]);
     expect(db.query).toHaveBeenCalledTimes(2);
   });
 
