@@ -59,7 +59,7 @@ export class ContractsService {
       if (type==='supplier') { const s=await client.query('SELECT id FROM suppliers WHERE id=$1 AND company_id=$2',[body.supplierId,companyId]); if(!s.rows[0]) throw new NotFoundException('Supplier not found in this company.'); }
       await client.query(`INSERT INTO contracts(id,company_id,branch_id,contract_number,title,contract_type,counterparty_customer_id,counterparty_supplier_id,description,start_date,end_date,renewal_date,currency,contract_value,monthly_budget,owner_user_id,notes,created_by)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
-      [id,companyId,body.branchId ?? m.branchId,number,String(body.title).trim(),type,type==='customer'?body.customerId:null,type==='supplier'?body.supplierId:null,body.description??null,body.startDate,body.endDate,body.renewalDate??null,body.currency??'KES',Number(body.contractValue??0),body.monthlyBudget==null?null:Number(body.monthlyBudget),body.ownerUserId??user.userId,body.notes??null,user.userId]);
+      [id,companyId,body.branchId ?? m.branchId,number,String(body.title).trim(),type,type==='customer'?body.customerId:null,type==='supplier'?body.supplierId:null,body.description??null,body.startDate,body.endDate,body.renewalDate??null,body.currency??'KES',Number(body.contractValue??0),body.monthlyBudget==null?null:Number(body.monthlyBudget),user.userId,body.notes??null,user.userId]);
       await this.insertItems(client,companyId,id,body.items);
     });
     await this.audit.log({userId:user.userId,companyId,branchId:m.branchId,action:'create',entityType:'contract',entityId:id,oldValues:null,newValues:{title:body.title,contractType:type,status:'draft'},ipAddress:null});
