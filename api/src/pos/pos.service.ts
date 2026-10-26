@@ -253,7 +253,7 @@ export class PosService {
         }
       }
 
-      const resolved:Array<{productId:string;name:string;sku:string;quantity:number;unitPrice:number;taxRate:number;subtotal:number;tax:number;total:number;cost:number;isService:boolean}>=[];
+      const resolved:Array<{productId:string;name:string;sku:string;quantity:number;unitPrice:number;taxRate:number;taxTreatment:string;subtotal:number;tax:number;total:number;cost:number;isService:boolean}>=[];
       let subtotalCents=0,taxCents=0;
       for(const item of dto.items) {
         const productResult=await client.query<{id:string;name:string;sku:string;selling_price:string|number;cost_price:string|number;is_active:boolean;is_service:boolean;tax_treatment:string;tax_rate:string|number}>(
@@ -270,7 +270,7 @@ export class PosService {
         const taxRate=p.tax_treatment==='legacy'?(item.taxRate??0):p.tax_treatment==='standard'?Number(p.tax_rate):0;
         const lineTax=Math.round(lineSubtotal*taxRate/100);
         subtotalCents+=lineSubtotal; taxCents+=lineTax;
-        resolved.push({productId:p.id,name:p.name,sku:p.sku,quantity:qtyMilli/1000,unitPrice:unitPriceCents/100,taxRate,subtotal:lineSubtotal/100,tax:lineTax/100,total:(lineSubtotal+lineTax)/100,cost:Number(p.cost_price),isService:p.is_service});
+        resolved.push({productId:p.id,name:p.name,sku:p.sku,quantity:qtyMilli/1000,unitPrice:unitPriceCents/100,taxRate,taxTreatment:p.tax_treatment,subtotal:lineSubtotal/100,tax:lineTax/100,total:(lineSubtotal+lineTax)/100,cost:Number(p.cost_price),isService:p.is_service});
       }
       const totalCents=subtotalCents+taxCents;
       const total=totalCents/100;
@@ -295,9 +295,9 @@ export class PosService {
       let costCents=0;
       for(const line of resolved) {
         await client.query(
-          `INSERT INTO invoice_items(company_id,invoice_id,product_id,product_name,sku,quantity,unit_price,tax_rate,line_subtotal,tax_amount,line_total)
-           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-          [companyId,invoiceId,line.productId,line.name,line.sku,line.quantity,line.unitPrice,line.taxRate,line.subtotal,line.tax,line.total]);
+          `INSERT INTO invoice_items(company_id,invoice_id,product_id,product_name,sku,quantity,unit_price,tax_rate,tax_treatment,line_subtotal,tax_amount,line_total)
+           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+          [companyId,invoiceId,line.productId,line.name,line.sku,line.quantity,line.unitPrice,line.taxRate,line.taxTreatment,line.subtotal,line.tax,line.total]);
         if(line.isService) continue;
         const stockResult=await client.query<{quantity:string|number;reserved_quantity:string|number}>(
           'SELECT quantity,reserved_quantity FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE',
