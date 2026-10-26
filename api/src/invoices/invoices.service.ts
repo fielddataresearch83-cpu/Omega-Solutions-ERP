@@ -222,7 +222,7 @@ export class InvoicesService {
           id: string; name: string; sku: string; selling_price: string | number;
           is_active: boolean; is_service: boolean;
         }>(
-          `SELECT id, name, sku, selling_price, is_active, is_service
+          `SELECT id, name, sku, selling_price, is_active, is_service, tax_treatment, tax_rate
            FROM products WHERE id = $1 AND company_id = $2 FOR SHARE`,
           [item.productId, membership.companyId],
         );
@@ -234,7 +234,11 @@ export class InvoicesService {
         const quantityMilli = Math.round(item.quantity * 1000);
         const quantity = quantityMilli / 1000;
         const lineSubtotalCents = Math.round(unitPriceCents * quantityMilli / 1000);
-        const taxRate = item.taxRate ?? 0;
+        const taxRate = product.tax_treatment === 'legacy'
+          ? (item.taxRate ?? 0)
+          : product.tax_treatment === 'standard'
+            ? Number(product.tax_rate)
+            : 0;
         const lineTaxCents = Math.round(lineSubtotalCents * taxRate / 100);
         const lineTotalCents = lineSubtotalCents + lineTaxCents;
         subtotalCents += lineSubtotalCents;
