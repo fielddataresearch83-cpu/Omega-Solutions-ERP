@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -58,9 +58,22 @@ export class SupplierBillsService {
   async create(user:AuthenticatedUser,dto:CreateSupplierBillDto) {
     const membership=await this.companyFor(user);this.assertCompanyWide(membership);const companyId=membership.companyId;
     await this.accounting.ensureDefaults(companyId);
-    const id=await this.db.transaction(async client=>{
+    let id: string;
+    try {
+    id=await this.db.transaction(async client=>{
       const supplier=await client.query<{id:string}>("SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true AND status='active'",[dto.supplierId,companyId]);
       if(!supplier.rows[0])throw new NotFoundException('Active supplier not found in this company.');
+      if(dto.supplierInvoiceNumber?.trim()){
+        const duplicate=await client.query<{id:string;bill_number:string}>(
+          `SELECT id,bill_number FROM supplier_bills
+           WHERE company_id=$1 AND supplier_id=$2
+             AND LOWER(BTRIM(supplier_invoice_number))=LOWER(BTRIM($3))
+             AND status<>'void'
+           LIMIT 1 FOR UPDATE`,
+          [companyId,dto.supplierId,dto.supplierInvoiceNumber],
+        );
+        if(duplicate.rows[0])throw new ConflictException('This supplier invoice number has already been recorded for this supplier. Check the existing bill before creating another.');
+      }
       if(dto.purchaseOrderId){
         const po=await client.query<{supplier_id:string;status:string}>('SELECT supplier_id,status FROM purchase_orders WHERE id=$1 AND company_id=$2 FOR SHARE',[dto.purchaseOrderId,companyId]);
         if(!po.rows[0])throw new NotFoundException('Purchase order not found in this company.');
@@ -113,6 +126,13 @@ export class SupplierBillsService {
       await this.postJournal(client,{companyId,date:dto.billDate??null,description:`Supplier bill ${number}`,sourceType:'supplier_bill',sourceId:billId,userId:user.userId,lines:journalLines});
       return billId;
     });
+    } catch(error) {
+      const databaseError=error as {code?:string;constraint?:string};
+      if(databaseError.code==='23505' && databaseError.constraint==='supplier_bills_supplier_invoice_number_unique'){
+        throw new ConflictException('This supplier invoice number has already been recorded for this supplier. Check the existing bill before creating another.');
+      }
+      throw error;
+    }
     await this.audit.log({userId:user.userId,companyId,branchId:null,action:'supplier_bill.create',entityType:'supplier_bill',entityId:id,oldValues:null,newValues:{supplierId:dto.supplierId,purchaseOrderId:dto.purchaseOrderId??null},ipAddress:null});
     return this.getById(user,id);
   }
