@@ -41,7 +41,7 @@ function applyPreferences(preferences: AppearancePreferences) {
 }
 
 export default function AppearanceSettings() {
-  const { theme, setTheme } = useContext(ThemeProviderContext)
+  const { theme, setTheme } = useTheme()
   const [preferences, setPreferences] = useState<AppearancePreferences>(defaults)
   const [saved, setSaved] = useState(false)
 
@@ -56,7 +56,6 @@ export default function AppearanceSettings() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
       applyPreferences(preferences)
-      setTheme(theme === "light" ? "light" : "dark")
       setSaved(true)
     } catch {
       setSaved(false)
