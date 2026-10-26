@@ -1,336 +1,155 @@
 "use client"
 
-import { zodResolver } from "@hookform/resolvers/zod"
-import { Controller, useForm } from "react-hook-form"
-import { z } from "zod"
-import { BaseLayout } from "@/components/layouts/base-layout"
-import { useTheme } from "@/contexts/theme-context"
 import { useEffect, useState } from "react"
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "@/components/ui/field"
+import { BaseLayout } from "@/components/layouts/base-layout"
 import { Button } from "@/components/ui/button"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { useTheme } from "@/hooks/use-theme"
 
-const appearanceFormSchema = z.object({
-  theme: z.enum(["light", "dark"]),
-  fontFamily: z.string().optional(),
-  fontSize: z.string().optional(),
-  sidebarWidth: z.string().optional(),
-  contentWidth: z.string().optional(),
-})
+type AppearancePreferences = {
+  fontFamily: "inter" | "roboto" | "system"
+  fontSize: "small" | "medium" | "large"
+}
 
-type AppearanceFormValues = z.infer<typeof appearanceFormSchema>
+const STORAGE_KEY = "omega-appearance-preferences"
+const defaults: AppearancePreferences = { fontFamily: "inter", fontSize: "medium" }
+
+function readPreferences(): AppearancePreferences {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (!saved) return defaults
+    const parsed = JSON.parse(saved) as Partial<AppearancePreferences>
+    return {
+      fontFamily: parsed.fontFamily === "roboto" || parsed.fontFamily === "system" ? parsed.fontFamily : "inter",
+      fontSize: parsed.fontSize === "small" || parsed.fontSize === "large" ? parsed.fontSize : "medium",
+    }
+  } catch {
+    return defaults
+  }
+}
+
+function applyPreferences(preferences: AppearancePreferences) {
+  const root = document.documentElement
+  const fonts = {
+    inter: '"Inter", system-ui, sans-serif',
+    roboto: '"Roboto", Arial, sans-serif',
+    system: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  }
+  const sizes = { small: "14px", medium: "16px", large: "18px" }
+  root.style.setProperty("--font-inter", fonts[preferences.fontFamily])
+  root.style.setProperty("--omega-base-font-size", sizes[preferences.fontSize])
+  document.body.style.fontSize = sizes[preferences.fontSize]
+}
 
 export default function AppearanceSettings() {
   const { theme, setTheme } = useTheme()
+  const [preferences, setPreferences] = useState<AppearancePreferences>(defaults)
   const [saved, setSaved] = useState(false)
-  const form = useForm<AppearanceFormValues>({
-    resolver: zodResolver(appearanceFormSchema),
-    defaultValues: {
-      theme: theme === "system" ? (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : theme,
-      fontFamily: "system",
-      fontSize: "medium",
-      sidebarWidth: "comfortable",
-      contentWidth: "fluid",
-    },
-  })
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("omega-appearance-preferences")
-    if (saved) {
-      try {
-        const preferences = appearanceFormSchema.parse(JSON.parse(saved))
-        form.reset(preferences)
-      } catch {
-        window.localStorage.removeItem("omega-appearance-preferences")
-      }
-    }
-  }, [form])
+    const loaded = readPreferences()
+    setPreferences(loaded)
+    applyPreferences(loaded)
+  }, [])
 
-  function onSubmit(data: AppearanceFormValues) {
-    window.localStorage.setItem("omega-appearance-preferences", JSON.stringify(data))
-    setTheme(data.theme)
-    const root = document.documentElement
-    root.dataset.fontFamily = data.fontFamily || "system"
-    root.dataset.fontSize = data.fontSize || "medium"
-    root.dataset.sidebarWidth = data.sidebarWidth || "comfortable"
-    root.dataset.contentWidth = data.contentWidth || "fluid"
-    setSaved(true)
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
+      applyPreferences(preferences)
+      setTheme(theme === "light" ? "light" : "dark")
+      setSaved(true)
+    } catch {
+      setSaved(false)
+    }
+  }
+
+  function cancelChanges() {
+    const loaded = readPreferences()
+    setPreferences(loaded)
+    applyPreferences(loaded)
+    setSaved(false)
   }
 
   return (
     <BaseLayout>
-      <div className="flex flex-col gap-6 px-4 lg:px-6">
-        <div>
-          <h1 className="text-3xl font-bold">Appearance</h1>
-          <p className="text-muted-foreground">
-            Customize the appearance of the application.
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 lg:px-6">
+        <header>
+          <h1 className="text-3xl font-bold tracking-tight">Appearance</h1>
+          <p className="mt-2 text-muted-foreground">
+            Personalize your Omega workspace. Changes are saved on this device and applied to the interface.
           </p>
-        </div>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-6"
-        >
-          <FieldGroup>
-            {/* Theme Section */}
-            <Controller
-              control={form.control}
-              name="theme"
-              render={({ field, fieldState }) => (
-                <FieldSet data-invalid={fieldState.invalid}>
-                  <FieldLegend>Theme</FieldLegend>
-                  <RadioGroup
-                    name={field.name}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    className="flex gap-4"
-                  >
-                    <FieldLabel
-                      htmlFor="appearance-theme-light"
-                      className="cursor-pointer gap-0 rounded-md [&:has([data-checked])>div]:border-primary"
-                    >
-                      <RadioGroupItem
-                        id="appearance-theme-light"
-                        value="light"
-                        className="sr-only absolute"
-                        aria-invalid={fieldState.invalid}
-                      />
-                      <div className="rounded-md border-2 border-muted p-4 hover:border-accent transition-colors">
-                        <div className="flex flex-col gap-2">
-                          <div className="size-20 bg-white border rounded-md p-3">
-                            <div className="flex flex-col gap-2">
-                              <div className="h-2 bg-gray-200 rounded w-3/4"></div>
-                              <div className="h-2 bg-gray-200 rounded w-1/2"></div>
-                              <div className="flex gap-2">
-                                <div className="size-2 bg-gray-300 rounded-full"></div>
-                                <div className="h-2 bg-gray-200 rounded flex-1"></div>
-                              </div>
-                              <div className="flex gap-2">
-                                <div className="size-2 bg-gray-300 rounded-full"></div>
-                                <div className="h-2 bg-gray-200 rounded flex-1"></div>
-                              </div>
-                            </div>
-                          </div>
-                          <span className="text-sm font-medium">Light</span>
-                        </div>
-                      </div>
-                    </FieldLabel>
-                    <FieldLabel
-                      htmlFor="appearance-theme-dark"
-                      className="cursor-pointer gap-0 rounded-md [&:has([data-checked])>div]:border-primary"
-                    >
-                      <RadioGroupItem
-                        id="appearance-theme-dark"
-                        value="dark"
-                        className="sr-only absolute"
-                        aria-invalid={fieldState.invalid}
-                      />
-                      <div className="rounded-md border-2 border-muted p-4 hover:border-accent transition-colors">
-                        <div className="flex flex-col gap-2">
-                          <div className="size-20 bg-gray-900 border border-gray-700 rounded-md p-3">
-                            <div className="flex flex-col gap-2">
-                              <div className="h-2 bg-gray-600 rounded w-3/4"></div>
-                              <div className="h-2 bg-gray-600 rounded w-1/2"></div>
-                              <div className="flex gap-2">
-                                <div className="size-2 bg-gray-500 rounded-full"></div>
-                                <div className="h-2 bg-gray-600 rounded flex-1"></div>
-                              </div>
-                              <div className="flex gap-2">
-                                <div className="size-2 bg-gray-500 rounded-full"></div>
-                                <div className="h-2 bg-gray-600 rounded flex-1"></div>
-                              </div>
-                            </div>
-                          </div>
-                          <span className="text-sm font-medium">Dark</span>
-                        </div>
-                      </div>
-                    </FieldLabel>
-                  </RadioGroup>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </FieldSet>
-              )}
-            />
+        </header>
 
-            <Controller
-              control={form.control}
-              name="fontFamily"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="appearance-font-family">
-                    Font Family
-                  </FieldLabel>
-                  <Select
-                    items={{
-                      inter: "Inter",
-                      roboto: "Roboto",
-                      system: "System Default",
-                    }}
-                    name={field.name}
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <SelectTrigger
-                      id="appearance-font-family"
-                      aria-invalid={fieldState.invalid}
-                      className="cursor-pointer"
-                    >
-                      <SelectValue placeholder="Select a font" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="inter">Inter</SelectItem>
-                        <SelectItem value="roboto">Roboto</SelectItem>
-                        <SelectItem value="system">System Default</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              control={form.control}
-              name="fontSize"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="appearance-font-size">
-                    Font Size
-                  </FieldLabel>
-                  <Select
-                    items={{ small: "Small", medium: "Medium", large: "Large" }}
-                    name={field.name}
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <SelectTrigger
-                      id="appearance-font-size"
-                      aria-invalid={fieldState.invalid}
-                      className="cursor-pointer"
-                    >
-                      <SelectValue placeholder="Select font size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="small">Small</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="large">Large</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
+        <form onSubmit={onSubmit} className="flex flex-col gap-6">
+          <section className="rounded-xl border bg-card p-5 text-card-foreground shadow-sm">
+            <h2 className="text-lg font-semibold">Color theme</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Choose the theme used throughout the application.</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {(["light", "dark"] as const).map((option) => (
+                <label
+                  key={option}
+                  className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${theme === option ? "border-primary bg-accent" : "border-border hover:bg-muted"}`}
+                >
+                  <input
+                    type="radio"
+                    name="theme"
+                    value={option}
+                    checked={theme === option}
+                    onChange={() => { setTheme(option); setSaved(false) }}
+                    className="size-4 accent-[var(--primary)]"
+                  />
+                  <span className="flex-1">
+                    <span className="block font-medium capitalize">{option} mode</span>
+                    <span className="block text-sm text-muted-foreground">
+                      {option === "light" ? "Bright surfaces with dark, readable text." : "Dark surfaces with high-contrast text."}
+                    </span>
+                  </span>
+                  <span aria-hidden="true" className={`h-10 w-10 rounded-md border ${option === "light" ? "border-gray-300 bg-white" : "border-gray-700 bg-zinc-950"}`}>
+                    <span className="m-2 block h-2 rounded bg-[#34D59A]" />
+                    <span className={`mx-2 block h-1.5 rounded ${option === "light" ? "bg-gray-300" : "bg-gray-600"}`} />
+                  </span>
+                </label>
+              ))}
+            </div>
+          </section>
 
-            {/* Layout Section */}
-            <Controller
-              control={form.control}
-              name="sidebarWidth"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="appearance-sidebar-width">
-                    Sidebar Width
-                  </FieldLabel>
-                  <Select
-                    items={{
-                      compact: "Compact",
-                      comfortable: "Comfortable",
-                      spacious: "Spacious",
-                    }}
-                    name={field.name}
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <SelectTrigger
-                      id="appearance-sidebar-width"
-                      aria-invalid={fieldState.invalid}
-                      className="cursor-pointer"
-                    >
-                      <SelectValue placeholder="Select sidebar width" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="compact">Compact</SelectItem>
-                        <SelectItem value="comfortable">Comfortable</SelectItem>
-                        <SelectItem value="spacious">Spacious</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-            <Controller
-              control={form.control}
-              name="contentWidth"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="appearance-content-width">
-                    Content Width
-                  </FieldLabel>
-                  <Select
-                    items={{
-                      fixed: "Fixed",
-                      fluid: "Fluid",
-                      container: "Container",
-                    }}
-                    name={field.name}
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <SelectTrigger
-                      id="appearance-content-width"
-                      aria-invalid={fieldState.invalid}
-                      className="cursor-pointer"
-                    >
-                      <SelectValue placeholder="Select content width" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="fixed">Fixed</SelectItem>
-                        <SelectItem value="fluid">Fluid</SelectItem>
-                        <SelectItem value="container">Container</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  {fieldState.invalid && (
-                    <FieldError errors={[fieldState.error]} />
-                  )}
-                </Field>
-              )}
-            />
-          </FieldGroup>
+          <section className="rounded-xl border bg-card p-5 text-card-foreground shadow-sm">
+            <h2 className="text-lg font-semibold">Typography</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Adjust text appearance for readability.</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="appearance-font-family">
+                Font family
+                <select
+                  id="appearance-font-family"
+                  value={preferences.fontFamily}
+                  onChange={(event) => { setPreferences({ ...preferences, fontFamily: event.target.value as AppearancePreferences["fontFamily"] }); setSaved(false) }}
+                  className="h-10 rounded-md border border-input bg-background px-3 text-foreground"
+                >
+                  <option value="inter">Inter</option>
+                  <option value="roboto">Roboto</option>
+                  <option value="system">System default</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="appearance-font-size">
+                Font size
+                <select
+                  id="appearance-font-size"
+                  value={preferences.fontSize}
+                  onChange={(event) => { setPreferences({ ...preferences, fontSize: event.target.value as AppearancePreferences["fontSize"] }); setSaved(false) }}
+                  className="h-10 rounded-md border border-input bg-background px-3 text-foreground"
+                >
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                </select>
+              </label>
+            </div>
+          </section>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Button type="submit" className="cursor-pointer">
-              Save Preferences
-            </Button>
-            {saved && <p role="status" className="text-sm text-muted-foreground">Preferences saved and applied.</p>}
-            <Button variant="outline" type="button" className="cursor-pointer" onClick={() => { form.reset(); setSaved(false) }}>
-              Cancel
-            </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="submit">Save preferences</Button>
+            <Button type="button" variant="outline" onClick={cancelChanges}>Reset saved preferences</Button>
+            {saved && <p role="status" className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Preferences saved on this device.</p>}
           </div>
         </form>
       </div>
