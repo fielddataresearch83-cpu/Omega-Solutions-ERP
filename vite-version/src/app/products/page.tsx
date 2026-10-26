@@ -70,6 +70,8 @@ export default function ProductsPage() {
     costPrice: 0,
     stockQuantity: 0,
     reorderLevel: 0,
+    taxTreatment: 'legacy' as 'legacy' | 'standard' | 'zero_rated' | 'exempt' | 'out_of_scope',
+    taxRate: 0,
     isService: false,
   })
   const [formErrors, setFormErrors] = React.useState<Record<string, string>>({})
@@ -100,7 +102,7 @@ export default function ProductsPage() {
   const openAddDialog = () => {
     setEditingProduct(null)
     setSelectedImage(null)
-    setFormData({ sku: "", name: "", imageUrl: "", category: "", unit: "pcs", sellingPrice: 0, costPrice: 0, stockQuantity: 0, reorderLevel: 0, isService: false })
+    setFormData({ sku: "", name: "", imageUrl: "", category: "", unit: "pcs", sellingPrice: 0, costPrice: 0, stockQuantity: 0, reorderLevel: 0, taxTreatment: "legacy", taxRate: 0, isService: false })
     setFormErrors({})
     setFormError(null)
     setDialogOpen(true)
@@ -119,6 +121,8 @@ export default function ProductsPage() {
       costPrice: Number(product.cost_price),
       stockQuantity: Number(product.stock_quantity),
       reorderLevel: Number(product.reorder_level),
+      taxTreatment: product.tax_treatment ?? 'legacy',
+      taxRate: Number(product.tax_rate ?? 0),
       isService: product.is_service,
     })
     setFormErrors({})
@@ -131,6 +135,7 @@ export default function ProductsPage() {
     if (!formData.sku.trim()) errors.sku = "SKU is required"
     if (!formData.name.trim()) errors.name = "Product name is required"
     if (formData.sellingPrice < 0) errors.sellingPrice = "Price cannot be negative"
+    if (formData.taxTreatment === "standard" && (formData.taxRate <= 0 || formData.taxRate > 100)) errors.taxRate = "Enter a configured tax rate greater than 0 and no more than 100%."
     setFormErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -150,6 +155,8 @@ export default function ProductsPage() {
         costPrice: formData.costPrice,
         ...(editingProduct ? {} : { stockQuantity: formData.stockQuantity }),
         reorderLevel: formData.reorderLevel,
+        taxTreatment: formData.taxTreatment,
+        taxRate: formData.taxRate,
         isService: formData.isService,
       }
       const savedProduct = editingProduct
