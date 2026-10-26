@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service.js';
 import type { CompanyRow } from './company.types.js';
 import type { CreateCompanyDto, UpdateCompanyDto } from './dto/company.dto.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
+import { readCompanyTaxPolicy } from '../tax/tax-policy.js';
 
 const COMPANY_COLUMNS = `
   id, name, registration_number, vat_number, currency, timezone,
@@ -129,6 +130,7 @@ export class CompaniesService {
       // Product-specific rates are allowed, but the company must explicitly configure a standard rate for policy completeness.
       throw new ConflictException('A VAT-registered company must configure its standard VAT rate before enabling configured tax policy.');
     }
+    if (dto.taxPolicy !== undefined) readCompanyTaxPolicy({ taxPolicy: dto.taxPolicy });
 
     const fields: string[] = [];
     const values: (string | boolean | null)[] = [];
