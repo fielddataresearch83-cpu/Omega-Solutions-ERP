@@ -41,8 +41,10 @@ describe('ProductsService initial stock', () => {
               company_id: 'company-1',
               sku: dto.sku,
               name: dto.name,
-              stock_quantity: params?.[8] ?? 0,
-              is_service: params?.[10] ?? false,
+              stock_quantity: params?.[9] ?? 0,
+              is_service: params?.[13] ?? false,
+              tax_treatment: params?.[11] ?? 'legacy',
+              tax_rate: params?.[12] ?? 0,
             }],
             rowCount: 1,
           };
@@ -103,6 +105,10 @@ describe('ProductsService initial stock', () => {
     await service.create(user, dto as any);
 
     expect(accounting.ensureDefaults).toHaveBeenCalledWith('company-1');
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining('tax_treatment, tax_rate'),
+      expect.arrayContaining(['legacy', 0]),
+    );
     expect(db.transaction).toHaveBeenCalledTimes(1);
     expect(client.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO inventory_stock_levels'),
