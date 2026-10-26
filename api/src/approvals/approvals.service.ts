@@ -57,7 +57,7 @@ export class ApprovalsService {
   async submitContract(user: AuthenticatedUser, id: string) {
     const membership = await this.companyFor(user);
     const result = await this.db.transaction(async client => {
-      const found = await client.query('SELECT id,status,created_by FROM contracts WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id IS NULL OR branch_id=$3) FOR UPDATE',[membership.companyId,id,membership.branchId]);
+      const found = await client.query('SELECT id,status,created_by FROM contracts WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',[membership.companyId,id,membership.branchId]);
       const row=found.rows[0];
       if(!row) throw new NotFoundException('Contract not found.');
       if(row.created_by!==user.userId) throw new BadRequestException('Only the contract creator can submit it for approval.');
@@ -91,7 +91,7 @@ export class ApprovalsService {
           await client.query("UPDATE purchase_orders SET status='ordered',updated_at=NOW() WHERE company_id=$1 AND id=$2", [membership.companyId,row.entity_id]);
         }
       } else if (row.entity_type === 'contract') {
-        const contract=await client.query('SELECT id,status FROM contracts WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id IS NULL OR branch_id=$3) FOR UPDATE',[membership.companyId,row.entity_id,membership.branchId]);
+        const contract=await client.query('SELECT id,status FROM contracts WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',[membership.companyId,row.entity_id,membership.branchId]);
         if(!contract.rows[0]||contract.rows[0].status!=='pending_approval') throw new BadRequestException('The contract is not awaiting approval.');
         await client.query('UPDATE contracts SET status=$1,updated_at=NOW() WHERE company_id=$2 AND id=$3',[decision==='approved'?'active':'draft',membership.companyId,row.entity_id]);
       } else {

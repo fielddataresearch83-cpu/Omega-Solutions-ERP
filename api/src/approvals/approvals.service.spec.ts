@@ -137,6 +137,17 @@ describe('ApprovalsService', () => {
     );
   });
 
+  it('prevents branch-bound members from submitting company-wide contracts through the approval endpoint', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-2', role: 'manager' });
+    client.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    await expect(service.submitContract(user, 'company-wide-contract')).rejects.toThrow(NotFoundException);
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining('AND ($3::uuid IS NULL OR branch_id=$3)'),
+      ['company-1', 'company-wide-contract', 'branch-2'],
+    );
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO approval_requests'))).toBe(false);
+  });
+
   it('submits a draft purchase order for approval within the active company', async () => {
     client.query.mockImplementation(async (sql: string) => {
       if (sql.includes('SELECT id,status,created_by FROM purchase_orders')) {
