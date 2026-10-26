@@ -40,7 +40,8 @@ export class PosService {
   }
 
   async listRegisters(user: AuthenticatedUser) {
-    const { companyId } = await this.company(user);
+    const membership = await this.company(user);
+    const { companyId } = membership;
     const canViewTeam = user.permissions.includes('sales:team-read');
     const result = await this.db.query(
       `SELECT r.id,r.company_id,r.branch_id,r.code,r.name,r.is_active,r.created_at,
@@ -49,16 +50,18 @@ export class PosService {
        FROM pos_registers r
        LEFT JOIN branches b ON b.id=r.branch_id AND b.company_id=r.company_id
        LEFT JOIN pos_shifts s ON s.register_id=r.id AND s.company_id=r.company_id AND s.status='open'
-       WHERE r.company_id=$1 AND (
-         $2::boolean=true OR EXISTS (
-           SELECT 1 FROM salesperson_stock_assignments a
-           JOIN warehouses w ON w.id=a.warehouse_id AND w.company_id=a.company_id
-           WHERE a.company_id=r.company_id AND a.user_id=$3 AND a.is_active=true
-             AND r.branch_id IS NOT DISTINCT FROM w.branch_id
+       WHERE r.company_id=$1
+         AND ($4::uuid IS NULL OR r.branch_id=$4::uuid)
+         AND (
+           $2::boolean=true OR EXISTS (
+             SELECT 1 FROM salesperson_stock_assignments a
+             JOIN warehouses w ON w.id=a.warehouse_id AND w.company_id=a.company_id
+             WHERE a.company_id=r.company_id AND a.user_id=$3 AND a.is_active=true
+               AND r.branch_id IS NOT DISTINCT FROM w.branch_id
+           )
          )
-       )
        ORDER BY r.is_active DESC,r.name ASC`,
-      [companyId,canViewTeam,user.userId],
+      [companyId,canViewTeam,user.userId,membership.branchId??null],
     );
     return result.rows;
   }
@@ -336,7 +339,8 @@ export class PosService {
   }
 
   async listSales(user:AuthenticatedUser,limit?:string) {
-    const {companyId}=await this.company(user);
+    const membership=await this.company(user);
+    const {companyId}=membership;
     const parsed=Number.parseInt(limit??'50',10);
     const safeLimit=Number.isFinite(parsed)?Math.max(1,Math.min(parsed,100)):50;
     const canViewTeam=user.permissions.includes('sales:team-read');
@@ -346,8 +350,10 @@ export class PosService {
         i.invoice_number,i.status AS invoice_status,c.name AS customer_name
        FROM pos_sales s JOIN invoices i ON i.id=s.invoice_id AND i.company_id=s.company_id
        JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id
-       WHERE s.company_id=$1 AND ($3::boolean=true OR s.created_by=$4)
-       ORDER BY s.created_at DESC LIMIT $2`,[companyId,safeLimit,canViewTeam,user.userId])).rows;
+       JOIN pos_registers r ON r.id=s.register_id AND r.company_id=s.company_id
+       WHERE s.company_id=$1 AND ($5::uuid IS NULL OR r.branch_id=$5::uuid)
+         AND ($3::boolean=true OR s.created_by=$4)
+       ORDER BY s.created_at DESC LIMIT $2`,[companyId,safeLimit,canViewTeam,user.userId,membership.branchId??null])).rows;
   }
 
   async openShift(user: AuthenticatedUser, input: OpenShiftInput) {
