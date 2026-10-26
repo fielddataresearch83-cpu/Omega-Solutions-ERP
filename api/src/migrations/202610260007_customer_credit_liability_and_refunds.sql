@@ -2,7 +2,8 @@
 INSERT INTO chart_of_accounts(company_id,code,name,account_type,normal_side,system_code)
 SELECT c.id,'2050','Customer Credits Payable','liability','credit','customer_credits'
 FROM companies c
-ON CONFLICT(company_id,code) DO NOTHING;
+WHERE NOT EXISTS (SELECT 1 FROM chart_of_accounts a WHERE a.company_id=c.id AND a.system_code='customer_credits')
+  AND NOT EXISTS (SELECT 1 FROM chart_of_accounts a WHERE a.company_id=c.id AND a.code='2050');
 
 CREATE TABLE IF NOT EXISTS customer_credit_balances (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
