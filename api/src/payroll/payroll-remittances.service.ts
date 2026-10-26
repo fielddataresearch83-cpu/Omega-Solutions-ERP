@@ -188,7 +188,9 @@ export class PayrollRemittancesService {
     if (dto.notes !== undefined && (typeof dto.notes !== 'string' || dto.notes.length > 2000)) {
       throw new BadRequestException('notes must be at most 2000 characters.');
     }
-    const { companyId } = await this.membershipFor(user);
+    const membership = await this.membershipFor(user);
+    this.assertCompanyWidePayroll(membership);
+    const { companyId } = membership;
     return this.db.transaction(async (client) => {
       const obligation = await client.query(
         `SELECT id,amount FROM payroll_remittance_obligations
