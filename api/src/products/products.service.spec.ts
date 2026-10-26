@@ -123,6 +123,29 @@ describe('ProductsService initial stock', () => {
     }));
   });
 
+  it('does not place branch-bound opening stock in another branch warehouse or create an unassigned warehouse', async () => {
+    memberships.getMembership.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-1', role: 'staff' });
+    client.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+      if (sql.includes('SELECT id FROM products WHERE company_id')) return { rows: [], rowCount: 0 };
+      if (sql.includes('INSERT INTO products')) {
+        return { rows: [{ id: 'product-1', company_id: 'company-1', sku: dto.sku, name: dto.name }], rowCount: 1 };
+      }
+      if (sql.includes('SELECT id FROM warehouses')) return { rows: [], rowCount: 0 };
+      return { rows: [], rowCount: 1 };
+    });
+
+    await expect(service.create(user, dto as any)).rejects.toThrow(
+      'Create an active warehouse in your assigned branch before setting initial stock.',
+    );
+
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining('AND ($2::uuid IS NULL OR branch_id = $2)'),
+      ['company-1', 'branch-1'],
+    );
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO warehouses'))).toBe(false);
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('inventory_stock_levels'))).toBe(false);
+  });
+
   it('rejects initial stock for a service before opening a transaction', async () => {
     await expect(service.create(user, { ...dto, isService: true } as any)).rejects.toThrow(BadRequestException);
     expect(db.transaction).not.toHaveBeenCalled();
