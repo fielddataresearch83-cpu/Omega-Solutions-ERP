@@ -15,7 +15,7 @@ import { ProductImageStorageService } from './product-image-storage.service.js';
 
 const PRODUCT_COLUMNS = `
   id, company_id, sku, name, description, image_url, image_storage_key, category, unit,
-  selling_price, cost_price, stock_quantity, reorder_level,
+  selling_price, cost_price, stock_quantity, reorder_level, tax_treatment, tax_rate,
   is_service, is_active, created_at, updated_at
 `;
 
@@ -89,9 +89,9 @@ export class ProductsService {
       const result = await client.query<ProductRow>(
         `INSERT INTO products
           (company_id, sku, name, description, image_url, category, unit,
-           selling_price, cost_price, stock_quantity, reorder_level,
+           selling_price, cost_price, stock_quantity, reorder_level, tax_treatment, tax_rate,
            is_service, is_active)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          RETURNING ${PRODUCT_COLUMNS}`,
         [
           membership.companyId,
@@ -105,6 +105,8 @@ export class ProductsService {
           dto.costPrice ?? 0,
           isService ? 0 : initialStock,
           dto.reorderLevel ?? 0,
+          dto.taxTreatment ?? 'legacy',
+          dto.taxRate ?? 0,
           isService,
           dto.isActive ?? true,
         ],
@@ -261,6 +263,8 @@ export class ProductsService {
       sellingPrice: 'selling_price',
       costPrice: 'cost_price',
       reorderLevel: 'reorder_level',
+      taxTreatment: 'tax_treatment',
+      taxRate: 'tax_rate',
       isService: 'is_service',
       isActive: 'is_active',
     };
