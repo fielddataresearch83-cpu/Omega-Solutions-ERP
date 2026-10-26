@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import type { PoolClient } from 'pg';
 import { AccountingService } from '../accounting/accounting.service.js';
+import { readCompanyTaxPolicy, resolveTaxTreatment } from '../tax/tax-policy.js';
 import type { CreateSupplierBillDto, RecordSupplierBillPaymentDto } from './dto/supplier-bill.dto.js';
 
 @Injectable()
@@ -69,8 +70,10 @@ export class SupplierBillsService {
       const year=new Date().getFullYear();
       const seq=await client.query<{next_number:number}>(`INSERT INTO supplier_bill_sequences(company_id,bill_year,next_number) VALUES($1,$2,1) ON CONFLICT(company_id,bill_year) DO UPDATE SET next_number=supplier_bill_sequences.next_number+1 RETURNING next_number`,[companyId,year]);
       const number=`BILL-${year}-${String(seq.rows[0].next_number).padStart(5,'0')}`;
+      const companySettings=await client.query<{settings:unknown}>('SELECT settings FROM companies WHERE id=$1',[companyId]);
+      const taxPolicy=readCompanyTaxPolicy(companySettings.rows[0]?.settings);
       let subtotal=0,taxAmount=0;
-      const lines:Array<{description:string;qty:number;cost:number;rate:number;sub:number;tax:number;total:number;poItemId:string|null;receiptValue:number}>=[];
+      const lines:Array<{description:string;qty:number;cost:number;rate:number;treatment:string;sub:number;tax:number;total:number;poItemId:string|null;receiptValue:number}>=[];
       for(const item of dto.items){
         if(dto.purchaseOrderId&&!item.purchaseOrderItemId)throw new BadRequestException('Each bill line must reference a received purchase order line when a purchase order is linked.');
         let receiptUnitCost = 0;
@@ -84,16 +87,17 @@ export class SupplierBillsService {
           if(item.quantity>available+0.0000001)throw new BadRequestException(`Bill quantity exceeds received, not-yet-billed quantity for "${poItem.rows[0].product_name}" (available: ${Math.max(0,available)}).`);
         }
         const sub=Math.round(item.quantity*item.unitCost*100)/100;
-        const tax=Math.round(sub*(item.taxRate??0))/100;
+        const taxConfig=resolveTaxTreatment({policy:taxPolicy,productTreatment:(item.taxTreatment??'legacy') as 'legacy'|'standard'|'zero_rated'|'exempt'|'out_of_scope',productRate:item.taxRate??0,requestedRate:item.taxRate});
+        const tax=Math.round(sub*taxConfig.rate)/100;
         subtotal+=sub;taxAmount+=tax;
-        lines.push({description:item.description.trim(),qty:item.quantity,cost:item.unitCost,rate:item.taxRate??0,sub,tax,total:sub+tax,poItemId:item.purchaseOrderItemId??null,receiptValue:Math.round(item.quantity*receiptUnitCost*100)/100});
+        lines.push({description:item.description.trim(),qty:item.quantity,cost:item.unitCost,rate:taxConfig.rate,treatment:taxConfig.treatment,sub,tax,total:sub+tax,poItemId:item.purchaseOrderItemId??null,receiptValue:Math.round(item.quantity*receiptUnitCost*100)/100});
       }
       if(subtotal+taxAmount<=0)throw new BadRequestException('Supplier bill total must be greater than zero to post to the ledger.');
       const inserted=await client.query<{id:string}>(`INSERT INTO supplier_bills(company_id,supplier_id,purchase_order_id,bill_number,supplier_invoice_number,bill_date,due_date,status,subtotal,tax_amount,total,notes,created_by)
         VALUES($1,$2,$3,$4,$5,COALESCE($6::date,CURRENT_DATE),$7::date,'open',$8,$9,$10,$11,$12) RETURNING id`,
         [companyId,dto.supplierId,dto.purchaseOrderId??null,number,dto.supplierInvoiceNumber??null,dto.billDate??null,dto.dueDate??null,subtotal,taxAmount,subtotal+taxAmount,dto.notes??null,user.userId]);
-      for(const line of lines)await client.query(`INSERT INTO supplier_bill_items(company_id,supplier_bill_id,purchase_order_item_id,description,quantity,unit_cost,tax_rate,line_subtotal,tax_amount,line_total)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[companyId,inserted.rows[0].id,line.poItemId,line.description,line.qty,line.cost,line.rate,line.sub,line.tax,line.total]);
+      for(const line of lines)await client.query(`INSERT INTO supplier_bill_items(company_id,supplier_bill_id,purchase_order_item_id,description,quantity,unit_cost,tax_rate,tax_treatment,line_subtotal,tax_amount,line_total)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[companyId,inserted.rows[0].id,line.poItemId,line.description,line.qty,line.cost,line.rate,line.treatment,line.sub,line.tax,line.total]);
       const billId=inserted.rows[0].id;
       // Goods received through a purchase order increase inventory; standalone bills remain expense-coded.
       const receiptValue=lines.reduce((sum,line)=>sum+line.receiptValue,0);
