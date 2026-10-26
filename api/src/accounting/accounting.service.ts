@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -25,6 +25,7 @@ const DEFAULT_ACCOUNTS = [
 export class AccountingService {
  constructor(private readonly db:DatabaseService,private readonly memberships:MembershipsService,private readonly audit:AuditService){}
  private companyFor(user:AuthenticatedUser){return user.companyId?this.memberships.getMembershipForCompany(user.userId,user.companyId):this.memberships.getMembership(user.userId);}
+ private assertCompanyWideAccounting(membership:{branchId?:string|null}){if(membership.branchId)throw new ForbiddenException('Accounting ledgers and reconciliations are company-wide. A company-wide accounting administrator must perform this action.');}
  async ensureDefaults(companyId:string){
   await this.db.transaction(async client=>{
    for(const a of DEFAULT_ACCOUNTS) await client.query(
@@ -34,7 +35,8 @@ export class AccountingService {
   });
  }
  async listAccounts(user:AuthenticatedUser){
-  const {companyId}=await this.companyFor(user);await this.ensureDefaults(companyId);
+  const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
+  const {companyId}=membership;await this.ensureDefaults(companyId);
   return (await this.db.query(
    `SELECT a.id,a.company_id,a.code,a.name,a.account_type,a.normal_side,a.system_code,a.is_active,a.created_at,
     COALESCE(SUM(l.debit) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS total_debits,COALESCE(SUM(l.credit) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS total_credits,
@@ -44,7 +46,8 @@ export class AccountingService {
     WHERE a.company_id=$1 GROUP BY a.id ORDER BY a.code`,[companyId])).rows;
  }
  async createAccount(user:AuthenticatedUser,dto:CreateAccountDto){
-  const {companyId}=await this.companyFor(user);await this.ensureDefaults(companyId);
+  const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
+  const {companyId}=membership;await this.ensureDefaults(companyId);
   const side=dto.normalSide??(['liability','equity','income'].includes(dto.accountType)?'credit':'debit');
   try{
    const r=await this.db.query(`INSERT INTO chart_of_accounts(company_id,code,name,account_type,normal_side)
@@ -55,7 +58,8 @@ export class AccountingService {
   }catch(e){if((e as {code?:string}).code==='23505')throw new ConflictException('An account with this code or system code already exists.');throw e;}
  }
  async trialBalance(user:AuthenticatedUser,asOfDate?:string){
-  const {companyId}=await this.companyFor(user);
+  const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
+  const {companyId}=membership;
   const validDate=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value+'T00:00:00Z'))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
   if(asOfDate&&!validDate(asOfDate))throw new BadRequestException('asOfDate must be a valid YYYY-MM-DD date.');
   await this.ensureDefaults(companyId);
@@ -78,7 +82,8 @@ export class AccountingService {
   return {companyId,asOfDate:asOfDate??new Date().toISOString().slice(0,10),accounts,totalDebits,totalCredits,variance,balanced:Math.abs(variance)<=0.01};
  }
  async payablesReconciliation(user:AuthenticatedUser){
-  const {companyId}=await this.companyFor(user);await this.ensureDefaults(companyId);
+  const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
+  const {companyId}=membership;await this.ensureDefaults(companyId);
   const [control,subledger,aging]=await Promise.all([
    this.db.query(`SELECT COALESCE(SUM(CASE WHEN a.normal_side='debit' THEN l.debit-l.credit ELSE l.credit-l.debit END) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS balance
     FROM chart_of_accounts a LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
@@ -99,7 +104,8 @@ export class AccountingService {
  }
 
  async receivablesReconciliation(user:AuthenticatedUser){
-  const {companyId}=await this.companyFor(user);await this.ensureDefaults(companyId);
+  const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
+  const {companyId}=membership;await this.ensureDefaults(companyId);
   const [control,subledger,aging]=await Promise.all([
    this.db.query(`SELECT COALESCE(SUM(CASE WHEN a.normal_side='debit' THEN l.debit-l.credit ELSE l.credit-l.debit END) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS balance
     FROM chart_of_accounts a LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
@@ -120,14 +126,16 @@ export class AccountingService {
  }
 
  async listJournals(user:AuthenticatedUser){
-  const {companyId}=await this.companyFor(user);await this.ensureDefaults(companyId);
+  const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
+  const {companyId}=membership;await this.ensureDefaults(companyId);
   return (await this.db.query(`SELECT j.id,j.company_id,j.entry_number,j.entry_date,j.description,j.source_type,j.source_id,j.status,j.posted_at,j.created_at,
    COALESCE(SUM(l.debit),0)::numeric(14,2) AS total_debits,COALESCE(SUM(l.credit),0)::numeric(14,2) AS total_credits
    FROM journal_entries j LEFT JOIN journal_entry_lines l ON l.journal_entry_id=j.id AND l.company_id=j.company_id
    WHERE j.company_id=$1 GROUP BY j.id ORDER BY j.entry_date DESC,j.created_at DESC LIMIT 200`,[companyId])).rows;
  }
  async getJournal(user:AuthenticatedUser,id:string){
-  const {companyId}=await this.companyFor(user);
+  const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
+  const {companyId}=membership;
   const j=await this.db.query('SELECT * FROM journal_entries WHERE company_id=$1 AND id=$2',[companyId,id]);
   if(!j.rows[0])throw new NotFoundException('Journal entry not found.');
   const lines=await this.db.query(`SELECT l.*,a.code AS account_code,a.name AS account_name,a.account_type FROM journal_entry_lines l
