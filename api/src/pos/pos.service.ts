@@ -98,13 +98,15 @@ export class PosService {
   }
 
   async currentShift(user: AuthenticatedUser) {
-    const { companyId } = await this.company(user);
+    const membership = await this.company(user);
+    const { companyId, branchId } = membership;
     const result = await this.db.query(
       `SELECT s.*,r.code AS register_code,r.name AS register_name
        FROM pos_shifts s JOIN pos_registers r ON r.id=s.register_id AND r.company_id=s.company_id
        WHERE s.company_id=$1 AND s.status='open' AND s.opened_by=$2
+         AND ($3::uuid IS NULL OR r.branch_id=$3::uuid)
        ORDER BY s.opened_at DESC LIMIT 1`,
-      [companyId, user.userId],
+      [companyId, user.userId, branchId ?? null],
     );
     return result.rows[0] ?? null;
   }
@@ -411,18 +413,22 @@ export class PosService {
   }
 
   async closeShift(user: AuthenticatedUser, shiftId: string, input: CloseShiftInput) {
-    const { companyId } = await this.company(user);
+    const membership = await this.company(user);
+    const { companyId, branchId } = membership;
     const countedCash = Number(input.countedCash);
     if (!Number.isFinite(countedCash) || countedCash < 0 || Math.round(countedCash * 100) !== countedCash * 100) {
       throw new BadRequestException('Counted cash must be non-negative with at most two decimal places.');
     }
     const shift = await this.db.transaction(async (client) => {
-      const result = await client.query<{id:string;opened_by:string;opening_float:string|number;status:string;register_id:string}>(
-        'SELECT id,opened_by,opening_float,status,register_id FROM pos_shifts WHERE id=$1 AND company_id=$2 FOR UPDATE',
+      const result = await client.query<{id:string;opened_by:string;opening_float:string|number;status:string;register_id:string;branch_id:string|null}>(
+        `SELECT s.id,s.opened_by,s.opening_float,s.status,s.register_id,r.branch_id
+         FROM pos_shifts s JOIN pos_registers r ON r.id=s.register_id AND r.company_id=s.company_id
+         WHERE s.id=$1 AND s.company_id=$2 FOR UPDATE OF s`,
         [shiftId,companyId],
       );
       const existing = result.rows[0];
       if (!existing) throw new NotFoundException('POS shift not found.');
+      if (branchId && existing.branch_id !== branchId) throw new ForbiddenException('Your selected branch does not have access to this POS shift.');
       if (existing.status !== 'open') throw new ConflictException('This shift is already closed.');
       if (existing.opened_by !== user.userId) throw new ConflictException('Only the cashier who opened this shift may close it.');
       const cash = await client.query<{total:string|number}>(
