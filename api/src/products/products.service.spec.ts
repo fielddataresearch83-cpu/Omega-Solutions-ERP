@@ -200,4 +200,10 @@ describe('ProductsService initial stock', () => {
     expect(result.image_url).toBeNull();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'product.image.remove', entityId: 'product-1' }));
   });
+  it('requires an explicit valid rate before a product can be marked standard-rated', async () => {
+    await expect(service.create(user, { ...dto, taxTreatment: 'standard', taxRate: 0 } as any))
+      .rejects.toThrow('Standard-rated products require an explicitly configured tax rate');
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
 });
