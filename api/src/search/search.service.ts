@@ -27,23 +27,61 @@ export class SearchService {
     if (!term || !user.companyId) return [];
     const pattern = `%${term.replace(/[\\\\%_]/g, '\\\\$&')}%`;
     const permissions = new Set(user.permissions ?? []);
+    const subscription = await this.db.query<{ status: string; modules: string[] }>(
+      `SELECT s.status, p.modules
+       FROM company_subscriptions s
+       JOIN subscription_plans p ON p.code = s.plan_code
+       WHERE s.company_id = $1`,
+      [user.companyId],
+    );
+
+    // Preserve legacy tenants, but never let global search bypass subscription
+    // status, module entitlements, or disabled dependencies.
+    let moduleEnabled: (code: string) => boolean = () => true;
+    if (subscription.rows.length) {
+      const current = subscription.rows[0];
+      if (!['active', 'trialing'].includes(current.status)) return [];
+      const enabledModules = new Set(current.modules);
+      const overrides = await this.db.query<{ module_code: string; enabled: boolean }>(
+        `SELECT module_code, enabled FROM company_module_overrides
+         WHERE company_id = $1 AND (expires_at IS NULL OR expires_at > NOW())`,
+        [user.companyId],
+      );
+      for (const override of overrides.rows) {
+        if (override.enabled) enabledModules.add(override.module_code);
+        else enabledModules.delete(override.module_code);
+      }
+      const dependencies: Record<string, string[]> = {
+        core: [], inventory: ['core'], sales: ['core'], pos: ['sales', 'inventory'],
+        accounting: ['core'], procurement: ['inventory'], manufacturing: ['inventory', 'accounting'],
+        crm: ['sales'], hr_workforce: ['core'], reports: ['core'],
+      };
+      const resolve = (code: string, visited = new Set<string>()): boolean => {
+        if (visited.has(code)) return true;
+        visited.add(code);
+        if (!enabledModules.has(code)) return false;
+        return (dependencies[code] ?? []).every((dependency) => resolve(dependency, new Set(visited)));
+      };
+      moduleEnabled = resolve;
+    }
+
     const jobs: Promise<{ rows: SearchRow[] }>[] = [];
     const add = (allowed: boolean, sql: string, params: unknown[]) => {
       if (allowed) jobs.push(this.db.query(sql, params as (string | number | boolean | Date | null)[]));
     };
-    add(permissions.has('customers:read'),
+    add(permissions.has('customers:read') && moduleEnabled('sales'),
       `SELECT id, name AS title, 'Customer' AS type, '/customers' AS url, COALESCE(email, phone, '') AS subtitle
        FROM customers WHERE company_id=$1 AND (name ILIKE $2 OR email ILIKE $2 OR phone ILIKE $2)
        ORDER BY name LIMIT 5`, [user.companyId, pattern]);
-    add(permissions.has('products:read') || permissions.has('inventory:read'),
+    add((permissions.has('products:read') || permissions.has('inventory:read')) && moduleEnabled('inventory'),
       `SELECT id, name AS title, 'Product' AS type, '/products' AS url, COALESCE(sku, '') AS subtitle
        FROM products WHERE company_id=$1 AND (name ILIKE $2 OR sku ILIKE $2 OR description ILIKE $2)
        ORDER BY name LIMIT 5`, [user.companyId, pattern]);
-    add(permissions.has('suppliers:read'),
+    add(permissions.has('suppliers:read') && moduleEnabled('procurement'),
       `SELECT id, name AS title, 'Supplier' AS type, '/suppliers' AS url, COALESCE(email, phone, '') AS subtitle
        FROM suppliers WHERE company_id=$1 AND (name ILIKE $2 OR email ILIKE $2 OR phone ILIKE $2)
        ORDER BY name LIMIT 5`, [user.companyId, pattern]);
-    add(permissions.has('sales:read'),
+    add(permissions.has('sales:read') && moduleEnabled('sales'),
       `SELECT i.id, i.invoice_number AS title, 'Invoice' AS type, '/invoices' AS url,
               COALESCE(c.name, '') || ' · ' || i.status AS subtitle
        FROM invoices i LEFT JOIN customers c ON c.id=i.customer_id AND c.company_id=i.company_id
@@ -55,7 +93,7 @@ export class SearchService {
          ))
          AND (i.invoice_number ILIKE $2 OR c.name ILIKE $2)
        ORDER BY i.created_at DESC LIMIT 5`, [user.companyId, pattern, user.branchId ?? null]);
-    add(permissions.has('employees:read'),
+    add(permissions.has('employees:read') && moduleEnabled('hr_workforce'),
       `SELECT id, concat(first_name, ' ', last_name) AS title, 'Employee' AS type, '/employees' AS url,
               COALESCE(employee_number, work_email, '') AS subtitle
        FROM employees WHERE company_id=$1 AND ($3::uuid IS NULL OR branch_id=$3) AND
