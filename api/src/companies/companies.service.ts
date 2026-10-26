@@ -125,6 +125,10 @@ export class CompaniesService {
     await this.memberships.requireOwnerOrAdmin(user.userId, companyId);
 
     const existing = await this.getById(companyId);
+    if (dto.taxPolicy?.mode === 'configured' && dto.taxPolicy.vatRegistered && dto.taxPolicy.standardRate === undefined) {
+      // Product-specific rates are allowed, but the company must explicitly configure a standard rate for policy completeness.
+      throw new ConflictException('A VAT-registered company must configure its standard VAT rate before enabling configured tax policy.');
+    }
 
     const fields: string[] = [];
     const values: (string | boolean | null)[] = [];
@@ -146,6 +150,12 @@ export class CompaniesService {
       website: 'website',
       isActive: 'is_active',
     };
+
+    if (dto.taxPolicy !== undefined) {
+      fields.push(`settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{taxPolicy}', ${paramIndex}::jsonb, true)`);
+      values.push(JSON.stringify(dto.taxPolicy));
+      paramIndex++;
+    }
 
     for (const [dtoKey, dbColumn] of Object.entries(fieldMap)) {
       if (dtoKey in dto) {
