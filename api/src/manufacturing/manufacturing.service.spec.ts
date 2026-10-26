@@ -7,6 +7,30 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js
 type Mock=ReturnType<typeof vi.fn>;
 
 describe('ManufacturingService',()=>{
+ it('filters production order listings to the assigned branch',async()=>{
+  const branchUser={...user,branchId:'branch-1'};
+  db.query.mockResolvedValue({rows:[],rowCount:0});
+  await service.listOrders(branchUser);
+  expect(db.query).toHaveBeenCalledWith(expect.stringContaining('w.branch_id=$2'),['company-active','branch-1']);
+ });
+
+ it('does not expose production costs for an order outside the assigned branch',async()=>{
+  const branchUser={...user,branchId:'branch-1'};
+  db.query.mockResolvedValue({rows:[],rowCount:0});
+  await expect(service.listOrderCosts(branchUser,'order-other-branch')).rejects.toThrow('Production order not found.');
+  expect(db.query).toHaveBeenCalledWith(expect.stringContaining('w.branch_id=$3'),['company-active','order-other-branch','branch-1']);
+ });
+
+ it('rejects starting an order outside the assigned branch before any stock reservation',async()=>{
+  const branchUser={...user,branchId:'branch-1'};
+  const client={query:vi.fn().mockResolvedValue({rows:[],rowCount:0})};
+  db.transaction.mockImplementation(async(callback:(client:unknown)=>Promise<unknown>)=>callback(client));
+  await expect(service.startOrder(branchUser,'order-other-branch')).rejects.toThrow('Production order not found.');
+  expect(client.query).toHaveBeenCalledTimes(1);
+  expect(client.query).toHaveBeenCalledWith(expect.stringContaining('w.branch_id=$3'),['company-active','order-other-branch','branch-1']);
+  expect(audit.log).not.toHaveBeenCalled();
+ });
+
  const user:AuthenticatedUser={userId:'user-1',email:'owner@example.test',fullName:'Owner',companyId:'company-active',branchId:null,role:'owner',permissions:['manufacturing:read','manufacturing:write']};
  let db:{query:Mock;transaction:Mock};let memberships:{getMembership:Mock;getMembershipForCompany:Mock};let audit:{log:Mock};let service:ManufacturingService;
  beforeEach(()=>{
