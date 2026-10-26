@@ -139,7 +139,7 @@ describe('CreditNotesService', () => {
 
     expect(client.query).toHaveBeenCalledTimes(2);
     expect(client.query.mock.calls[1][1]).toEqual(['company-a', 'invoice-other-branch', 'branch-a']);
-    expect(accounting.ensureDefaults).toHaveBeenCalledWith('company-a');
+    expect(accounting.ensureDefaults).not.toHaveBeenCalled();
   });
 
   it('posts a balanced revenue, tax, and receivables journal for a valid credit', async () => {
