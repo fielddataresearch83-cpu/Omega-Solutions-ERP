@@ -36,4 +36,22 @@ describe('QuotationsService branch isolation', () => {
     expect(db.transaction).not.toHaveBeenCalled();
     expect(audit.log).not.toHaveBeenCalled();
   });
+  it('serializes quotation status transitions under a row lock', async () => {
+    const client = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [{ id: 'quotation-1', company_id: 'company-1', status: 'draft' }], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }),
+    };
+    db.transaction.mockImplementation(async (callback: (client: typeof client) => Promise<unknown>) => callback(client));
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: null });
+    vi.spyOn(service, 'getById').mockResolvedValue({ id: 'quotation-1', status: 'sent' } as any);
+
+    await service.updateStatus({ userId: 'user-1', companyId: 'company-1' } as any, 'quotation-1', 'sent');
+
+    expect(db.transaction).toHaveBeenCalledOnce();
+    expect(client.query.mock.calls[0][0]).toContain('FOR UPDATE');
+    expect(client.query.mock.calls[1][0]).toContain('UPDATE quotations SET status');
+    expect(audit.log).toHaveBeenCalledOnce();
+  });
+
 });
