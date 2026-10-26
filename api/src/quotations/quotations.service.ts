@@ -105,7 +105,7 @@ export class QuotationsService {
 
       for (const item of dto.items) {
         const productResult = await client.query<{ id: string; name: string; sku: string | null; selling_price: string | number; is_active: boolean }>(
-          'SELECT id, name, sku, selling_price, is_active FROM products WHERE id = $1 AND company_id = $2 FOR SHARE',
+          'SELECT id, name, sku, selling_price, is_active, tax_treatment, tax_rate FROM products WHERE id = $1 AND company_id = $2 FOR SHARE',
           [item.productId, membership.companyId],
         );
         const product = productResult.rows[0];
@@ -114,7 +114,11 @@ export class QuotationsService {
         const quantityMilli = Math.round(item.quantity * 1000);
         const quantity = quantityMilli / 1000;
         const lineSubtotalCents = Math.round(priceCents * quantityMilli / 1000);
-        const taxRate = item.taxRate ?? 0;
+        const taxRate = product.tax_treatment === 'legacy'
+          ? (item.taxRate ?? 0)
+          : product.tax_treatment === 'standard'
+            ? Number(product.tax_rate)
+            : 0;
         const lineTaxCents = Math.round(lineSubtotalCents * taxRate / 100);
         subtotalCents += lineSubtotalCents;
         taxCents += lineTaxCents;
