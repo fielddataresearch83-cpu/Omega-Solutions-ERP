@@ -14,6 +14,8 @@ const user = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser => 
   ...overrides,
 });
 
+const legacySubscription = { rows: [], rowCount: 0 };
+
 describe('SearchService', () => {
   const db = { query: vi.fn() };
   let service: SearchService;
@@ -30,13 +32,15 @@ describe('SearchService', () => {
   });
 
   it('searches only modules the user can read and scopes SQL to the active company', async () => {
-    db.query.mockResolvedValue({ rows: [{ id: 'customer-a', title: 'Acme', type: 'Customer' }], rowCount: 1 });
+    db.query
+      .mockResolvedValueOnce(legacySubscription)
+      .mockResolvedValueOnce({ rows: [{ id: 'customer-a', title: 'Acme', type: 'Customer' }], rowCount: 1 });
     const results = await service.search(user(), 'Acme');
 
     expect(results).toHaveLength(1);
-    expect(db.query).toHaveBeenCalledTimes(1);
-    expect(db.query.mock.calls[0][0]).toContain('WHERE company_id=$1');
-    expect(db.query.mock.calls[0][1]).toEqual(['company-a', '%Acme%']);
+    expect(db.query).toHaveBeenCalledTimes(2);
+    expect(db.query.mock.calls[1][0]).toContain('WHERE company_id=$1');
+    expect(db.query.mock.calls[1][1]).toEqual(['company-a', '%Acme%']);
   });
 
   it('returns no records for a user without read permissions', async () => {
@@ -45,32 +49,63 @@ describe('SearchService', () => {
   });
 
   it('searches invoice records only for users with sales:read and scopes them to company', async () => {
-    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    db.query.mockResolvedValueOnce(legacySubscription).mockResolvedValueOnce({ rows: [], rowCount: 0 });
     await service.search(user({ permissions: ['sales:read'] }), 'INV-1');
-    expect(db.query).toHaveBeenCalledTimes(1);
-    expect(db.query.mock.calls[0][0]).toContain('i.company_id=$1');
-    expect(db.query.mock.calls[0][1]?.[0]).toBe('company-a');
+    expect(db.query).toHaveBeenCalledTimes(2);
+    expect(db.query.mock.calls[1][0]).toContain('i.company_id=$1');
+    expect(db.query.mock.calls[1][1]?.[0]).toBe('company-a');
   });
 
-
   it('restricts employee search to the active branch when membership is branch-bound', async () => {
-    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    db.query.mockResolvedValueOnce(legacySubscription).mockResolvedValueOnce({ rows: [], rowCount: 0 });
     await service.search(user({ branchId: 'branch-a', permissions: ['employees:read'] }), 'Amina');
-    expect(db.query).toHaveBeenCalledTimes(1);
-    expect(db.query.mock.calls[0][0]).toContain('($3::uuid IS NULL OR branch_id=$3)');
-    expect(db.query.mock.calls[0][1]).toEqual(['company-a', '%Amina%', 'branch-a']);
+    expect(db.query).toHaveBeenCalledTimes(2);
+    expect(db.query.mock.calls[1][0]).toContain('($3::uuid IS NULL OR branch_id=$3)');
+    expect(db.query.mock.calls[1][1]).toEqual(['company-a', '%Amina%', 'branch-a']);
   });
 
   it('ranks exact title matches before partial matches across permitted modules', async () => {
     db.query
+      .mockResolvedValueOnce(legacySubscription)
       .mockResolvedValueOnce({ rows: [{ id: 'customer-1', title: 'Acme Holdings', type: 'Customer', subtitle: 'hello@example.test' }], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [{ id: 'product-1', title: 'Acme', type: 'Product', subtitle: 'AC-01' }], rowCount: 1 });
     const results = await service.search(user({ permissions: ['customers:read', 'products:read'] }), 'Acme');
 
     expect(results.map(row => row.id)).toEqual(['product-1', 'customer-1']);
-    expect(db.query).toHaveBeenCalledTimes(2);
-    for (const call of db.query.mock.calls) {
+    expect(db.query).toHaveBeenCalledTimes(3);
+    for (const call of db.query.mock.calls.slice(1)) {
       expect(call[1]?.[0]).toBe('company-a');
     }
+  });
+
+  it('does not return search results for an inactive subscription', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [{ status: 'past_due', modules: ['core', 'sales'] }],
+      rowCount: 1,
+    });
+    expect(await service.search(user(), 'Acme')).toEqual([]);
+    expect(db.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not search a module excluded from an active plan', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [{ status: 'active', modules: ['core', 'inventory', 'sales', 'pos', 'reports'] }],
+      rowCount: 1,
+    });
+    expect(await service.search(user(), 'Acme')).toEqual([]);
+    expect(db.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('honours an explicit module override when checking search availability', async () => {
+    db.query
+      .mockResolvedValueOnce({
+        rows: [{ status: 'active', modules: ['core', 'inventory', 'sales', 'pos', 'reports'] }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({ rows: [{ module_code: 'procurement', enabled: true }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'supplier-a', title: 'Acme Supplies', type: 'Supplier' }], rowCount: 1 });
+    const results = await service.search(user({ permissions: ['suppliers:read'] }), 'Acme');
+    expect(results).toHaveLength(1);
+    expect(db.query).toHaveBeenCalledTimes(3);
   });
 });
