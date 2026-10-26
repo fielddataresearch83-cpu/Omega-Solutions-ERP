@@ -14,7 +14,8 @@ import { formatDate, formatKES } from "@/lib/format";
 import { downloadBusinessDocument, escapeDocumentText, printBusinessDocument } from "@/lib/printable-document";
 import type { InvoiceApiRow } from "@/lib/api-types";
 
-type CreditNoteItem = { id?: string; description: string; quantity: number | string; unit_price: number | string; tax_rate: number | string; line_subtotal: number | string; tax_amount: number | string; line_total: number | string };
+type OriginalInvoiceItem = { id: string; product_name: string; quantity: number | string; unit_price: number | string; tax_rate: number | string; tax_treatment?: string };
+type CreditNoteItem = { id?: string; invoice_item_id?: string; tax_treatment?: string; description: string; quantity: number | string; unit_price: number | string; tax_rate: number | string; line_subtotal: number | string; tax_amount: number | string; line_total: number | string };
 type CreditNote = { id: string; company_id: string; invoice_id: string; customer_id: string; customer_name: string; invoice_number: string; credit_note_number: string; issue_date: string; reason: string; subtotal: number | string; tax_amount: number | string; total: number | string; created_at: string; items?: CreditNoteItem[] };
 const today = () => new Date().toISOString().slice(0, 10);
 const message = (e: unknown) => e && typeof e === "object" && "message" in e ? String((e as {message: unknown}).message) : "The request failed. Please try again.";
@@ -33,7 +34,11 @@ export default function CreditNotesPage() {
   const [description, setDescription] = React.useState("");
   const [quantity, setQuantity] = React.useState("1");
   const [unitPrice, setUnitPrice] = React.useState("");
-  const [taxRate, setTaxRate] = React.useState("0");
+  const [originalItems, setOriginalItems] = React.useState<OriginalInvoiceItem[]>([]);
+  const [invoiceItemId, setInvoiceItemId] = React.useState("");
+  const selectedOriginalItem = originalItems.find(item => item.id === invoiceItemId);
+  const unitPrice = selectedOriginalItem ? Number(selectedOriginalItem.unit_price) : 0;
+  const taxRate = selectedOriginalItem ? Number(selectedOriginalItem.tax_rate) : 0;
 
   const load = React.useCallback(async () => {
     setLoading(true); setError("");
@@ -51,7 +56,7 @@ export default function CreditNotesPage() {
 
   const eligibleInvoices = invoices.filter(i => !["draft", "cancelled"].includes(i.status));
   const selectedInvoice = eligibleInvoices.find(i => i.id === invoiceId);
-  const lineSubtotal = Math.round(Math.max(0, Number(quantity) || 0) * Math.max(0, Number(unitPrice) || 0) * 100) / 100;
+  const lineSubtotal = Math.round(Math.max(0, Number(quantity) || 0) * unitPrice * 100) / 100;
   const lineTax = Math.round(lineSubtotal * Math.max(0, Number(taxRate) || 0)) / 100;
   const lineTotal = Math.round((lineSubtotal + lineTax) * 100) / 100;
   const remaining = selectedInvoice ? Math.max(0, Number(selectedInvoice.total) - Number(selectedInvoice.amount_paid) - Number(selectedInvoice.credited_amount ?? 0)) : 0;
@@ -64,7 +69,7 @@ export default function CreditNotesPage() {
         items: [{ description, quantity: Number(quantity), unitPrice: Number(unitPrice), taxRate: Number(taxRate) }],
       });
       setNotes(current => [created, ...current]);
-      setReason(""); setDescription(""); setQuantity("1"); setUnitPrice(""); setTaxRate("0"); setNotice(`Credit note ${created.credit_note_number} created and posted to the ledger.`);
+      setReason(""); setDescription(""); setQuantity("1"); setNotice(`Credit note ${created.credit_note_number} created and posted to the ledger.`);
       await load();
     } catch (e) { setError(message(e)); }
     finally { setSaving(false); }
@@ -91,15 +96,15 @@ export default function CreditNotesPage() {
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><FilePlus2 className="size-5" />Create credit note</CardTitle><CardDescription>Choose an invoice and enter the credit adjustment. The total cannot exceed that invoice's remaining unpaid balance.</CardDescription></CardHeader>
         <CardContent><form onSubmit={create} className="grid gap-4 md:grid-cols-2">
-          <div className="grid gap-2"><Label htmlFor="credit-invoice">Original invoice</Label><select id="credit-invoice" className="h-9 w-full rounded-md border bg-background px-3 text-sm" required value={invoiceId} onChange={e => setInvoiceId(e.target.value)}><option value="">Select invoice…</option>{eligibleInvoices.map(i => <option key={i.id} value={i.id}>{i.invoice_number} · {i.customer_name} · Balance {formatKES(Math.max(0, Number(i.total)-Number(i.amount_paid)-Number(i.credited_amount ?? 0)))}</option>)}</select></div>
+          <div className="grid gap-2"><Label htmlFor="credit-invoice">Original invoice</Label><select id="credit-invoice" className="h-9 w-full rounded-md border bg-background px-3 text-sm" required value={invoiceId} onChange={async e => { const id = e.target.value; setInvoiceId(id); setInvoiceItemId(""); setOriginalItems([]); if (id) { try { const detail = await api.get<InvoiceApiRow & { items?: OriginalInvoiceItem[] }>(`/invoices/${id}`); setOriginalItems(detail.items ?? []); } catch (err) { setError(message(err)); } } }}><option value="">Select invoice…</option>{eligibleInvoices.map(i => <option key={i.id} value={i.id}>{i.invoice_number} · {i.customer_name} · Balance {formatKES(Math.max(0, Number(i.total)-Number(i.amount_paid)-Number(i.credited_amount ?? 0)))}</option>)}</select></div>
+          <div className="grid gap-2 md:col-span-2"><Label htmlFor="credit-original-line">Original invoice line</Label><select id="credit-original-line" className="h-9 w-full rounded-md border bg-background px-3 text-sm" required value={invoiceItemId} onChange={e => setInvoiceItemId(e.target.value)} disabled={!invoiceId}><option value="">Select invoice line…</option>{originalItems.map(item => <option key={item.id} value={item.id}>{item.product_name} · Qty {Number(item.quantity).toLocaleString()} · {formatKES(Number(item.unit_price))} · Tax {Number(item.tax_rate).toFixed(2)}%</option>)}</select><p className="text-xs text-muted-foreground">Price and tax are taken from the original invoice and cannot be overridden.</p></div>
           <div className="grid gap-2"><Label htmlFor="credit-date">Credit note date</Label><Input id="credit-date" type="date" value={issueDate} max={today()} onChange={e => setIssueDate(e.target.value)} required /></div>
           <div className="grid gap-2 md:col-span-2"><Label htmlFor="credit-reason">Reason</Label><Input id="credit-reason" value={reason} onChange={e => setReason(e.target.value)} maxLength={1000} placeholder="e.g. Pricing adjustment, service adjustment, or billing correction" required /></div>
           <div className="grid gap-2 md:col-span-2"><Label htmlFor="credit-description">Credit line description</Label><Input id="credit-description" value={description} onChange={e => setDescription(e.target.value)} maxLength={200} placeholder="Describe the item or adjustment being credited" required /></div>
           <div className="grid gap-2"><Label htmlFor="credit-quantity">Quantity</Label><Input id="credit-quantity" type="number" min="0.001" step="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} required /></div>
-          <div className="grid gap-2"><Label htmlFor="credit-unit-price">Unit price (KES, before tax)</Label><Input id="credit-unit-price" type="number" min="0.01" step="0.01" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} required /></div>
-          <div className="grid gap-2"><Label htmlFor="credit-tax">Tax rate (%)</Label><Input id="credit-tax" type="number" min="0" max="100" step="0.01" value={taxRate} onChange={e => setTaxRate(e.target.value)} required /></div>
+          <div className="rounded-md border p-3 text-sm"><div className="flex justify-between"><span>Original unit price</span><strong>{formatKES(unitPrice)}</strong></div><div className="flex justify-between"><span>Original tax treatment</span><strong>{selectedOriginalItem?.tax_treatment ?? "Historical rate"} · {taxRate.toFixed(2)}%</strong></div></div>
           <div className="rounded-md border p-3 text-sm"><div className="flex justify-between"><span>Credit subtotal</span><strong>{formatKES(lineSubtotal)}</strong></div><div className="flex justify-between"><span>Tax adjustment</span><strong>{formatKES(lineTax)}</strong></div><div className="mt-2 flex justify-between border-t pt-2"><span>Credit total</span><strong>{formatKES(lineTotal)}</strong></div><div className="mt-1 text-xs text-muted-foreground">Remaining invoice balance: {formatKES(remaining)}</div></div>
-          <div className="flex items-end"><Button type="submit" disabled={saving || loading || !selectedInvoice || !reason.trim() || !description.trim() || lineTotal <= 0 || lineTotal > remaining}><>{saving ? <Loader2 className="size-4 animate-spin" /> : <FilePlus2 className="size-4" />}{saving ? "Posting credit…" : "Create and post credit note"}</></Button></div>
+          <div className="flex items-end"><Button type="submit" disabled={saving || loading || !selectedInvoice || !invoiceItemId || !reason.trim() || !description.trim() || lineTotal <= 0 || lineTotal > remaining}><>{saving ? <Loader2 className="size-4 animate-spin" /> : <FilePlus2 className="size-4" />}{saving ? "Posting credit…" : "Create and post credit note"}</></Button></div>
         </form></CardContent>
       </Card>
       <Card><CardHeader><CardTitle>Credit note history</CardTitle><CardDescription>Credit notes from this company's live records.</CardDescription></CardHeader><CardContent>
