@@ -12,7 +12,10 @@ export class ApprovalsService {
   }
 
   async inbox(user: AuthenticatedUser) {
-    const { companyId } = await this.companyFor(user);
+    const membership = await this.companyFor(user);
+    const { companyId, branchId } = membership;
+    const branchClause = branchId ? " AND a.branch_id=$3" : "";
+    const params = branchId ? [companyId, user.userId, branchId] : [companyId, user.userId];
     return (await this.db.query(
       "SELECT a.id,a.entity_type,a.entity_id,a.status,a.requested_at,a.requester_user_id,u.full_name AS requester_name, " +
       "r.request_number,r.title,r.required_by,r.status AS requisition_status, " +
@@ -23,9 +26,9 @@ export class ApprovalsService {
       "LEFT JOIN purchase_orders po ON a.entity_type='purchase_order' AND po.id=a.entity_id AND po.company_id=a.company_id " +
       "LEFT JOIN suppliers s ON s.id=po.supplier_id AND s.company_id=po.company_id " +
       "LEFT JOIN contracts c ON a.entity_type='contract' AND c.id=a.entity_id AND c.company_id=a.company_id " +
-      "WHERE a.company_id=$1 AND a.status='pending' AND a.requester_user_id<>$2 " +
+      "WHERE a.company_id=$1 AND a.status='pending' AND a.requester_user_id<>$2 " + branchClause + " " +
       "AND ((a.entity_type='requisition' AND r.id IS NOT NULL) OR (a.entity_type='purchase_order' AND po.id IS NOT NULL) OR (a.entity_type='contract' AND c.id IS NOT NULL)) " +
-      "ORDER BY a.requested_at", [companyId, user.userId])).rows;
+      "ORDER BY a.requested_at", params)).rows;
   }
 
   async submitPurchaseOrder(user: AuthenticatedUser, id: string) {
@@ -70,7 +73,9 @@ export class ApprovalsService {
   async decide(user: AuthenticatedUser, id: string, decision: 'approved'|'rejected', note?: string) {
     const membership = await this.companyFor(user);
     const result = await this.db.transaction(async client => {
-      const found = await client.query('SELECT * FROM approval_requests WHERE company_id=$1 AND id=$2 FOR UPDATE', [membership.companyId,id]);
+      const branchClause = membership.branchId ? ' AND branch_id=$3' : '';
+      const lookupParams = membership.branchId ? [membership.companyId,id,membership.branchId] : [membership.companyId,id];
+      const found = await client.query(`SELECT * FROM approval_requests WHERE company_id=$1 AND id=$2${branchClause} FOR UPDATE`, lookupParams);
       const row = found.rows[0];
       if (!row) throw new NotFoundException('Approval request not found.');
       if (row.status !== 'pending') throw new BadRequestException('This approval has already been decided.');

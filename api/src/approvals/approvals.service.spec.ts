@@ -127,6 +127,16 @@ describe('ApprovalsService', () => {
     );
   });
 
+  it('restricts branch-bound approvers to requests assigned to their branch', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-2', role: 'manager' });
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    await service.inbox(user);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('AND a.branch_id=$3'),
+      ['company-1', user.userId, 'branch-2'],
+    );
+  });
+
   it('submits a draft purchase order for approval within the active company', async () => {
     client.query.mockImplementation(async (sql: string) => {
       if (sql.includes('SELECT id,status,created_by FROM purchase_orders')) {
