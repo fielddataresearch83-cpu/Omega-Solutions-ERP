@@ -58,9 +58,9 @@ export class EmployeesService {
     try {
       const result = await this.db.query(
         `UPDATE employees SET national_id=$3, updated_at=NOW()
-         WHERE id=$1 AND company_id=$2
+         WHERE id=$1 AND company_id=$2 AND ($4::uuid IS NULL OR branch_id=$4)
          RETURNING id, employee_number, first_name, last_name, updated_at`,
-        [id, membership.companyId, nationalId],
+        [id, membership.companyId, nationalId, membership.branchId],
       );
       if (!result.rows.length) throw new NotFoundException('Employee not found in this company.');
       await this.audit.log({
