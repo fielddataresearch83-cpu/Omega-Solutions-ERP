@@ -20,10 +20,10 @@ const plans = [
     popular: true,
   },
   {
-    name: "Enterprise",
-    description: "Advanced ERP for complex operations",
+    name: "Professional",
+    description: "Broader operational control for established businesses",
     monthlyPrice: 6000,
-    features: ["Everything in Business", "Manufacturing", "HR and workforce", "Advanced reports and workflows", "10 users", "Up to 5 branches"],
+    features: ["Everything in Medium", "Manufacturing and production", "HR and workforce management", "Expanded operational reports", "15 users", "Up to 5 branches"],
     popular: false,
   },
 ]
