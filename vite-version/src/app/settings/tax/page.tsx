@@ -19,7 +19,7 @@ export default function TaxSettingsPage() {
   const [company, setCompany] = React.useState<CompanyRow | null>(null)
   const [mode, setMode] = React.useState<TaxPolicy["mode"]>("legacy")
   const [vatRegistered, setVatRegistered] = React.useState(false)
-  const [standardRate, setStandardRate] = React.useState("16")
+  const [standardRate, setStandardRate] = React.useState("")
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -99,7 +99,7 @@ export default function TaxSettingsPage() {
               {vatRegistered && <div className="flex flex-col gap-2">
                 <Label htmlFor="standard-rate">Company standard VAT rate (%)</Label>
                 <Input id="standard-rate" type="number" min="0.01" max="100" step="0.01" value={standardRate} onChange={(event) => setStandardRate(event.target.value)} />
-                <p className="text-xs text-muted-foreground">This is the company’s configured reference rate. Standard-rated products must also have a valid product-level rate.</p>
+                <p className="text-xs text-muted-foreground">Enter the rate confirmed for this company. Standard-rated products must also have a valid product-level rate; Omega does not assume a tax rate for your business.</p>
               </div>}
               {mode === "configured" && <Alert><AlertCircle className="size-4" /><AlertTitle>Before enabling configured mode</AlertTitle><AlertDescription>Classify products as standard-rated, zero-rated, exempt or out of scope. Unclassified legacy products and unclassified supplier-bill lines will be rejected so the system does not guess their tax treatment.</AlertDescription></Alert>}
               <div className="flex justify-end">
