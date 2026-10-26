@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { SupplierBillsService } from './supplier-bills.service.js';
 
 describe('SupplierBillsService branch isolation', () => {
@@ -25,6 +25,31 @@ describe('SupplierBillsService branch isolation', () => {
     expect(db.query).not.toHaveBeenCalled();
     expect(db.transaction).not.toHaveBeenCalled();
     expect(accounting.ensureDefaults).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+});
+
+describe('SupplierBillsService date validation', () => {
+  it('rejects a due date earlier than the bill date before accounting or database work', async () => {
+    const db = { query: vi.fn(), transaction: vi.fn() };
+    const memberships = {
+      getMembership: vi.fn(),
+      getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null }),
+    };
+    const audit = { log: vi.fn() };
+    const accounting = { ensureDefaults: vi.fn() };
+    const service = new SupplierBillsService(db as any, memberships as any, audit as any, accounting as any);
+
+    await expect(service.create({ userId: 'user-1', companyId: 'company-1' } as any, {
+      supplierId: 'supplier-1',
+      billDate: '2026-10-20',
+      dueDate: '2026-10-19',
+      items: [{ description: 'Cleaning materials', quantity: 1, unitCost: 100 }],
+    } as any)).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(accounting.ensureDefaults).not.toHaveBeenCalled();
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(db.query).not.toHaveBeenCalled();
     expect(audit.log).not.toHaveBeenCalled();
   });
 });
