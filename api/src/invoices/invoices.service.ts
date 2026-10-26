@@ -148,11 +148,21 @@ export class InvoicesService {
 
   async getById(user: AuthenticatedUser, invoiceId: string): Promise<InvoiceRow> {
     const membership = await this.membershipFor(user);
+    const branchClause = membership.branchId
+      ? `AND EXISTS (
+          SELECT 1 FROM pos_sales ps
+          JOIN pos_registers pr ON pr.id=ps.register_id AND pr.company_id=ps.company_id
+          WHERE ps.company_id=i.company_id AND ps.invoice_id=i.id AND pr.branch_id=$3::uuid
+        )`
+      : '';
+    const queryParams = membership.branchId
+      ? [membership.companyId, invoiceId, membership.branchId]
+      : [membership.companyId, invoiceId];
     const result = await this.db.query<InvoiceRow>(
       `${INVOICE_SELECT}
-       WHERE i.company_id = $1 AND i.id = $2
+       WHERE i.company_id = $1 AND i.id = $2 ${branchClause}
        GROUP BY i.id, c.name`,
-      [membership.companyId, invoiceId],
+      queryParams,
     );
     const invoice = result.rows[0];
     if (!invoice) throw new NotFoundException('Invoice not found.');
@@ -176,6 +186,9 @@ export class InvoicesService {
 
   async create(user: AuthenticatedUser, dto: CreateInvoiceDto): Promise<InvoiceRow> {
     const membership = await this.membershipFor(user);
+    if (membership.branchId) {
+      throw new ForbiddenException('Standalone invoices are not available to branch-bound users. Create invoices through the assigned branch POS workflow.');
+    }
     const result = await this.db.transaction(async (client) => {
       const customer = await client.query<{ id: string; name: string }>(
         'SELECT id, name FROM customers WHERE id = $1 AND company_id = $2 AND is_active = TRUE FOR SHARE',
