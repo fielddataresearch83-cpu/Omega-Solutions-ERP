@@ -26,6 +26,14 @@ const plans = [
     features: ["Everything in Medium", "Manufacturing and production", "HR and workforce management", "Expanded operational reports", "15 users", "Up to 5 branches"],
     popular: false,
   },
+  {
+    name: "Enterprise",
+    description: "Tailored ERP for complex organisations",
+    monthlyPrice: 0,
+    features: ["Configurable modules and workflows", "Custom integrations and onboarding", "Agreed user and branch limits", "Implementation and migration scope", "Agreed support arrangements"],
+    popular: false,
+    custom: true,
+  },
 ]
 
 export function PricingSection() {
