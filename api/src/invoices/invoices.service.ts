@@ -599,14 +599,18 @@ export class InvoicesService {
         tax_amount: string | number;
         total: string | number;
         amount_paid: string | number;
+        credited_amount: string | number;
       }>(
-        'SELECT status, customer_id, invoice_number, issue_date, subtotal, tax_amount, total, amount_paid FROM invoices WHERE id = $1 AND company_id = $2 FOR UPDATE',
+        'SELECT status, customer_id, invoice_number, issue_date, subtotal, tax_amount, total, amount_paid, credited_amount FROM invoices WHERE id = $1 AND company_id = $2 FOR UPDATE',
         [invoiceId, membership.companyId],
       );
       const invoice = existing.rows[0];
       if (!invoice) throw new NotFoundException('Invoice not found.');
       if (invoice.status === 'paid' || invoice.status === 'partially_paid') {
         throw new BadRequestException('Paid invoices cannot be sent again or cancelled.');
+      }
+      if (status === 'cancelled' && Number(invoice.credited_amount) > 0) {
+        throw new BadRequestException('Invoices with issued credit notes cannot be cancelled. Resolve the credit note workflow instead.');
       }
       if (invoice.status === 'cancelled' && status !== 'cancelled') {
         throw new BadRequestException('Cancelled invoices cannot be reopened.');
