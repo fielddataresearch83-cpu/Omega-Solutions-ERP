@@ -90,10 +90,11 @@ describe('AccountingService payables reconciliation', () => {
 
   beforeEach(() => {
     db = {
-      query: vi.fn()
-        .mockResolvedValueOnce({ rows: [{ balance: '232.00' }], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [{ balance: '232.00' }], rowCount: 1 })
-        .mockResolvedValueOnce({ rows: [{ current: '132.00', days_1_to_30: '100.00', days_31_to_60: '0.00', days_61_plus: '0.00' }], rowCount: 1 }),
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes("a.system_code='accounts_payable'")) return { rows: [{ balance: '232.00' }], rowCount: 1 };
+        if (sql.includes('SUM(b.total-b.paid_amount)')) return { rows: [{ balance: '232.00' }], rowCount: 1 };
+        return { rows: [{ current: '132.00', days_1_to_30: '100.00', days_31_to_60: '0.00', days_61_plus: '0.00' }], rowCount: 1 };
+      }),
       transaction: vi.fn(async (callback: (client: unknown) => Promise<unknown>) =>
         callback({ query: vi.fn((sql: string, params?: unknown[]) => sql.startsWith('SET TRANSACTION') ? Promise.resolve({ rows: [], rowCount: 1 }) : db.query(sql, params)) }),
       ),
@@ -129,10 +130,11 @@ describe('AccountingService payables reconciliation', () => {
   });
 
   it('flags a supplier subledger variance greater than one cent', async () => {
-    db.query.mockReset()
-      .mockResolvedValueOnce({ rows: [{ balance: '232.00' }], rowCount: 1 })
-      .mockResolvedValueOnce({ rows: [{ balance: '231.98' }], rowCount: 1 })
-      .mockResolvedValueOnce({ rows: [{ current: '231.98', days_1_to_30: '0', days_31_to_60: '0', days_61_plus: '0' }], rowCount: 1 });
+    db.query.mockReset().mockImplementation(async (sql: string) => {
+      if (sql.includes("a.system_code='accounts_payable'")) return { rows: [{ balance: '232.00' }], rowCount: 1 };
+      if (sql.includes('SUM(b.total-b.paid_amount)')) return { rows: [{ balance: '231.98' }], rowCount: 1 };
+      return { rows: [{ current: '231.98', days_1_to_30: '0', days_31_to_60: '0', days_61_plus: '0' }], rowCount: 1 };
+    });
 
     const result = await service.payablesReconciliation(user);
 
