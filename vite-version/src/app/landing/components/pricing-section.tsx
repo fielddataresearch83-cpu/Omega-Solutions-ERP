@@ -49,7 +49,7 @@ export function PricingSection() {
         </div>
         <div className="mx-auto max-w-6xl">
           <div className="rounded-xl border">
-            <div className="grid lg:grid-cols-3">
+            <div className="grid sm:grid-cols-2 xl:grid-cols-4">
               {plans.map((plan) => (
                 <div key={plan.name} className={`p-8 flex flex-col gap-6 ${plan.popular ? "my-2 mx-4 rounded-xl bg-card shadow-xl ring-1 ring-foreground/10" : ""}`}>
                   <div>
@@ -57,8 +57,8 @@ export function PricingSection() {
                     <div className="text-muted-foreground text-balance text-sm">{plan.description}</div>
                   </div>
                   <div>
-                    <div className="text-4xl font-bold mb-1">KSh {plan.monthlyPrice.toLocaleString("en-KE")}</div>
-                    <div className="text-muted-foreground text-sm">Per month</div>
+                    <div className="text-4xl font-bold mb-1">{plan.custom ? "Custom quote" : `KSh ${plan.monthlyPrice.toLocaleString("en-KE")}`}</div>
+                    <div className="text-muted-foreground text-sm">{plan.custom ? "Tailored to your organisation" : "Per month"}</div>
                   </div>
                   <div>
                     <Button className="w-full" variant={plan.popular ? "default" : "secondary"} onClick={() => window.location.assign("/pricing")}>View plan</Button>
