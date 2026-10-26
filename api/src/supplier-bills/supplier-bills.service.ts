@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -12,6 +12,9 @@ export class SupplierBillsService {
   constructor(private readonly db: DatabaseService, private readonly memberships: MembershipsService, private readonly audit: AuditService, private readonly accounting: AccountingService) {}
   private companyFor(user: AuthenticatedUser) {
     return user.companyId ? this.memberships.getMembershipForCompany(user.userId,user.companyId) : this.memberships.getMembership(user.userId);
+  }
+  private assertCompanyWide(membership: { branchId?: string | null }) {
+    if (membership.branchId) throw new ForbiddenException('Supplier bills and payments are company-wide accounting records. A company-wide procurement member must access them.');
   }
   private async postJournal(client:PoolClient,input:{companyId:string;date:string|null;description:string;sourceType:string;sourceId:string;userId:string;lines:Array<{systemCode:string;debit:number;credit:number;description:string}>}) {
     const year=input.date?Number(input.date.slice(0,4)):new Date().getFullYear();
@@ -34,7 +37,7 @@ export class SupplierBillsService {
     return entry.rows[0].id;
   }
   async list(user: AuthenticatedUser) {
-    const {companyId}=await this.companyFor(user);
+    const membership=await this.companyFor(user);this.assertCompanyWide(membership);const {companyId}=membership;
     return (await this.db.query(
       `SELECT b.id,b.company_id,b.supplier_id,s.name AS supplier_name,b.purchase_order_id,b.bill_number,b.supplier_invoice_number,b.bill_date,b.due_date,b.status,b.currency,b.subtotal,b.tax_amount,b.total,b.paid_amount,(b.total-b.paid_amount) AS balance,b.notes,b.created_at,b.updated_at,COUNT(i.id)::int AS item_count
        FROM supplier_bills b JOIN suppliers s ON s.id=b.supplier_id AND s.company_id=b.company_id
@@ -42,7 +45,7 @@ export class SupplierBillsService {
        WHERE b.company_id=$1 GROUP BY b.id,s.name ORDER BY b.due_date NULLS LAST,b.created_at DESC`,[companyId])).rows;
   }
   async getById(user: AuthenticatedUser,id:string) {
-    const {companyId}=await this.companyFor(user);
+    const membership=await this.companyFor(user);this.assertCompanyWide(membership);const {companyId}=membership;
     const result=await this.db.query(`SELECT b.*,s.name AS supplier_name,(b.total-b.paid_amount) AS balance FROM supplier_bills b JOIN suppliers s ON s.id=b.supplier_id AND s.company_id=b.company_id WHERE b.company_id=$1 AND b.id=$2`,[companyId,id]);
     if(!result.rows[0])throw new NotFoundException('Supplier bill not found.');
     const [items,payments]=await Promise.all([
@@ -52,7 +55,7 @@ export class SupplierBillsService {
     return {...result.rows[0],items:items.rows,payments:payments.rows};
   }
   async create(user:AuthenticatedUser,dto:CreateSupplierBillDto) {
-    const membership=await this.companyFor(user);const companyId=membership.companyId;
+    const membership=await this.companyFor(user);this.assertCompanyWide(membership);const companyId=membership.companyId;
     await this.accounting.ensureDefaults(companyId);
     const id=await this.db.transaction(async client=>{
       const supplier=await client.query<{id:string}>("SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true AND status='active'",[dto.supplierId,companyId]);
@@ -110,7 +113,7 @@ export class SupplierBillsService {
     return this.getById(user,id);
   }
   async recordPayment(user:AuthenticatedUser,id:string,dto:RecordSupplierBillPaymentDto) {
-    const m=await this.companyFor(user);
+    const m=await this.companyFor(user);this.assertCompanyWide(m);
     await this.accounting.ensureDefaults(m.companyId);
     await this.db.transaction(async client=>{
       const res=await client.query<{total:string|number;paid_amount:string|number;status:string}>('SELECT total,paid_amount,status FROM supplier_bills WHERE id=$1 AND company_id=$2 FOR UPDATE',[id,m.companyId]);
