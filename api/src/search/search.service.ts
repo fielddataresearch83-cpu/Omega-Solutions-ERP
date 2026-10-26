@@ -52,9 +52,9 @@ export class SearchService {
     add(permissions.has('employees:read'),
       `SELECT id, concat(first_name, ' ', last_name) AS title, 'Employee' AS type, '/employees' AS url,
               COALESCE(employee_number, work_email, '') AS subtitle
-       FROM employees WHERE company_id=$1 AND
+       FROM employees WHERE company_id=$1 AND ($3::uuid IS NULL OR branch_id=$3) AND
          (first_name ILIKE $2 OR last_name ILIKE $2 OR employee_number ILIKE $2 OR work_email ILIKE $2)
-       ORDER BY first_name, last_name LIMIT 5`, [user.companyId, pattern]);
+       ORDER BY first_name, last_name LIMIT 5`, [user.companyId, pattern, user.branchId ?? null]);
     const results = await Promise.all(jobs);
     return results.flatMap((result) => result.rows)
       .map((row, index) => ({ row, index, score: relevance(row, term) }))
