@@ -15,7 +15,7 @@ const MODULE_LABELS: Record<string, string> = {
 };
 const MODULE_DEPENDENCIES: Record<string, string[]> = {
   core: [], inventory: ['core'], sales: ['core'], pos: ['sales', 'inventory'],
-  accounting: ['core'], procurement: ['inventory'], manufacturing: ['inventory', 'accounting'],
+  accounting: ['core'], procurement: ['inventory', 'accounting'], manufacturing: ['inventory', 'accounting'],
   crm: ['sales'], hr_workforce: ['core'], reports: ['core'],
 };
 
