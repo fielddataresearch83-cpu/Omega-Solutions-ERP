@@ -47,7 +47,7 @@ export function PricingSection() {
             Start with sales and stock, then add connected finance, customer management, manufacturing and workforce tools as your business grows.
           </p>
         </div>
-        <div className="mx-auto max-w-6xl">
+        <div className="mx-auto max-w-7xl">
           <div className="rounded-xl border">
             <div className="grid sm:grid-cols-2 xl:grid-cols-4">
               {plans.map((plan) => (
@@ -61,7 +61,7 @@ export function PricingSection() {
                     <div className="text-muted-foreground text-sm">{plan.custom ? "Tailored to your organisation" : "Per month"}</div>
                   </div>
                   <div>
-                    <Button className="w-full" variant={plan.popular ? "default" : "secondary"} onClick={() => window.location.assign("/pricing")}>View plan</Button>
+                    <Button className="w-full" variant={plan.popular ? "default" : "secondary"} onClick={() => window.location.assign(plan.custom ? "/#contact" : "/pricing")}>{plan.custom ? "Request a quote" : "View plan"}</Button>
                   </div>
                   <ul role="list" className="flex flex-col gap-3 text-sm">
                     {plan.features.map((feature) => (
