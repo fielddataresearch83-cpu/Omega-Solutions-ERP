@@ -2,6 +2,9 @@ import { ArrayMinSize, IsArray, IsDateString, IsNumber, IsOptional, IsString, Is
 import { Type } from 'class-transformer';
 
 export class CreateCreditNoteItemDto {
+  @IsUUID()
+  invoiceItemId!: string;
+
   @IsString()
   @MaxLength(200)
   description!: string;
