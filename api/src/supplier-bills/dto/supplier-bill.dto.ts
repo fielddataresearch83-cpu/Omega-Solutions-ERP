@@ -3,9 +3,9 @@ import { ArrayMinSize, IsArray, IsDateString, IsIn, IsNumber, IsOptional, IsStri
 
 export class CreateSupplierBillItemDto {
   @IsString() @MaxLength(250) description!: string;
-  @Type(() => Number) @IsNumber() @Min(0.001) quantity!: number;
-  @Type(() => Number) @IsNumber() @Min(0) unitCost!: number;
-  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(100) taxRate?: number;
+  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 3 }) @Min(0.001) quantity!: number;
+  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) unitCost!: number;
+  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100) taxRate?: number;
   @IsOptional() @IsUUID() purchaseOrderItemId?: string;
 }
 export class CreateSupplierBillDto {
@@ -18,7 +18,7 @@ export class CreateSupplierBillDto {
   @IsArray() @ArrayMinSize(1) @ValidateNested({each:true}) @Type(() => CreateSupplierBillItemDto) items!: CreateSupplierBillItemDto[];
 }
 export class RecordSupplierBillPaymentDto {
-  @Type(() => Number) @IsNumber() @Min(0.01) amount!: number;
+  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) amount!: number;
   @IsOptional() @IsDateString() paymentDate?: string;
   @IsString() @IsIn(['bank_transfer','mpesa','cash','cheque','card','other']) method!: string;
   @IsOptional() @IsString() @MaxLength(120) reference?: string;
