@@ -68,6 +68,9 @@ export class ProductsService {
     const membership = await this.resolveMembership(user);
     const initialStock = dto.stockQuantity ?? 0;
     const isService = dto.isService ?? false;
+    if (dto.taxTreatment === 'standard' && !(Number(dto.taxRate) > 0 && Number(dto.taxRate) <= 100)) {
+      throw new BadRequestException('Standard-rated products require an explicitly configured tax rate greater than 0 and no more than 100%.');
+    }
 
     if (isService && initialStock > 0) {
       throw new BadRequestException('Service items cannot have an initial stock quantity.');
@@ -234,6 +237,11 @@ export class ProductsService {
   ): Promise<ProductRow> {
     const membership = await this.resolveMembership(user);
     const existing = await this.getByIdInternal(membership.companyId, productId);
+    const resultingTreatment = dto.taxTreatment ?? existing.tax_treatment ?? 'legacy';
+    const resultingRate = dto.taxRate ?? Number(existing.tax_rate ?? 0);
+    if (resultingTreatment === 'standard' && !(resultingRate > 0 && resultingRate <= 100)) {
+      throw new BadRequestException('Standard-rated products require an explicitly configured tax rate greater than 0 and no more than 100%.');
+    }
 
     if (dto.stockQuantity !== undefined && Number(dto.stockQuantity) !== Number(existing.stock_quantity)) {
       throw new BadRequestException('Use Inventory > Stock Movements to change stock quantities so the stock ledger remains accurate.');
