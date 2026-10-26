@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -30,8 +30,15 @@ export class QuotationsService {
       : this.memberships.getMembership(user.userId);
   }
 
+  private assertCompanyWideAccess(membership: { branchId?: string | null }): void {
+    if (membership.branchId) {
+      throw new ForbiddenException('Quotations are company-wide records and can only be accessed by company-wide members.');
+    }
+  }
+
   async list(user: AuthenticatedUser, search?: string, status?: string): Promise<QuotationRow[]> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWideAccess(membership);
     const conditions = ['q.company_id = $1'];
     const params: (string | number)[] = [membership.companyId];
     if (search?.trim()) {
@@ -53,6 +60,7 @@ export class QuotationsService {
 
   async getById(user: AuthenticatedUser, id: string): Promise<QuotationRow> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWideAccess(membership);
     const result = await this.db.query<QuotationRow>(
       `${SELECT_QUOTATIONS} WHERE q.company_id = $1 AND q.id = $2 GROUP BY q.id, c.name`,
       [membership.companyId, id],
@@ -71,6 +79,7 @@ export class QuotationsService {
 
   async create(user: AuthenticatedUser, dto: CreateQuotationDto): Promise<QuotationRow> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWideAccess(membership);
     if (dto.validUntil < dto.issueDate) throw new BadRequestException('Valid-until date cannot be before issue date.');
 
     const created = await this.db.transaction(async (client) => {
@@ -137,6 +146,7 @@ export class QuotationsService {
 
   async updateStatus(user: AuthenticatedUser, id: string, nextStatus: string): Promise<QuotationRow> {
     const membership = await this.membershipFor(user);
+    this.assertCompanyWideAccess(membership);
     const current = await this.db.query<QuotationRow>(
       'SELECT id, company_id, status FROM quotations WHERE id = $1 AND company_id = $2',
       [id, membership.companyId],
