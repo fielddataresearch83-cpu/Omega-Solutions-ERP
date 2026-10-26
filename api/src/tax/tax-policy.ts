@@ -42,5 +42,14 @@ export function resolveTaxTreatment(input: {
   if (input.productTreatment === 'standard' && !(rate > 0 && rate <= 100)) {
     throw new BadRequestException('Standard-rated products require a valid configured tax rate.');
   }
+  if (input.productTreatment === 'standard') {
+    const companyRate = input.policy.standardRate;
+    if (typeof companyRate !== 'number' || !Number.isFinite(companyRate) || companyRate <= 0 || companyRate > 100) {
+      throw new BadRequestException('Configure a valid company standard tax rate before using standard-rated products.');
+    }
+    if (Math.abs(rate - companyRate) > 0.0001) {
+      throw new BadRequestException('The product tax rate must match the company standard tax rate. Classify different statutory treatments explicitly as zero-rated, exempt, or out-of-scope.');
+    }
+  }
   return { treatment: input.productTreatment, rate };
 }
