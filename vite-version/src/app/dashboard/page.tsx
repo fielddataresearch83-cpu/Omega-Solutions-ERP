@@ -22,8 +22,6 @@ import { useMyCompany } from "@/hooks/use-company"
 import { useAuth } from "@/contexts/auth-context"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
-type SubscriptionAccess = { subscription: null | { status: string }; modules?: Record<string, boolean> }
-
 type DashboardSummary = {
   currency: string
   customers: null | { count: number; receivables: number | null }
@@ -70,34 +68,6 @@ export default function Page() {
   const { company, loading: companyLoading } = useMyCompany()
   const { user, loading: authLoading } = useAuth()
   const permissions = new Set(user?.permissions ?? [])
-  const [subscriptionAccess, setSubscriptionAccess] = React.useState<SubscriptionAccess | null>(null)
-  const [subscriptionLoaded, setSubscriptionLoaded] = React.useState(false)
-
-  React.useEffect(() => {
-    if (authLoading || !user) return
-    let cancelled = false
-    setSubscriptionLoaded(false)
-    api.get<SubscriptionAccess>("/subscriptions/current")
-      .then((result) => { if (!cancelled) setSubscriptionAccess(result) })
-      .catch(() => {
-        // Fail closed when entitlement state cannot be verified.
-        if (!cancelled) setSubscriptionAccess({ subscription: { status: "unknown" }, modules: {} })
-      })
-      .finally(() => { if (!cancelled) setSubscriptionLoaded(true) })
-    return () => { cancelled = true }
-  }, [authLoading, user?.userId, company?.id])
-
-  const canUseModule = (moduleCode: string) => {
-    if (!subscriptionLoaded) return false
-    if (!subscriptionAccess?.subscription) return true
-    return ["active", "trialing"].includes(subscriptionAccess.subscription.status) &&
-      subscriptionAccess.modules?.[moduleCode] === true
-  }
-  const canReadSales = canUseModule("sales") && permissions.has("sales:read")
-  const canReadCustomers = canUseModule("sales") && permissions.has("customers:read")
-  const canReadProcurement = canUseModule("procurement") && permissions.has("suppliers:read")
-  const canReadProducts = canUseModule("inventory") && permissions.has("products:read")
-  const canReadInventory = canUseModule("inventory") && permissions.has("inventory:read")
   const [dashboard, setDashboard] = React.useState<{ data: DashboardSummary | null; loading: boolean; error: string | null }>({
     data: null, loading: true, error: null,
   })
@@ -114,7 +84,19 @@ export default function Page() {
     return () => { cancelled = true }
   }, [authLoading, user?.userId, company?.id])
 
-  const loading = authLoading || !subscriptionLoaded || dashboard.loading
+  const canUseModule = (moduleCode: string) => {
+    if (dashboard.loading || !dashboard.data) return false
+    if (!dashboard.data.subscription) return true
+    return ["active", "trialing"].includes(dashboard.data.subscription.status) &&
+      dashboard.data.modules?.[moduleCode] === true
+  }
+  const canReadSales = canUseModule("sales") && permissions.has("sales:read")
+  const canReadCustomers = canUseModule("sales") && permissions.has("customers:read")
+  const canReadProcurement = canUseModule("procurement") && permissions.has("suppliers:read")
+  const canReadProducts = canUseModule("inventory") && permissions.has("products:read")
+  const canReadInventory = canUseModule("inventory") && permissions.has("inventory:read")
+
+  const loading = authLoading || dashboard.loading
   const errors = dashboard.error ? [dashboard.error] : []
   const activeProducts = dashboard.data?.inventory?.activeProducts ?? 0
   const lowStockCount = dashboard.data?.inventory?.lowStock ?? 0
