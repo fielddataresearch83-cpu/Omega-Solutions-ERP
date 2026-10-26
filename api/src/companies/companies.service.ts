@@ -196,8 +196,8 @@ export class CompaniesService {
       action: 'company.update',
       entityType: 'company',
       entityId: updated.id,
-      oldValues: { name: existing.name },
-      newValues: { name: updated.name },
+      oldValues: { name: existing.name, taxPolicy: existing.settings?.taxPolicy ?? null },
+      newValues: { name: updated.name, taxPolicy: updated.settings?.taxPolicy ?? null },
       ipAddress: null,
     });
 
