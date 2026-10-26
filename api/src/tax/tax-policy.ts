@@ -15,10 +15,11 @@ export interface CompanyTaxPolicy {
 export function readCompanyTaxPolicy(settings: unknown): CompanyTaxPolicy {
   let value: unknown = settings;
   if (typeof value === 'string') {
+    const rawSettings = value;
     try {
-      value = JSON.parse(value) as unknown;
+      value = JSON.parse(rawSettings) as unknown;
     } catch {
-      if (value.trim()) throw new BadRequestException('Company tax settings are invalid JSON. Correct the tax policy before creating transactions.');
+      if (rawSettings.trim()) throw new BadRequestException('Company tax settings are invalid JSON. Correct the tax policy before creating transactions.');
       value = {};
     }
   }
