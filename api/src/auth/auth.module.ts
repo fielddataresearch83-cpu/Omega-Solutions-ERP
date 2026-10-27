@@ -7,10 +7,12 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { MfaService } from './mfa.service.js';
 import { DatabaseModule } from '../database/database.module.js';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module.js';
 
 @Module({
   imports: [
     DatabaseModule,
+    SubscriptionsModule,
     PassportModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
