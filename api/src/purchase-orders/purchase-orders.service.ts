@@ -131,7 +131,7 @@ export class PurchaseOrdersService {
          VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
         [receiptId, m.companyId, po.id, dto.warehouseId, dto.reference ?? null, dto.notes ?? null, user.userId, receiptValue],
       );
-      await this.accounting.ensureDefaults(m.companyId);
+      await this.accounting.ensureDefaults(m.companyId, client);
       for (const { item: r, line } of planned) {
         await client.query(`INSERT INTO inventory_stock_levels(company_id,warehouse_id,product_id,quantity,reserved_quantity,reorder_level,average_unit_cost)
         SELECT $1,$2,$3,$4,0,p.reorder_level,$5 FROM products p WHERE p.id=$3 AND p.company_id=$1
