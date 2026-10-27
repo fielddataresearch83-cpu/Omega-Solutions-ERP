@@ -15,6 +15,11 @@ export class AuthController {
     throw new BadRequestException('Please register through the email verification flow.');
   }
 
+  @Post('neon/companies')
+  async neonIdentityCompanies(@Body() dto: NeonExchangeDto) {
+    return { companies: await this.authService.getNeonIdentityCompanies(dto.token) };
+  }
+
   @Post('neon/exchange')
   async exchangeNeonIdentity(@Body() dto: NeonExchangeDto) {
     return this.authService.exchangeNeonIdentity(dto);
