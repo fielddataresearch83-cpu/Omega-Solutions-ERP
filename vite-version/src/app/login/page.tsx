@@ -116,12 +116,12 @@ export default function LoginPage() {
             <div><p className="text-base font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-white/55">Business management platform</p></div>
           </div>
           <div className="relative max-w-lg py-12">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#34D59A]/25 bg-[#34D59A]/10 px-3 py-1.5 text-xs font-medium text-[#75edbd]"><Sparkles className="size-3.5" /> Built for the way you work</div>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#0FB96F]/25 bg-[#0FB96F]/10 px-3 py-1.5 text-xs font-medium text-[#75edbd]"><Sparkles className="size-3.5" /> Built for the way you work</div>
             <h1 className="text-4xl font-semibold leading-[1.12] tracking-tight xl:text-5xl">One platform for your business.</h1>
             <p className="mt-6 max-w-md text-base leading-7 text-white/65">Your operations, finances, inventory, sales and people — connected in one place.</p>
             <div className="mt-10 grid max-w-md grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><Layers3 className="mb-4 size-5 text-[#34D59A]" /><p className="text-sm font-medium">Connected workflows</p><p className="mt-1 text-xs leading-5 text-white/50">Less switching. Better visibility.</p></div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><ShieldCheck className="mb-4 size-5 text-[#34D59A]" /><p className="text-sm font-medium">Secure by design</p><p className="mt-1 text-xs leading-5 text-white/50">Your workspace, your access.</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><Layers3 className="mb-4 size-5 text-[#0FB96F]" /><p className="text-sm font-medium">Connected workflows</p><p className="mt-1 text-xs leading-5 text-white/50">Less switching. Better visibility.</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><ShieldCheck className="mb-4 size-5 text-[#0FB96F]" /><p className="text-sm font-medium">Secure by design</p><p className="mt-1 text-xs leading-5 text-white/50">Your workspace, your access.</p></div>
             </div>
           </div>
           <div className="relative flex items-center justify-between text-xs text-white/40"><span>© {new Date().getFullYear()} Omega Solutions</span><span>Business, in sync.</span></div>
