@@ -23,7 +23,7 @@ describe('MembershipsService', () => {
   });
 
   describe('getMembership', () => {
-    it('returns the first active membership for a user', async () => {
+    it('returns the only active company membership for a user', async () => {
       db.query.mockResolvedValue({
         rows: [{ company_id: 'comp-1', branch_id: null, role: 'owner' }],
         rowCount: 1,
@@ -32,6 +32,22 @@ describe('MembershipsService', () => {
       const result = await service.getMembership('user-1');
 
       expect(result).toEqual({ companyId: 'comp-1', branchId: null, role: 'owner' });
+    });
+
+    it('throws when multiple active company memberships require explicit selection', async () => {
+      db.query.mockResolvedValue({
+        rows: [
+          { company_id: 'comp-1', branch_id: null, role: 'owner' },
+          { company_id: 'comp-2', branch_id: null, role: 'admin' },
+        ],
+        rowCount: 2,
+      });
+
+      await expect(service.getMembership('user-1')).rejects.toThrow(
+        'Company selection is required for accounts with multiple active company memberships.',
+      );
+      expect(db.query.mock.calls[0][0]).toContain('JOIN companies c ON c.id = cm.company_id AND c.is_active = true');
+      expect(db.query.mock.calls[0][0]).toContain('LIMIT 2');
     });
 
     it('throws ForbiddenException when user has no memberships', async () => {
