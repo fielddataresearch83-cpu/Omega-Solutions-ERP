@@ -25,6 +25,13 @@ describe('WorkforceService validation and attendance', () => {
     );
   });
 
+  it('blocks branch-bound members from creating company-wide client sites', async () => {
+    const branchUser = { ...user, branchId: 'branch-a', role: 'manager' };
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-a', branchId: 'branch-a', role: 'manager' });
+    await expect(service.createSite(branchUser, { siteCode: 'SITE-A', siteName: 'Site A', clientName: 'Client A' })).rejects.toThrow(ForbiddenException);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   it('scopes assignment reads and employee joins to the authenticated company', async () => {
     db.query.mockResolvedValue({ rows: [] });
     await service.assignments(user);
