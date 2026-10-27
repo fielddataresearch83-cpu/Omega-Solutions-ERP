@@ -321,6 +321,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (!dto.companyId) {
+      const activeCompanies = await this.getActiveCompanies(user.id);
+      if (activeCompanies.length > 1) throw new BadRequestException('Choose a company before signing in.');
+    }
     const membership = await this.getUserMembership(user.id, dto.companyId);
     const mfaStatus = await this.mfaService.status(user.id);
     if (mfaStatus.enabled) return this.createMfaChallenge(user.id, user.email, membership.companyId);
