@@ -59,7 +59,10 @@ describe('DashboardService.summary', () => {
 
     expect(result.customers).toEqual({ count: 4, receivables: null });
     expect(result.suppliers).toBeNull();
+    expect(result.inventory).toBeNull();
     expect(db.query.mock.calls.some(([sql]) => String(sql).includes('FROM suppliers WHERE company_id'))).toBe(false);
+    expect(db.query.mock.calls.some(([sql]) => String(sql).includes('COUNT(*) FILTER'))).toBe(false);
+    expect(db.query.mock.calls.some(([sql]) => String(sql).includes('SELECT id, name, sku, stock_quantity'))).toBe(false);
     expect(db.query.mock.calls.some(([sql]) => String(sql).includes('pr.branch_id = $3::uuid'))).toBe(true);
   });
 });
