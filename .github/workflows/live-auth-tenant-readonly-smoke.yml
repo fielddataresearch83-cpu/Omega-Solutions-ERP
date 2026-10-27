@@ -14,6 +14,8 @@ on:
       - 'api/src/migrations/**'
       - 'api/src/suppliers/**'
       - 'api/src/invoices/**'
+      - 'api/src/subscriptions/**'
+      - 'api/src/rbac/**'
 
 permissions:
   contents: read
