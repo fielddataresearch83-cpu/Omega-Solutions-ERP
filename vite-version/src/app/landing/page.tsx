@@ -29,8 +29,8 @@ const modules = [
     description: "Keep customer details, conversations, opportunities, and follow-ups connected in one clear pipeline.",
     items: ["Customer records", "Sales pipeline", "Follow-up tracking"],
     icon: HeartHandshake,
-    accent: "#94A3B8",
-    glow: "rgba(148,163,184,.08)",
+    accent: "#0F7A63",
+    glow: "rgba(15,122,99,.08)",
   },
   {
     name: "Finance",
@@ -38,8 +38,8 @@ const modules = [
     description: "Connect everyday transactions with accounting, reporting, and a clearer view of business performance.",
     items: ["Accounting & ledgers", "Invoices and payments", "Financial reporting"],
     icon: CircleDollarSign,
-    accent: "#94A3B8",
-    glow: "rgba(148,163,184,.08)",
+    accent: "#0F7A63",
+    glow: "rgba(15,122,99,.08)",
   },
   {
     name: "POS",
@@ -47,8 +47,8 @@ const modules = [
     description: "Serve customers efficiently with a point-of-sale workflow connected to your inventory and sales records.",
     items: ["Fast checkout", "Stock-aware selling", "Sales tracking"],
     icon: ShoppingCart,
-    accent: "#94A3B8",
-    glow: "rgba(148,163,184,.08)",
+    accent: "#0F7A63",
+    glow: "rgba(15,122,99,.08)",
   },
   {
     name: "Manufacturing",
@@ -56,8 +56,8 @@ const modules = [
     description: "Bring production planning, materials, work orders, and operational visibility into the same system.",
     items: ["Production planning", "Bill of materials", "Work-order tracking"],
     icon: Factory,
-    accent: "#94A3B8",
-    glow: "rgba(148,163,184,.08)",
+    accent: "#0F7A63",
+    glow: "rgba(15,122,99,.08)",
   },
   {
     name: "Procurement",
@@ -65,8 +65,8 @@ const modules = [
     description: "Organize requisitions, approvals, purchase orders, and supplier records with a more connected process.",
     items: ["Requisitions & approvals", "Purchase orders", "Supplier management"],
     icon: PackageCheck,
-    accent: "#94A3B8",
-    glow: "rgba(148,163,184,.08)",
+    accent: "#0F7A63",
+    glow: "rgba(15,122,99,.08)",
   },
   {
     name: "HRM",
@@ -74,8 +74,8 @@ const modules = [
     description: "Keep employee information and key workforce workflows together, with access shaped by assigned roles.",
     items: ["Employee records", "Leave & attendance", "Payroll workflows"],
     icon: Users,
-    accent: "#94A3B8",
-    glow: "rgba(148,163,184,.08)",
+    accent: "#0F7A63",
+    glow: "rgba(15,122,99,.08)",
   },
 ]
 
@@ -89,7 +89,7 @@ const navLinks = [
 function BrandMark() {
   return (
     <a href="/" className="group inline-flex items-center gap-3" aria-label="Omega Solutions home">
-      <span className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-[#94A3B8] shadow-[0_0_28px_rgba(148,163,184,.07)]">
+      <span className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-[#0F7A63] shadow-[0_0_28px_rgba(15,122,99,.07)]">
         <Boxes className="h-5 w-5" strokeWidth={2.2} />
       </span>
       <span className="text-[15px] font-semibold tracking-[-0.03em] text-white sm:text-base">
@@ -103,20 +103,20 @@ function DashboardPreview() {
   const bars = [30, 44, 38, 56, 48, 69, 60, 77, 71, 88, 79, 96]
   return (
     <div className="relative mx-auto w-full max-w-[660px]">
-      <div className="absolute -inset-8 rounded-[2.5rem] bg-gradient-to-br from-[#94A3B8]/20 via-[#94A3B8]/10 to-transparent blur-3xl" />
-      <div className="relative overflow-hidden rounded-2xl border border-white/[0.11] bg-[#0B1220]/95 shadow-[0_28px_100px_rgba(0,0,0,.55)]">
+      <div className="absolute -inset-8 rounded-[2.5rem] bg-gradient-to-br from-[#0F7A63]/20 via-[#0F7A63]/10 to-transparent blur-3xl" />
+      <div className="relative overflow-hidden rounded-2xl border border-white/[0.11] bg-[#0B2233]/95 shadow-[0_28px_100px_rgba(0,0,0,.55)]">
         <div className="flex h-12 items-center justify-between border-b border-white/[0.07] px-4 sm:px-5">
           <div className="flex items-center gap-2">
-            <span className="grid h-6 w-6 place-items-center rounded-md bg-[#94A3B8]/[0.08] text-[#94A3B8]"><Boxes className="h-3.5 w-3.5" /></span>
+            <span className="grid h-6 w-6 place-items-center rounded-md bg-[#0F7A63]/[0.08] text-[#0F7A63]"><Boxes className="h-3.5 w-3.5" /></span>
             <span className="text-[11px] font-semibold text-slate-200">Omega <span className="text-slate-500">Workspace</span></span>
           </div>
           <div className="hidden items-center gap-2 rounded-lg border border-white/[0.07] bg-white/[0.025] px-3 py-1.5 text-[10px] text-slate-500 sm:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#94A3B8]" /> Workspace overview
+            <span className="h-1.5 w-1.5 rounded-full bg-[#0F7A63]" /> Workspace overview
           </div>
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#94A3B8] to-[#94A3B8] text-[9px] font-bold text-white">O</div>
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0F7A63] text-[9px] font-bold text-white">O</div>
         </div>
         <div className="grid min-h-[330px] grid-cols-[108px_1fr] sm:grid-cols-[142px_1fr]">
-          <aside className="border-r border-white/[0.06] bg-[#090D16]/70 p-2.5 sm:p-3.5">
+          <aside className="border-r border-white/[0.06] bg-[#081C2D]/70 p-2.5 sm:p-3.5">
             <p className="mb-3 px-2 text-[8px] font-semibold uppercase tracking-[.18em] text-slate-600">Workspace</p>
             {[
               ["Overview", BarChart3],
@@ -128,7 +128,7 @@ function DashboardPreview() {
             ].map(([label, Icon], index) => {
               const ItemIcon = Icon as typeof BarChart3
               return (
-                <div key={label as string} className={`mb-1 flex items-center gap-2 rounded-lg px-2 py-2 text-[9px] ${index === 0 ? "bg-[#94A3B8]/[0.08] font-medium text-[#94A3B8]" : "text-slate-500"}`}>
+                <div key={label as string} className={`mb-1 flex items-center gap-2 rounded-lg px-2 py-2 text-[9px] ${index === 0 ? "bg-[#0F7A63]/[0.08] font-medium text-[#0F7A63]" : "text-slate-500"}`}>
                   <ItemIcon className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{label as string}</span>
                 </div>
               )
@@ -146,34 +146,34 @@ function DashboardPreview() {
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
-                { label: "Sales", value: "Overview", icon: BarChart3, color: "#94A3B8" },
-                { label: "Receivables", value: "Tracked", icon: CircleDollarSign, color: "#94A3B8" },
-                { label: "Inventory", value: "Connected", icon: Boxes, color: "#94A3B8" },
-                { label: "Workforce", value: "Organized", icon: Users, color: "#94A3B8" },
+                { label: "Sales", value: "Overview", icon: BarChart3, color: "#0F7A63" },
+                { label: "Receivables", value: "Tracked", icon: CircleDollarSign, color: "#0F7A63" },
+                { label: "Inventory", value: "Connected", icon: Boxes, color: "#0F7A63" },
+                { label: "Workforce", value: "Organized", icon: Users, color: "#0F7A63" },
               ].map((stat) => (
-                <div key={stat.label} className="rounded-xl border border-white/[0.07] bg-[#121826] p-2.5 sm:p-3">
+                <div key={stat.label} className="rounded-xl border border-white/[0.07] bg-[#102B3D] p-2.5 sm:p-3">
                   <stat.icon className="mb-2 h-3.5 w-3.5" style={{ color: stat.color }} />
                   <p className="text-[8px] text-slate-500">{stat.label}</p>
                   <p className="mt-1 text-[11px] font-semibold text-slate-200 sm:text-xs">{stat.value}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-3 rounded-xl border border-white/[0.07] bg-[#121826] p-3 sm:p-4">
-              <div className="flex items-center justify-between"><div><p className="text-[10px] font-medium text-slate-200">Operations at a glance</p><p className="mt-1 text-[8px] text-slate-500">Illustrative dashboard preview</p></div><span className="rounded-md bg-[#94A3B8]/[0.06] px-2 py-1 text-[8px] text-[#94A3B8]">Live-ready design</span></div>
+            <div className="mt-3 rounded-xl border border-white/[0.07] bg-[#102B3D] p-3 sm:p-4">
+              <div className="flex items-center justify-between"><div><p className="text-[10px] font-medium text-slate-200">Operations at a glance</p><p className="mt-1 text-[8px] text-slate-500">Illustrative dashboard preview</p></div><span className="rounded-md bg-[#0F7A63]/[0.06] px-2 py-1 text-[8px] text-[#0F7A63]">Live-ready design</span></div>
               <div className="mt-4 flex h-[92px] items-end gap-1.5 border-b border-white/[0.07] pb-0.5 sm:h-[110px] sm:gap-2">
-                {bars.map((height, index) => <div key={index} className="group relative flex-1 rounded-t-sm bg-gradient-to-t from-[#64748B]/40 to-[#CBD5E1]/80 transition-opacity hover:opacity-70" style={{ height: `${height}%` }} />)}
+                {bars.map((height, index) => <div key={index} className="group relative flex-1 rounded-t-sm bg-gradient-to-t from-[#0F7A63]/40 to-[#9AA3AB]/80 transition-opacity hover:opacity-70" style={{ height: `${height}%` }} />)}
               </div>
               <div className="mt-2 flex justify-between text-[7px] text-slate-600"><span>Week 01</span><span>Week 02</span><span>Week 03</span><span>Week 04</span></div>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-white/[0.07] bg-[#121826] p-3"><div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#94A3B8]" /><span className="text-[9px] text-slate-400">Connected modules</span></div><div className="mt-2 flex gap-1.5">{modules.map((module) => <span key={module.name} className="h-1.5 flex-1 rounded-full" style={{ background: module.accent }} />)}</div></div>
-              <div className="rounded-xl border border-white/[0.07] bg-[#121826] p-3"><div className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-[#94A3B8]" /><span className="text-[9px] text-slate-400">Access-aware workflows</span></div><p className="mt-2 text-[9px] text-slate-300">Roles and permissions</p></div>
+              <div className="rounded-xl border border-white/[0.07] bg-[#102B3D] p-3"><div className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#0F7A63]" /><span className="text-[9px] text-slate-400">Connected modules</span></div><div className="mt-2 flex gap-1.5">{modules.map((module) => <span key={module.name} className="h-1.5 flex-1 rounded-full" style={{ background: module.accent }} />)}</div></div>
+              <div className="rounded-xl border border-white/[0.07] bg-[#102B3D] p-3"><div className="flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-[#0F7A63]" /><span className="text-[9px] text-slate-400">Access-aware workflows</span></div><p className="mt-2 text-[9px] text-slate-300">Roles and permissions</p></div>
             </div>
           </div>
         </div>
       </div>
-      <div className="absolute -bottom-5 -left-3 hidden items-center gap-3 rounded-xl border border-white/[0.1] bg-[#121826]/95 px-4 py-3 shadow-2xl backdrop-blur sm:flex">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#94A3B8]/[0.06] text-[#94A3B8]"><ShieldCheck className="h-4 w-4" /></span>
+      <div className="absolute -bottom-5 -left-3 hidden items-center gap-3 rounded-xl border border-white/[0.1] bg-[#102B3D]/95 px-4 py-3 shadow-2xl backdrop-blur sm:flex">
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#0F7A63]/[0.06] text-[#0F7A63]"><ShieldCheck className="h-4 w-4" /></span>
         <div><p className="text-[10px] font-semibold text-white">One connected platform</p><p className="mt-0.5 text-[9px] text-slate-500">Workflows across your business</p></div>
       </div>
     </div>
@@ -184,8 +184,8 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#090D16] text-white selection:bg-[#94A3B8]/20 selection:text-white">
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#090D16]/85 backdrop-blur-xl">
+    <div className="min-h-screen overflow-hidden bg-[#081C2D] text-white selection:bg-[#0F7A63]/20 selection:text-white">
+      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#081C2D]/85 backdrop-blur-xl">
         <nav className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10" aria-label="Main navigation">
           <BrandMark />
           <div className="hidden items-center gap-8 md:flex">
@@ -193,31 +193,31 @@ export default function LandingPage() {
           </div>
           <div className="hidden items-center gap-3 md:flex">
             <a href="/login" className="rounded-xl border border-white/[0.12] px-4 py-2.5 text-[12px] font-medium text-slate-200 transition hover:border-white/25 hover:bg-white/[0.04]">Sign In</a>
-            <a href="/accept-invitation" className="group inline-flex items-center gap-2 rounded-xl bg-[#94A3B8] px-4 py-2.5 text-[12px] font-semibold text-[#0F172A] shadow-[0_0_28px_rgba(148,163,184,.08)] transition hover:bg-[#94A3B8]">Get Started <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></a>
+            <a href="/accept-invitation" className="group inline-flex items-center gap-2 rounded-xl bg-[#0F7A63] px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_0_28px_rgba(15,122,99,.08)] transition hover:bg-[#0F7A63]">Get Started <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></a>
           </div>
           <button type="button" className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 text-slate-200 md:hidden" aria-label={mobileMenuOpen ? "Close menu" : "Open menu"} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen((open) => !open)}>{mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
         </nav>
-        {mobileMenuOpen && <div className="border-t border-white/[0.06] bg-[#090D16] px-5 py-4 md:hidden"><div className="flex flex-col gap-1">{navLinks.map((link) => <a key={link.label} href={link.href} onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm text-slate-300 hover:bg-white/[0.04]">{link.label}</a>)}<div className="mt-2 grid grid-cols-2 gap-2"><a href="/login" className="rounded-xl border border-white/10 px-3 py-3 text-center text-sm">Sign In</a><a href="/accept-invitation" className="rounded-xl bg-[#94A3B8] px-3 py-3 text-center text-sm font-semibold text-[#0F172A]">Get Started</a></div></div></div>}
+        {mobileMenuOpen && <div className="border-t border-white/[0.06] bg-[#081C2D] px-5 py-4 md:hidden"><div className="flex flex-col gap-1">{navLinks.map((link) => <a key={link.label} href={link.href} onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm text-slate-300 hover:bg-white/[0.04]">{link.label}</a>)}<div className="mt-2 grid grid-cols-2 gap-2"><a href="/login" className="rounded-xl border border-white/10 px-3 py-3 text-center text-sm">Sign In</a><a href="/accept-invitation" className="rounded-xl bg-[#0F7A63] px-3 py-3 text-center text-sm font-semibold text-white">Get Started</a></div></div></div>}
       </header>
 
       <main>
         <section id="platform" className="relative isolate">
-          <div aria-hidden="true" className="pointer-events-none absolute -top-24 left-[18%] -z-10 h-[430px] w-[430px] rounded-full bg-[#94A3B8]/[0.07] blur-[120px]" />
-          <div aria-hidden="true" className="pointer-events-none absolute right-[-8%] top-16 -z-10 h-[420px] w-[420px] rounded-full bg-[#94A3B8]/[0.06] blur-[125px]" />
+          <div aria-hidden="true" className="pointer-events-none absolute -top-24 left-[18%] -z-10 h-[430px] w-[430px] rounded-full bg-[#0F7A63]/[0.07] blur-[120px]" />
+          <div aria-hidden="true" className="pointer-events-none absolute right-[-8%] top-16 -z-10 h-[420px] w-[420px] rounded-full bg-[#0F7A63]/[0.06] blur-[125px]" />
           <div className="mx-auto grid max-w-7xl items-center gap-14 px-5 pb-24 pt-16 sm:px-8 sm:pt-24 lg:grid-cols-[0.92fr_1.08fr] lg:gap-12 lg:px-10 lg:pb-32 lg:pt-28">
             <div className="relative z-10 max-w-2xl">
-              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-[#94A3B8]/[0.06] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[.18em] text-[#94A3B8]"><Sparkles className="h-3.5 w-3.5" /> One platform. Connected operations.</div>
-              <h1 className="text-[clamp(2.8rem,5.5vw,5.1rem)] font-semibold leading-[1.02] tracking-[-0.065em] text-white">The Operating System for <span className="text-[#94A3B8]">Modern Enterprise.</span></h1>
+              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-[#0F7A63]/[0.06] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[.18em] text-[#0F7A63]"><Sparkles className="h-3.5 w-3.5" /> One platform. Connected operations.</div>
+              <h1 className="text-[clamp(2.8rem,5.5vw,5.1rem)] font-semibold leading-[1.02] tracking-[-0.065em] text-white">The Operating System for <span className="text-[#0F7A63]">Modern Enterprise.</span></h1>
               <p className="mt-7 max-w-xl text-base leading-7 text-slate-400 sm:text-lg sm:leading-8">Bring CRM, Finance, POS, Manufacturing, Procurement, and HRM together in one connected ERP—so your people, processes, and business information move in sync.</p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <a href="/accept-invitation" className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#94A3B8] px-6 py-3 text-sm font-semibold text-[#0F172A] shadow-[0_0_34px_rgba(148,163,184,.10)] transition hover:-translate-y-0.5 hover:bg-[#94A3B8]">Get Started <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></a>
+                <a href="/accept-invitation" className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#0F7A63] px-6 py-3 text-sm font-semibold text-white shadow-[0_0_34px_rgba(15,122,99,.10)] transition hover:-translate-y-0.5 hover:bg-[#0F7A63]">Get Started <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></a>
                 <a href="#modules" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.025] px-6 py-3 text-sm font-medium text-slate-200 transition hover:border-white/20 hover:bg-white/[0.05]"><Play className="h-4 w-4 fill-current" /> Explore the platform</a>
               </div>
-              <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3 text-[11px] text-slate-500"><span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#94A3B8]" /> Connected business workflows</span><span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#94A3B8]" /> Role-aware access</span></div>
+              <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3 text-[11px] text-slate-500"><span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#0F7A63]" /> Connected business workflows</span><span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#0F7A63]" /> Role-aware access</span></div>
             </div>
             <div className="relative lg:pl-2"><DashboardPreview /></div>
           </div>
-          <div className="border-y border-white/[0.06] bg-[#121826]/45">
+          <div className="border-y border-white/[0.06] bg-[#102B3D]/45">
             <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-7 gap-y-4 px-5 py-5 sm:gap-x-10 sm:px-8 lg:justify-between lg:px-10">
               {modules.map((module) => <a key={module.name} href="#modules" className="group inline-flex items-center gap-2 text-[11px] font-medium text-slate-400 transition hover:text-white"><module.icon className="h-4 w-4" style={{ color: module.accent }} />{module.name}</a>)}
             </div>
@@ -225,16 +225,16 @@ export default function LandingPage() {
         </section>
 
         <section id="modules" className="relative py-24 sm:py-28">
-          <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/3 -z-0 h-80 w-80 -translate-x-1/2 rounded-full bg-[#94A3B8]/[0.06] blur-[100px]" />
+          <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-1/3 -z-0 h-80 w-80 -translate-x-1/2 rounded-full bg-[#0F7A63]/[0.06] blur-[100px]" />
           <div className="relative mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
             <div className="mx-auto mb-14 max-w-2xl text-center sm:mb-16">
-              <p className="text-[11px] font-semibold uppercase tracking-[.24em] text-[#94A3B8]">One platform. Many capabilities.</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[.24em] text-[#0F7A63]">One platform. Many capabilities.</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-5xl">Every part of your business, <span className="text-slate-500">working together.</span></h2>
               <p className="mt-5 text-sm leading-7 text-slate-400 sm:text-base">Replace disconnected tools and scattered information with business workflows designed to connect across teams.</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {modules.map((module) => (
-                <article key={module.name} className="group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#121826] p-6 transition duration-300 hover:-translate-y-1 hover:border-white/[0.14] sm:p-7">
+                <article key={module.name} className="group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#102B3D] p-6 transition duration-300 hover:-translate-y-1 hover:border-white/[0.14] sm:p-7">
                   <span className="absolute inset-x-0 top-0 h-[2px] opacity-80 transition-opacity group-hover:opacity-100" style={{ background: module.accent }} />
                   <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full opacity-0 blur-3xl transition-opacity duration-300 group-hover:opacity-100" style={{ background: module.glow }} />
                   <div className="relative flex items-start justify-between gap-4">
@@ -254,38 +254,38 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="enterprise" className="border-y border-white/[0.06] bg-[#121826]/55 py-20 sm:py-24">
+        <section id="enterprise" className="border-y border-white/[0.06] bg-[#102B3D]/55 py-20 sm:py-24">
           <div className="mx-auto max-w-7xl px-5 sm:px-8 lg:px-10">
             <div className="mx-auto max-w-2xl text-center">
-              <p className="text-[11px] font-semibold uppercase tracking-[.24em] text-[#94A3B8]">Built for connected operations</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[.24em] text-[#0F7A63]">Built for connected operations</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-white sm:text-4xl">A clearer view of the whole business.</h2>
               <p className="mt-4 text-sm leading-7 text-slate-400 sm:text-base">Bring essential teams and processes into one system, with the structure to support the way your business operates.</p>
             </div>
             <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { number: "6", suffix: "", title: "Core capabilities", note: "Connected business modules", icon: Boxes, color: "#94A3B8" },
-                { number: "1", suffix: "", title: "Shared platform", note: "A more connected workflow", icon: Globe2, color: "#94A3B8" },
-                { number: "360°", suffix: "", title: "Business visibility", note: "Information across teams", icon: BarChart3, color: "#94A3B8" },
-                { number: "24/7", suffix: "", title: "Access when needed", note: "A web-based workspace", icon: ShieldCheck, color: "#94A3B8" },
-              ].map((stat) => <div key={stat.title} className="rounded-2xl border border-white/[0.07] bg-[#090D16]/55 p-6 text-center sm:p-7"><stat.icon className="mx-auto h-5 w-5" style={{ color: stat.color }} /><p className="mt-5 text-4xl font-semibold tracking-[-0.05em] text-white">{stat.number}{stat.suffix}</p><p className="mt-2 text-sm font-semibold text-slate-200">{stat.title}</p><p className="mt-1.5 text-xs text-slate-500">{stat.note}</p></div>)}
+                { number: "6", suffix: "", title: "Core capabilities", note: "Connected business modules", icon: Boxes, color: "#0F7A63" },
+                { number: "1", suffix: "", title: "Shared platform", note: "A more connected workflow", icon: Globe2, color: "#0F7A63" },
+                { number: "360°", suffix: "", title: "Business visibility", note: "Information across teams", icon: BarChart3, color: "#0F7A63" },
+                { number: "24/7", suffix: "", title: "Access when needed", note: "A web-based workspace", icon: ShieldCheck, color: "#0F7A63" },
+              ].map((stat) => <div key={stat.title} className="rounded-2xl border border-white/[0.07] bg-[#081C2D]/55 p-6 text-center sm:p-7"><stat.icon className="mx-auto h-5 w-5" style={{ color: stat.color }} /><p className="mt-5 text-4xl font-semibold tracking-[-0.05em] text-white">{stat.number}{stat.suffix}</p><p className="mt-2 text-sm font-semibold text-slate-200">{stat.title}</p><p className="mt-1.5 text-xs text-slate-500">{stat.note}</p></div>)}
             </div>
             <p className="mt-5 text-center text-[10px] text-slate-600">Platform capability indicators, not customer-count or uptime claims.</p>
           </div>
         </section>
 
         <section className="px-5 py-20 sm:px-8 sm:py-28 lg:px-10">
-          <div className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl border border-white/[0.09] bg-[#121826] px-6 py-12 sm:px-12 sm:py-16 lg:px-16">
-            <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-36 h-96 w-96 rounded-full bg-[#94A3B8]/[0.06] blur-[100px]" />
-            <div aria-hidden="true" className="pointer-events-none absolute -bottom-44 left-1/3 h-80 w-80 rounded-full bg-[#94A3B8]/[0.06] blur-[100px]" />
+          <div className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl border border-white/[0.09] bg-[#102B3D] px-6 py-12 sm:px-12 sm:py-16 lg:px-16">
+            <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-36 h-96 w-96 rounded-full bg-[#0F7A63]/[0.06] blur-[100px]" />
+            <div aria-hidden="true" className="pointer-events-none absolute -bottom-44 left-1/3 h-80 w-80 rounded-full bg-[#0F7A63]/[0.06] blur-[100px]" />
             <div className="relative flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
-              <div className="max-w-2xl"><span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.2em] text-[#94A3B8]"><Building2 className="h-3.5 w-3.5" /> Your business. Better connected.</span><h2 className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-4xl">One platform for your business.</h2><p className="mt-4 max-w-xl text-sm leading-7 text-slate-400 sm:text-base">Bring your teams, workflows, and business information together with Omega Solutions.</p></div>
-              <a href="/accept-invitation" className="group inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#94A3B8] px-6 py-3.5 text-sm font-semibold text-[#0F172A] shadow-[0_0_35px_rgba(148,163,184,.08)] transition hover:-translate-y-0.5 hover:bg-[#94A3B8]">Get Started <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></a>
+              <div className="max-w-2xl"><span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.2em] text-[#0F7A63]"><Building2 className="h-3.5 w-3.5" /> Your business. Better connected.</span><h2 className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-4xl">One platform for your business.</h2><p className="mt-4 max-w-xl text-sm leading-7 text-slate-400 sm:text-base">Bring your teams, workflows, and business information together with Omega Solutions.</p></div>
+              <a href="/accept-invitation" className="group inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#0F7A63] px-6 py-3.5 text-sm font-semibold text-white shadow-[0_0_35px_rgba(15,122,99,.08)] transition hover:-translate-y-0.5 hover:bg-[#0F7A63]">Get Started <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></a>
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-white/[0.06] bg-[#090D16]">
+      <footer className="border-t border-white/[0.06] bg-[#081C2D]">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
           <BrandMark />
           <p className="text-xs text-slate-600">One platform for your business.</p>
