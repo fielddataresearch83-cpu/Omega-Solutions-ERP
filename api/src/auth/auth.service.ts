@@ -153,10 +153,6 @@ export class AuthService {
       user = { id: userId, email, full_name: fullName, is_active: true };
       membership = { companyId: created.companyId, branchId: null, role: 'owner' };
     } else {
-      if (!dto.companyId) {
-        const activeCompanies = await this.getActiveCompanies(user.id);
-        if (activeCompanies.length > 1) throw new BadRequestException('Choose a company before signing in.');
-      }
       membership = await this.getUserMembership(user.id, dto.companyId);
       if (!membership.companyId) {
         throw new UnauthorizedException('This account has no active company membership. Contact your administrator.');
@@ -321,10 +317,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!dto.companyId) {
-      const activeCompanies = await this.getActiveCompanies(user.id);
-      if (activeCompanies.length > 1) throw new BadRequestException('Choose a company before signing in.');
-    }
     const membership = await this.getUserMembership(user.id, dto.companyId);
     const mfaStatus = await this.mfaService.status(user.id);
     if (mfaStatus.enabled) return this.createMfaChallenge(user.id, user.email, membership.companyId);
@@ -493,6 +485,15 @@ export class AuthService {
     userId: string,
     companyId?: string | null,
   ): Promise<{ companyId: string | null; branchId: string | null; role: string }> {
+    // Fail closed for legacy/forged tokens and internal callers that omit the
+    // selected company. A multi-company identity must never fall back to LIMIT 1.
+    if (!companyId) {
+      const activeCompanies = await this.getActiveCompanies(userId);
+      if (activeCompanies.length > 1) {
+        throw new UnauthorizedException('Company selection is required for this account.');
+      }
+    }
+
     const result = await this.db.query<{
       company_id: string | null;
       branch_id: string | null;
