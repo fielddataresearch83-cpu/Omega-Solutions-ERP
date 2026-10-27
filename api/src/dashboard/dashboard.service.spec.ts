@@ -45,6 +45,10 @@ describe('DashboardService.summary', () => {
     expect(result.customers).toEqual({ count: 4, receivables: 1250.5 });
     expect(result.suppliers).toEqual({ count: 2, payables: 700.25 });
     expect(result.inventory).toMatchObject({ activeProducts: 9, lowStock: 2, costValue: 15000 });
+    const inventoryQuery = db.query.mock.calls.find(([sql]) => String(sql).includes('COUNT(*) FILTER'));
+    expect(String(inventoryQuery?.[0])).toContain('inventory_stock_levels');
+    expect(String(inventoryQuery?.[0])).toContain('s.quantity * s.average_unit_cost');
+    expect(String(inventoryQuery?.[0])).not.toContain('SUM(cost_price * stock_quantity)');
     expect(result.invoiceTrend).toEqual([{ key: '2026-10', total: 5000 }]);
     expect(result.overdueInvoices?.[0]).toMatchObject({ invoice_number: 'INV-1', balance: 100 });
     const invoiceQueries = db.query.mock.calls.filter(([sql]) => String(sql).includes('FROM invoices i'));
