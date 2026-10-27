@@ -159,7 +159,7 @@ export class SubscriptionsService {
       visited.add(code);
       const module = MODULE_CATALOGUE.find((entry) => entry.code === code);
       if (!module) return { enabled: false, missingDependencies: [code] };
-      const entitled = overrides.has(code) ? overrides.get(code)! : planModules.has(code);
+      const entitled = legacy ? code === 'core' : overrides.has(code) ? overrides.get(code)! : planModules.has(code);
       if (!subscriptionActive || !entitled) return { enabled: false, missingDependencies: [] };
       const missingDependencies: string[] = [];
       for (const dependency of module.dependencies) {
@@ -180,7 +180,7 @@ export class SubscriptionsService {
       modules: MODULE_CATALOGUE.map((module) => {
         const overrideEnabled = overrides.get(module.code);
         const includedInPlan = planModules.has(module.code);
-        const entitled = overrideEnabled ?? includedInPlan;
+        const entitled = legacy ? module.code === 'core' : overrideEnabled ?? includedInPlan;
         const access = resolve(module.code);
         return {
           ...module,
