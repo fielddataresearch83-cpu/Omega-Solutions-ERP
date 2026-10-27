@@ -58,5 +58,14 @@ CREATE INDEX IF NOT EXISTS idx_goods_receipt_items_company_receipt
 CREATE INDEX IF NOT EXISTS idx_goods_receipt_items_company_po_line
   ON goods_receipt_items(company_id, purchase_order_item_id);
 
+ALTER TABLE journal_entries ADD COLUMN goods_receipt_id UUID;
+ALTER TABLE journal_entries
+  ADD CONSTRAINT journal_entries_goods_receipt_company_fk
+  FOREIGN KEY (goods_receipt_id, company_id)
+  REFERENCES goods_receipts(id, company_id) ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS idx_journal_entries_company_goods_receipt
+  ON journal_entries(company_id, goods_receipt_id)
+  WHERE goods_receipt_id IS NOT NULL;
+
 ALTER TABLE goods_receipts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE goods_receipt_items ENABLE ROW LEVEL SECURITY;
