@@ -15,6 +15,7 @@ interface AuthContextValue {
   loginEmail: (email: string, password: string) => Promise<void>;
   companyChoices: LoginCompanyChoice[];
   selectLoginCompany: (companyId: string) => Promise<void>;
+  cancelLoginCompanySelection: () => void;
   registerUser: (email: string, password: string, fullName: string, phone?: string, companyName?: string) => Promise<void>;
   finishNeonRegistration: (token: string, fullName: string, phone?: string, companyName?: string) => Promise<void>;
   finishNeonInvitation: (token: string, invitationToken: string) => Promise<boolean>;
@@ -103,6 +104,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await applyOmegaSession(result);
   }, [pendingIdentityToken, pendingIdentityEmail, companyChoices, applyOmegaSession]);
 
+  const cancelLoginCompanySelection = React.useCallback(() => {
+    setCompanyChoices([]);
+    setPendingIdentityToken(null);
+    setPendingIdentityEmail(null);
+    setError(null);
+  }, []);
+
   const completeMfaCode = React.useCallback(async (code: string) => {
     if (!mfaChallengeToken) throw new Error("No active MFA challenge. Please sign in again.");
     const result = await completeMfaChallenge(mfaChallengeToken, code);
@@ -168,6 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     mfaChallengePending: Boolean(mfaChallengeToken),
     companyChoices,
     selectLoginCompany,
+    cancelLoginCompanySelection,
     completeMfaCode,
     loginEmail,
     registerUser,
