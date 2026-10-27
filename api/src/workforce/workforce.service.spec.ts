@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { WorkforceService } from './workforce.service.js';
 
 describe('WorkforceService validation and attendance', () => {
@@ -43,6 +43,36 @@ describe('WorkforceService validation and attendance', () => {
     expect(sql).toContain('a.punched_at >= $2::date');
     expect(sql).toContain("a.punched_at < ($3::date + INTERVAL '1 day')");
     expect(params).toEqual(['company-a', '2026-10-01', '2026-10-15']);
+  });
+
+  it('filters workforce assignment listing to a branch-bound member branch', async () => {
+    const branchUser = { ...user, branchId: 'branch-a', role: 'manager' };
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-a', branchId: 'branch-a', role: 'manager' });
+    db.query.mockResolvedValue({ rows: [] });
+    await service.assignments(branchUser);
+    const [sql, params] = db.query.mock.calls[0];
+    expect(sql).toContain('e.branch_id=$2::uuid');
+    expect(params).toEqual(['company-a', 'branch-a']);
+  });
+
+  it('filters attendance reads to a branch-bound member branch', async () => {
+    const branchUser = { ...user, branchId: 'branch-a', role: 'manager' };
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-a', branchId: 'branch-a', role: 'manager' });
+    db.query.mockResolvedValue({ rows: [] });
+    await service.attendance(branchUser);
+    const [sql, params] = db.query.mock.calls[0];
+    expect(sql).toContain('e.branch_id=$2::uuid');
+    expect(params).toEqual(['company-a', 'branch-a']);
+  });
+
+  it('blocks branch-bound members from company-wide monthly attendance imports', async () => {
+    const branchUser = { ...user, branchId: 'branch-a', role: 'manager' };
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-a', branchId: 'branch-a', role: 'manager' });
+    await expect(service.previewMonthlyAttendance(branchUser, {
+      period: '2026-09',
+      rows: [{ nationalId: '12345678', scheduledDays: 22, presentDays: 20, absentDays: 1, leaveDays: 1, unresolvedDays: 0, restDays: 8 }],
+    })).rejects.toThrow(ForbiddenException);
+    expect(db.query).not.toHaveBeenCalled();
   });
 
   it('rejects invalid date filters before querying attendance', async () => {
