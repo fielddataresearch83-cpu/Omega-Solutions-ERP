@@ -18,6 +18,13 @@ export interface MfaChallengeResponse {
   mfaChallengeToken: string;
 }
 
+export interface LoginCompanyChoice {
+  id: string;
+  name: string;
+  role: string;
+  branchId: string | null;
+}
+
 export interface RegisterResponse {
   userId: string;
 }
@@ -50,11 +57,22 @@ export async function register(email: string, password: string, fullName: string
   return res.json();
 }
 
-export async function exchangeNeonToken(token: string, fullName: string, phone?: string, companyName?: string): Promise<LoginResponse> {
+export async function getNeonIdentityCompanies(token: string): Promise<LoginCompanyChoice[]> {
+  const res = await fetch(`${API_BASE}/auth/neon/companies`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  if (!res.ok) throw await readError(res, "Could not load your company memberships");
+  const result = await res.json() as { companies?: LoginCompanyChoice[] };
+  return result.companies ?? [];
+}
+
+export async function exchangeNeonToken(token: string, fullName: string, phone?: string, companyName?: string, companyId?: string): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE}/auth/neon/exchange`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, fullName, phone, companyName }),
+    body: JSON.stringify({ token, fullName, phone, companyName, companyId }),
   });
   if (!res.ok) throw await readError(res, "Could not finish setting up your Omega account");
   return res.json();
