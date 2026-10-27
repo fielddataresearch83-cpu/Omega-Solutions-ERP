@@ -11,6 +11,7 @@ on:
       - 'api/src/auth/**'
       - 'api/src/customers/**'
       - 'api/src/products/**'
+      - 'api/src/migrations/**'
       - 'api/src/suppliers/**'
       - 'api/src/invoices/**'
 
