@@ -1,0 +1,42 @@
+name: Read-only development tenant isolation smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - development
+    paths:
+      - '.github/workflows/live-auth-tenant-readonly-smoke.yml'
+      - 'api/scripts/live-auth-tenant-readonly-smoke.mjs'
+      - 'api/src/auth/**'
+      - 'api/src/customers/**'
+      - 'api/src/products/**'
+      - 'api/src/suppliers/**'
+      - 'api/src/invoices/**'
+
+permissions:
+  contents: read
+
+jobs:
+  tenant-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout existing development branch
+        uses: actions/checkout@v4
+        with:
+          ref: development
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify read-only cross-company isolation
+        env:
+          OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
+          OMEGA_SECURITY_TEST_A_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
+          OMEGA_SECURITY_TEST_A_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_A_PASSWORD }}
+          OMEGA_SECURITY_TEST_B_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_B_EMAIL }}
+          OMEGA_SECURITY_TEST_B_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_B_PASSWORD }}
+        run: node api/scripts/live-auth-tenant-readonly-smoke.mjs
