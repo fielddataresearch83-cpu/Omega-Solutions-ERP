@@ -16,7 +16,7 @@ export default function LoginPage() {
   const destination = from?.pathname?.startsWith("/") && !from.pathname.startsWith("//")
     ? from.pathname + (from.search ?? "")
     : "/dashboard"
-  const { user, loading, loginEmail, registerUser, finishNeonRegistration, mfaChallengePending, completeMfaCode } = useAuth()
+  const { user, loading, loginEmail, companyChoices, selectLoginCompany, registerUser, finishNeonRegistration, mfaChallengePending, completeMfaCode } = useAuth()
   const [mode, setMode] = React.useState<"login" | "register">("login")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
@@ -95,7 +95,9 @@ export default function LoginPage() {
     return <div className="flex min-h-svh items-center justify-center bg-background"><LoadingSpinner /></div>
   }
 
-  const heading = mfaChallengePending
+  const heading = companyChoices.length > 0
+    ? "Choose your company"
+    : mfaChallengePending
     ? "Two-step verification"
     : verificationPending
       ? "Verify your email"
@@ -134,10 +136,12 @@ export default function LoginPage() {
               <div><p className="font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-muted-foreground">One platform for your business.</p></div>
             </div>
             <div className="mb-8">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">{mfaChallengePending ? "Account security" : verificationPending ? "Email verification" : mode === "login" ? "Your workspace awaits" : "Get started with Omega"}</p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">{companyChoices.length > 0 ? "Company selection" : mfaChallengePending ? "Account security" : verificationPending ? "Email verification" : mode === "login" ? "Your workspace awaits" : "Get started with Omega"}</p>
               <h2 className="text-3xl font-semibold tracking-tight">{heading}</h2>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {mfaChallengePending
+                {companyChoices.length > 0
+                  ? "This account has access to more than one company. Choose the workspace you want to open."
+                  : mfaChallengePending
                   ? "Enter your authenticator code or an unused recovery code to finish signing in."
                   : verificationPending
                     ? `Enter the verification code sent to ${email}. You will then be signed in and returned to your requested page.`
@@ -150,6 +154,38 @@ export default function LoginPage() {
             {error && <div role="alert" className="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
             {notice && <div role="status" className="mb-5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">{notice}</div>}
 
+            {companyChoices.length > 0 ? (
+              <div className="space-y-3" aria-label="Choose company">
+                {companyChoices.map((company) => (
+                  <Button
+                    key={company.id}
+                    type="button"
+                    variant="outline"
+                    className="h-auto w-full justify-between rounded-xl px-4 py-4 text-left"
+                    disabled={submitting}
+                    onClick={async () => {
+                      setError(null)
+                      setSubmitting(true)
+                      try {
+                        await selectLoginCompany(company.id)
+                        navigate(destination, { replace: true })
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : "Could not sign in to that company")
+                      } finally {
+                        setSubmitting(false)
+                      }
+                    }}
+                  >
+                    <span className="flex flex-col items-start gap-1">
+                      <span className="font-semibold">{company.name}</span>
+                      <span className="text-xs text-muted-foreground">{company.role}{company.branchId ? " · Assigned branch" : " · Company access"}</span>
+                    </span>
+                    <ArrowRight className="ml-3 size-4 shrink-0" />
+                  </Button>
+                ))}
+                <button type="button" onClick={() => { setError(null); setCompanyChoices([]) }} className="w-full pt-2 text-sm text-muted-foreground underline-offset-4 hover:underline">Cancel selection</button>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               {mode === "register" && !verificationPending && !mfaChallengePending && (
                 <>
@@ -183,12 +219,13 @@ export default function LoginPage() {
                 {submitting ? <LoadingSpinner className="size-4" /> : <>{mfaChallengePending ? "Verify and sign in" : verificationPending ? "Verify email and continue" : mode === "login" ? "Sign in to Omega" : "Create Omega account"}{!submitting && <ArrowRight className="ml-2 size-4" />}</>}
               </Button>
             </form>
+            )}
 
-            {!verificationPending && <p className="mt-7 text-center text-sm text-muted-foreground">
+            {!verificationPending && companyChoices.length === 0 && <p className="mt-7 text-center text-sm text-muted-foreground">
               {mode === "login" ? "New to Omega?" : "Already have an account?"}{" "}
               <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); setNotice(null); setShowPassword(false) }} className="font-semibold text-primary underline-offset-4 hover:underline">{mode === "login" ? "Create an account" : "Sign in instead"}</button>
             </p>}
-            {verificationPending && <div className="mt-7 text-center text-sm"><button type="button" onClick={() => { setVerificationPending(false); setOtp(""); setError(null); setNotice(null) }} className="font-semibold text-primary underline-offset-4 hover:underline">Back to registration</button></div>}
+            {verificationPending && companyChoices.length === 0 && <div className="mt-7 text-center text-sm"><button type="button" onClick={() => { setVerificationPending(false); setOtp(""); setError(null); setNotice(null) }} className="font-semibold text-primary underline-offset-4 hover:underline">Back to registration</button></div>}
             <div className="mt-8 flex items-center justify-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="size-3.5" /> Secure access to your business workspace</div>
           </div>
         </div>
