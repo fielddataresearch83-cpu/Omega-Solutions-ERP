@@ -244,6 +244,13 @@ export class AuthService {
         'UPDATE company_invitations SET accepted_at = NOW(), updated_at = NOW() WHERE id = $1',
         [invitation.id],
       );
+      // Record acceptance in the same transaction as membership activation and token consumption.
+      await client.query(
+        `INSERT INTO audit_logs
+          (user_id, company_id, branch_id, action, entity_type, entity_id, old_values, new_values, ip_address)
+         VALUES ($1, $2, $3, 'accept_invitation', 'company_invitation', $4, NULL, $5, NULL)`,
+        [omegaUser.id, invitation.company_id, invitation.branch_id, invitation.id, JSON.stringify({ email: invitation.email, role: invitation.role })],
+      );
       return {
         userId: omegaUser.id, email: omegaUser.email, fullName: omegaUser.full_name,
         companyId: invitation.company_id, branchId: invitation.branch_id, role: invitation.role,
