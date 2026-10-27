@@ -42,9 +42,10 @@ export class MembershipsService {
 
   async getMembershipForCompany(userId: string, companyId: string): Promise<MembershipInfo> {
     const result = await this.db.query<{ company_id: string; branch_id: string | null; role: string }>(
-      `SELECT company_id, branch_id, role
-       FROM company_memberships
-       WHERE user_id = $1 AND company_id = $2 AND is_active = true
+      `SELECT cm.company_id, cm.branch_id, cm.role
+       FROM company_memberships cm
+       JOIN companies c ON c.id = cm.company_id AND c.is_active = true
+       WHERE cm.user_id = $1 AND cm.company_id = $2 AND cm.is_active = true
        LIMIT 1`,
       [userId, companyId],
     );
