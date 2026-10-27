@@ -32,3 +32,15 @@ describe('SubscriptionsService.assertUserCapacity', () => {
     expect(client.query.mock.calls[0][0]).toContain('FOR UPDATE OF s');
   });
 });
+
+describe('SubscriptionsService missing-plan safeguards', () => {
+  it('blocks adding users when no subscription exists', async () => {
+    const service = new SubscriptionsService({ query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }) } as any);
+    await expect(service.assertUserCapacity('company-legacy')).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('blocks adding branches when no subscription exists', async () => {
+    const service = new SubscriptionsService({ query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }) } as any);
+    await expect(service.assertBranchCapacity('company-legacy')).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});
