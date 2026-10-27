@@ -51,6 +51,7 @@ describe('AuthService.exchangeNeonInvitation', () => {
       })
       .mockResolvedValueOnce({ rows: [], rowCount: 0 })
       .mockResolvedValueOnce({ rows: [{ id: 'membership-1' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [], rowCount: 1 });
 
     const result = await service.exchangeNeonInvitation({ token: 'verified-neon-identity-token-long-enough-for-test', invitationToken });
@@ -75,6 +76,11 @@ describe('AuthService.exchangeNeonInvitation', () => {
     expect(client.query.mock.calls[6][0]).toContain('INSERT INTO company_memberships');
     expect(client.query.mock.calls[6][1]).toEqual(['omega-user-1', 'company-2', 'branch-2', 'staff']);
     expect(client.query.mock.calls[7][0]).toContain('SET accepted_at = NOW()');
+    expect(client.query.mock.calls[8][0]).toContain('INSERT INTO audit_logs');
+    expect(client.query.mock.calls[8][1]).toEqual([
+      'omega-user-1', 'company-2', 'branch-2', 'invite-1',
+      JSON.stringify({ email: 'new.staff@example.com', role: 'staff' }),
+    ]);
     expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes("VALUES ($1, $2, 'owner', true)"))).toBe(false);
   });
 
