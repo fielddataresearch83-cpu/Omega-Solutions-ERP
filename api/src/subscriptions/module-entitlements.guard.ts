@@ -38,8 +38,12 @@ export class ModuleEntitlementsGuard implements CanActivate {
        JOIN subscription_plans p ON p.code = s.plan_code WHERE s.company_id = $1`,
       [user.companyId],
     );
-    // Existing tenants are not locked out until a subscription is explicitly assigned.
-    if (!result.rows.length) return true;
+    // Without an assigned plan, only the platform core remains available. Optional
+    // business modules require an active subscription so legacy tenants cannot bypass entitlements.
+    if (!result.rows.length) {
+      if (requiredModule === 'core') return true;
+      throw new ForbiddenException('An active Omega subscription is required to access this module. Ask an owner or administrator to choose a plan.');
+    }
 
     const subscription = result.rows[0];
     if (!['active', 'trialing'].includes(subscription.status)) {
