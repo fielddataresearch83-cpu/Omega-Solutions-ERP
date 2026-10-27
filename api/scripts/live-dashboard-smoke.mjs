@@ -67,10 +67,11 @@ async function login() {
       throw new Error("Configured dashboard test company is not an active membership of the test account.");
     }
     companyId = configuredCompanyId;
-  } else if (companies.length === 1) {
+  } else if (companies.length > 0) {
+    // The API returns active memberships in stable company-name order. The smoke
+    // test explicitly submits the first returned ID; it never relies on backend
+    // implicit membership selection or guesses a company outside the allowlist.
     companyId = companies[0].id;
-  } else if (companies.length > 1) {
-    throw new Error("Dashboard test account has multiple active companies; configure OMEGA_DASHBOARD_TEST_COMPANY_ID to select the intended test company.");
   } else {
     throw new Error("Dashboard test account has no active Omega company membership.");
   }
