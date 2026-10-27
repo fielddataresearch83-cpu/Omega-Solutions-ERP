@@ -104,7 +104,7 @@ export default function AppearanceSettings() {
                     </span>
                   </span>
                   <span aria-hidden="true" className={`h-10 w-10 rounded-md border ${option === "light" ? "border-gray-300 bg-white" : "border-gray-700 bg-zinc-950"}`}>
-                    <span className="m-2 block h-2 rounded bg-[#0F7A63]" />
+                    <span className="m-2 block h-2 rounded bg-[#0FB96F]" />
                     <span className={`mx-2 block h-1.5 rounded ${option === "light" ? "bg-gray-300" : "bg-gray-600"}`} />
                   </span>
                 </label>
