@@ -1,0 +1,31 @@
+name: Live development dashboard smoke
+
+on:
+  push:
+    branches:
+      - development
+    paths:
+      - "api/scripts/live-dashboard-smoke.mjs"
+      - "api/src/dashboard/dashboard.service.ts"
+      - ".github/workflows/live-dashboard-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: development
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify authenticated dashboard and module catalogue without changing business data
+        env:
+          OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
+          OMEGA_DASHBOARD_TEST_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
+          OMEGA_DASHBOARD_TEST_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_A_PASSWORD }}
+        run: node api/scripts/live-dashboard-smoke.mjs
