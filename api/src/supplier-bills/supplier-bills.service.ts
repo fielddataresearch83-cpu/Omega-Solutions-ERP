@@ -62,6 +62,16 @@ export class SupplierBillsService {
     if(billDate && dueDate && dueDate < billDate) {
       throw new BadRequestException('Supplier bill due date cannot be earlier than its bill date.');
     }
+    // Validate the complete bill payload, not each line in isolation: otherwise
+    // duplicate references could each pass the received-but-unbilled quantity check.
+    const linkedPurchaseOrderLines = new Set<string>();
+    for (const item of dto.items) {
+      if (!item.purchaseOrderItemId) continue;
+      if (linkedPurchaseOrderLines.has(item.purchaseOrderItemId)) {
+        throw new BadRequestException('A purchase-order line can appear only once on a supplier bill.');
+      }
+      linkedPurchaseOrderLines.add(item.purchaseOrderItemId);
+    }
     let id: string;
     try {
     id=await this.db.transaction(async client=>{
