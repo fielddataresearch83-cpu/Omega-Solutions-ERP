@@ -62,32 +62,34 @@ export class InvitationsService {
       if (!branch.rows.length) throw new NotFoundException('Active branch not found in this company.');
     }
 
-    // Release the unique pending-email slot for expired, unused invitations.
-    await this.db.query(
-      `UPDATE company_invitations SET revoked_at = NOW(), updated_at = NOW()
-       WHERE company_id = $1 AND email = $2 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at <= NOW()`,
-      [actor.companyId, email],
-    );
-    const existing = await this.db.query(
-      `SELECT id FROM company_invitations
-       WHERE company_id = $1 AND email = $2 AND accepted_at IS NULL AND revoked_at IS NULL
-         AND expires_at > NOW()
-       LIMIT 1`,
-      [actor.companyId, email],
-    );
-    if (existing.rows.length) throw new ConflictException('An active invitation already exists for this email.');
-    await this.subscriptions.assertUserCapacity(actor.companyId);
-
     const token = randomBytes(32).toString('base64url');
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
-    const inserted = await this.db.query<{ id: string }>(
-      `INSERT INTO company_invitations
-        (company_id, invited_by, email, role, branch_id, token_hash, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id`,
-      [actor.companyId, user.userId, email, dto.role, dto.branchId ?? null, tokenHash, expiresAt],
-    );
+    // Serialize quota checks with the invitation insert so parallel requests cannot
+    // consume the same final user slot. Delivery happens after commit; failures revoke it.
+    const inserted = await this.db.transaction(async client => {
+      await client.query(
+        `UPDATE company_invitations SET revoked_at = NOW(), updated_at = NOW()
+         WHERE company_id = $1 AND email = $2 AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at <= NOW()`,
+        [actor.companyId, email],
+      );
+      const existing = await client.query(
+        `SELECT id FROM company_invitations
+         WHERE company_id = $1 AND email = $2 AND accepted_at IS NULL AND revoked_at IS NULL
+           AND expires_at > NOW()
+         LIMIT 1`,
+        [actor.companyId, email],
+      );
+      if (existing.rows.length) throw new ConflictException('An active invitation already exists for this email.');
+      await this.subscriptions.assertUserCapacity(actor.companyId, client);
+      return client.query<{ id: string }>(
+        `INSERT INTO company_invitations
+          (company_id, invited_by, email, role, branch_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id`,
+        [actor.companyId, user.userId, email, dto.role, dto.branchId ?? null, tokenHash, expiresAt],
+      );
+    });
     const invitationId = inserted.rows[0].id;
     const acceptUrl = new URL('/accept-invitation', appBaseUrl);
     acceptUrl.searchParams.set('invitationToken', token);
