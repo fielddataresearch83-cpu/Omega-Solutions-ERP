@@ -44,8 +44,24 @@ describe('UsersRolesService', () => {
     const result = await service.list(owner);
 
     expect(result).toHaveLength(1);
-    expect(db.query).toHaveBeenCalledWith(expect.stringContaining('WHERE m.company_id = $1'), ['company-1']);
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining('WHERE m.company_id = $1'), ['company-1', null, 'owner']);
     expect(db.query.mock.calls[0][0]).toContain('JOIN users u ON u.id = m.user_id');
+  });
+
+  it('limits a branch-bound manager to their branch and company-wide memberships', async () => {
+    const manager = { userId: 'manager-1', companyId: 'company-1', branchId: 'branch-1' } as any;
+    memberships.getMembershipForCompany.mockResolvedValue({
+      companyId: 'company-1', branchId: 'branch-1', role: 'manager',
+    });
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+
+    await service.list(manager);
+
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('m.branch_id = $2::uuid'),
+      ['company-1', 'branch-1', 'manager'],
+    );
+    expect(db.query.mock.calls[0][0]).toContain('OR m.branch_id IS NULL');
   });
 
   it('requires owner or admin before returning the role catalog', async () => {
