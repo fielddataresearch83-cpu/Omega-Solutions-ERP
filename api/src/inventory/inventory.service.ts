@@ -296,7 +296,7 @@ export class InventoryService {
       await this.syncLegacyProductQuantity(client,companyId,dto.productId);
       return movement;
     });
-    await this.logMovement(user,companyId,result.id,'inventory.stock.adjust',{productId:dto.productId,warehouseId:dto.warehouseId,quantity:dto.newQuantity});
+    await this.logMovement(user,companyId,branchId,result.id,'inventory.stock.adjust',{productId:dto.productId,warehouseId:dto.warehouseId,quantity:dto.newQuantity});
     return result;
   }
 
@@ -335,7 +335,7 @@ export class InventoryService {
       await this.syncLegacyProductQuantity(client,companyId,dto.productId);
       return {transferGroupId,sourceMovement:out,destinationMovement:into};
     });
-    await this.logMovement(user,companyId,result.transferGroupId,'inventory.stock.transfer',{productId:dto.productId,sourceWarehouseId:dto.sourceWarehouseId,destinationWarehouseId:dto.destinationWarehouseId,quantity:dto.quantity});
+    await this.logMovement(user,companyId,branchId,result.transferGroupId,'inventory.stock.transfer',{productId:dto.productId,sourceWarehouseId:dto.sourceWarehouseId,destinationWarehouseId:dto.destinationWarehouseId,quantity:dto.quantity});
     return result;
   }
 
@@ -369,7 +369,7 @@ export class InventoryService {
       await this.syncLegacyProductQuantity(client,companyId,dto.productId);
       return saved;
     });
-    await this.logMovement(user,companyId,movement.id,type==='receipt'?'inventory.stock.receipt':'inventory.stock.issue',{productId:dto.productId,warehouseId:dto.warehouseId,quantity:dto.quantity});
+    await this.logMovement(user,companyId,branchId,movement.id,type==='receipt'?'inventory.stock.receipt':'inventory.stock.issue',{productId:dto.productId,warehouseId:dto.warehouseId,quantity:dto.quantity});
     return movement;
   }
 
@@ -414,7 +414,7 @@ export class InventoryService {
     );
   }
 
-  private async logMovement(user:AuthenticatedUser,companyId:string,entityId:string,action:string,values:Record<string,unknown>) {
-    await this.audit.log({userId:user.userId,companyId,branchId:null,action,entityType:'inventory_movement',entityId,oldValues:null,newValues:values,ipAddress:null});
+  private async logMovement(user:AuthenticatedUser,companyId:string,branchId:string|null,entityId:string,action:string,values:Record<string,unknown>) {
+    await this.audit.log({userId:user.userId,companyId,branchId,action,entityType:'inventory_movement',entityId,oldValues:null,newValues:values,ipAddress:null});
   }
 }
