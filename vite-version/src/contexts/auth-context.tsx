@@ -71,31 +71,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCompanyChoices([]);
     setPendingIdentityToken(null);
     setPendingIdentityEmail(null);
-    let neonError: unknown;
+
     if (import.meta.env.VITE_NEON_AUTH_URL) {
-      try {
-        const token = await signInWithNeon(email, password);
-        const companies = await getNeonIdentityCompanies(token);
-        if (companies.length > 1) {
-          setPendingIdentityToken(token);
-          setPendingIdentityEmail(email);
-          setCompanyChoices(companies);
-          return;
-        }
-        const result = await exchangeNeonToken(token, email, undefined, undefined, companies[0]?.id);
-        await applyOmegaSession(result);
+      const token = await signInWithNeon(email, password);
+      const companies = await getNeonIdentityCompanies(token);
+      if (companies.length > 1) {
+        setPendingIdentityToken(token);
+        setPendingIdentityEmail(email);
+        setCompanyChoices(companies);
         return;
-      } catch (err) {
-        neonError = err;
       }
-    }
-    try {
-      const result = await login(email, password);
+      const result = await exchangeNeonToken(token, email, undefined, undefined, companies[0]?.id);
       await applyOmegaSession(result);
-    } catch (legacyError) {
-      if (neonError instanceof Error) throw neonError;
-      throw legacyError;
+      return;
     }
+
+    // The legacy API is only used when Neon Auth is not configured. A Neon
+    // authentication/preflight failure must not silently fall back to another
+    // password verifier.
+    const result = await login(email, password);
+    await applyOmegaSession(result);
   }, [applyOmegaSession]);
 
   const selectLoginCompany = React.useCallback(async (companyId: string) => {
