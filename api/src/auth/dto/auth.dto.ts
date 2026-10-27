@@ -43,6 +43,13 @@ export class RefreshDto {
   refreshToken!: string;
 }
 
+export class NeonIdentityCompaniesDto {
+  @IsString()
+  @MinLength(20)
+  @MaxLength(8192)
+  token!: string;
+}
+
 export class NeonExchangeDto {
   @IsIn(['login', 'register'])
   intent!: 'login' | 'register';
