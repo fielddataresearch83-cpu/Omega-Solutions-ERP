@@ -68,11 +68,11 @@ export async function getNeonIdentityCompanies(token: string): Promise<LoginComp
   return result.companies ?? [];
 }
 
-export async function exchangeNeonToken(token: string, fullName: string, phone?: string, companyName?: string, companyId?: string): Promise<LoginResponse> {
+export async function exchangeNeonToken(token: string, fullName: string, phone?: string, companyName?: string, companyId?: string, intent: 'login' | 'register' = 'login'): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE}/auth/neon/exchange`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, fullName, phone, companyName, companyId }),
+    body: JSON.stringify({ token, fullName, phone, companyName, companyId, intent }),
   });
   if (!res.ok) throw await readError(res, "Could not finish setting up your Omega account");
   return res.json();
