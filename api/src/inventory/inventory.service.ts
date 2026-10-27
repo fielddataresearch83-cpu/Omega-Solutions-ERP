@@ -4,6 +4,7 @@ import type { PoolClient } from 'pg';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { AccountingService } from '../accounting/accounting.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import type { AdjustStockDto, CreateStockMovementDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
 
@@ -34,6 +35,7 @@ export class InventoryService {
     private readonly db: DatabaseService,
     private readonly memberships: MembershipsService,
     private readonly audit: AuditService,
+    private readonly accounting: AccountingService,
   ) {}
 
   private async resolveMembership(user: AuthenticatedUser) {
@@ -293,6 +295,7 @@ export class InventoryService {
         await client.query('UPDATE inventory_stock_levels SET quantity=$1,updated_at=NOW() WHERE company_id=$2 AND warehouse_id=$3 AND product_id=$4',[dto.newQuantity,companyId,dto.warehouseId,dto.productId]);
       }
       const movement = await this.insertMovement(client,{companyId,productId:dto.productId,warehouseId:dto.warehouseId,type:'adjustment',quantity:delta,unitCost:adjustmentCost,reference:dto.reference,notes:dto.notes,userId:user.userId});
+      await this.postMovementJournal(client,{companyId,userId:user.userId,movementId:movement.id,quantity:delta,unitCost:adjustmentCost,description:`Inventory adjustment ${dto.reference?.trim() || movement.id}`});
       await this.syncLegacyProductQuantity(client,companyId,dto.productId);
       return movement;
     });
@@ -366,11 +369,52 @@ export class InventoryService {
         );
       }
       const saved=await this.insertMovement(client,{companyId,productId:dto.productId,warehouseId:dto.warehouseId,type,quantity:signedQuantity,unitCost:movementCost,reference:dto.reference,notes:dto.notes,userId:user.userId});
+      await this.postMovementJournal(client,{companyId,userId:user.userId,movementId:saved.id,quantity:signedQuantity,unitCost:movementCost,description:`Manual stock ${type} ${dto.reference?.trim() || saved.id}`});
       await this.syncLegacyProductQuantity(client,companyId,dto.productId);
       return saved;
     });
     await this.logMovement(user,companyId,branchId,movement.id,type==='receipt'?'inventory.stock.receipt':'inventory.stock.issue',{productId:dto.productId,warehouseId:dto.warehouseId,quantity:dto.quantity});
     return movement;
+  }
+
+  private async postMovementJournal(client:PoolClient,input:{companyId:string;userId:string;movementId:string;quantity:number;unitCost:number;description:string}) {
+    const amount=Math.round(Math.abs(input.quantity*input.unitCost)*100)/100;
+    // A zero-cost movement changes quantities but has no monetary journal value.
+    if(amount<=0)return;
+    await this.accounting.ensureDefaults(input.companyId,client);
+    const accounts=await client.query<{id:string;system_code:string}>(
+      "SELECT id,system_code FROM chart_of_accounts WHERE company_id=$1 AND system_code IN ('inventory','purchases_expense') AND is_active=true",
+      [input.companyId],
+    );
+    const inventory=accounts.rows.find(account=>account.system_code==='inventory');
+    const adjustment=accounts.rows.find(account=>account.system_code==='purchases_expense');
+    if(!inventory||!adjustment)throw new BadRequestException('Inventory and purchases/adjustment accounts must be active.');
+    const year=new Date().getFullYear();
+    const sequence=await client.query<{next_number:number}>(
+      `INSERT INTO journal_entry_sequences(company_id,entry_year,next_number) VALUES($1,$2,1)
+       ON CONFLICT(company_id,entry_year) DO UPDATE SET next_number=journal_entry_sequences.next_number+1
+       RETURNING next_number`,
+      [input.companyId,year],
+    );
+    const entryNumber=`JE-${year}-${String(sequence.rows[0].next_number).padStart(6,'0')}`;
+    const entry=await client.query<{id:string}>(
+      `INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by)
+       VALUES($1,$2,CURRENT_DATE,$3,'inventory_manual_movement',$4,'posted',NOW(),$5) RETURNING id`,
+      [input.companyId,entryNumber,input.description.slice(0,500),input.movementId,input.userId],
+    );
+    if(input.quantity>0){
+      await client.query(
+        `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit)
+         VALUES($1,$2,$3,'Inventory increase', $4,0),($1,$2,$5,'Inventory adjustment offset',0,$4)`,
+        [input.companyId,entry.rows[0].id,inventory.id,amount,adjustment.id],
+      );
+    }else{
+      await client.query(
+        `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit)
+         VALUES($1,$2,$3,'Inventory adjustment expense',$4,0),($1,$2,$5,'Inventory decrease',0,$4)`,
+        [input.companyId,entry.rows[0].id,adjustment.id,amount,inventory.id],
+      );
+    }
   }
 
   private async insertMovement(client:PoolClient,input:{companyId:string;productId:string;warehouseId:string;type:string;quantity:number;unitCost:number;reference?:string;notes?:string;userId:string;transferGroupId?:string}) {
