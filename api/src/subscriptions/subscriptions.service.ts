@@ -94,12 +94,12 @@ export class SubscriptionsService {
     );
 
     if (!result.rows.length) {
-      // Preserve access for existing tenants until payment and entitlement enforcement
-      // have been rolled out; this is not a paid subscription.
+      // Keep account and billing surfaces reachable, but do not represent an unmetered
+      // legacy account as subscribed. Optional module access is denied by the entitlement guard.
       return {
         subscription: null,
-        accessMode: 'legacy_unmetered',
-        message: 'No subscription is recorded for this company yet.',
+        accessMode: 'subscription_required',
+        message: 'Choose a subscription plan to enable business modules and capacity limits.',
       };
     }
 
@@ -152,14 +152,14 @@ export class SubscriptionsService {
     const overrides = new Map(overridesResult.rows.map((row) => [row.module_code, row.enabled]));
     const legacy = !subscription;
     const subscriptionActive = !subscription || ['active', 'trialing'].includes(subscription.status);
-    const planModules = new Set(subscription?.modules ?? MODULE_CATALOGUE.map((module) => module.code));
+    const planModules = new Set(subscription?.modules ?? ['core']);
 
     const resolve = (code: string, visited = new Set<string>()): { enabled: boolean; missingDependencies: string[] } => {
       if (visited.has(code)) return { enabled: true, missingDependencies: [] };
       visited.add(code);
       const module = MODULE_CATALOGUE.find((entry) => entry.code === code);
       if (!module) return { enabled: false, missingDependencies: [code] };
-      const entitled = legacy ? true : overrides.has(code) ? overrides.get(code)! : planModules.has(code);
+      const entitled = overrides.has(code) ? overrides.get(code)! : planModules.has(code);
       if (!subscriptionActive || !entitled) return { enabled: false, missingDependencies: [] };
       const missingDependencies: string[] = [];
       for (const dependency of module.dependencies) {
@@ -171,7 +171,7 @@ export class SubscriptionsService {
     };
 
     return {
-      accessMode: legacy ? 'legacy_unmetered' : 'subscription',
+      accessMode: legacy ? 'subscription_required' : 'subscription',
       subscription: subscription ? {
         planCode: subscription.plan_code,
         planName: subscription.plan_name,
@@ -179,8 +179,8 @@ export class SubscriptionsService {
       } : null,
       modules: MODULE_CATALOGUE.map((module) => {
         const overrideEnabled = overrides.get(module.code);
-        const includedInPlan = legacy || planModules.has(module.code);
-        const entitled = legacy ? true : overrideEnabled ?? includedInPlan;
+        const includedInPlan = planModules.has(module.code);
+        const entitled = overrideEnabled ?? includedInPlan;
         const access = resolve(module.code);
         return {
           ...module,
@@ -283,7 +283,9 @@ export class SubscriptionsService {
        WHERE s.company_id = $1${client ? ' FOR UPDATE OF s' : ''}`,
       [companyId],
     );
-    if (!plan.rows.length) return;
+    if (!plan.rows.length) {
+      throw new ForbiddenException('An active Omega subscription is required to add branches. Choose a plan or contact support.');
+    }
     const current = plan.rows[0];
     if (!['active', 'trialing'].includes(current.status)) {
       throw new ForbiddenException('An active subscription is required to add branches.');
@@ -306,7 +308,9 @@ export class SubscriptionsService {
        WHERE s.company_id = $1${client ? ' FOR UPDATE OF s' : ''}`,
       [companyId],
     );
-    if (!plan.rows.length) return;
+    if (!plan.rows.length) {
+      throw new ForbiddenException('An active Omega subscription is required to invite or add users. Choose a plan or contact support.');
+    }
     const current = plan.rows[0];
     if (!['active', 'trialing'].includes(current.status)) {
       throw new ForbiddenException('An active subscription is required to invite or add users.');
