@@ -90,6 +90,7 @@ describe('InvitationsService', () => {
     const result = await service.accept(invitee, 'one-time-token');
 
     expect(result).toEqual({ success: true, companyId: 'company-2', role: 'staff' });
+    expect(subscriptions.assertUserCapacity).toHaveBeenCalledWith('company-2', client, true);
     expect(db.transaction).toHaveBeenCalledTimes(1);
     expect(client.query.mock.calls[1][1]).toEqual(['invitee-1', 'company-2']);
     expect(client.query.mock.calls[2][1]).toEqual(['branch-2', 'company-2']);
@@ -124,11 +125,10 @@ describe('InvitationsService', () => {
     } as unknown as Response);
     process.env.NEON_AUTH_BASE_URL = 'https://auth.example.test/neondb/auth';
     process.env.APP_BASE_URL = 'https://omega.example.test';
-    db.query
+    client.query
       .mockResolvedValueOnce({ rows: [], rowCount: 0 })
       .mockResolvedValueOnce({ rows: [], rowCount: 0 })
-      .mockResolvedValueOnce({ rows: [{ id: 'invite-1' }], rowCount: 1 })
-      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+      .mockResolvedValueOnce({ rows: [{ id: 'invite-1' }], rowCount: 1 });
     try {
       await expect(service.create(user, { email: 'new@example.com', role: 'staff' })).rejects.toBeInstanceOf(ServiceUnavailableException);
       expect(fetchSpy).toHaveBeenCalledWith('https://auth.example.test/neondb/auth/sign-in/magic-link', expect.objectContaining({
@@ -138,8 +138,9 @@ describe('InvitationsService', () => {
       const payload = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body));
       expect(payload.email).toBe('new@example.com');
       expect(payload.callbackURL).toContain('invitationToken=');
-      expect(payload.callbackURL).not.toContain(String(db.query.mock.calls[2][1][5]));
-      expect(db.query.mock.calls[3][0]).toContain('SET revoked_at = NOW()');
+      expect(payload.callbackURL).not.toContain(String(client.query.mock.calls[2][1][5]));
+      expect(subscriptions.assertUserCapacity).toHaveBeenCalledWith('company-1', client);
+      expect(db.query.mock.calls[0][0]).toContain('SET revoked_at = NOW()');
       expect(audit.log).not.toHaveBeenCalled();
     } finally {
       fetchSpy.mockRestore();
