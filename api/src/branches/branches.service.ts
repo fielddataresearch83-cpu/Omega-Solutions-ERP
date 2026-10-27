@@ -48,40 +48,44 @@ export class BranchesService {
     dto: CreateBranchDto,
   ): Promise<BranchRow> {
     await this.memberships.requireRole(user.userId, companyId, ['owner', 'admin', 'manager']);
-    await this.subscriptions.assertBranchCapacity(companyId);
 
-    if (dto.code) {
-      const existing = await this.db.query<{ id: string }>(
-        'SELECT id FROM branches WHERE company_id = $1 AND code = $2',
-        [companyId, dto.code],
-      );
+    const branch = await this.db.transaction(async (client) => {
+      // Lock the subscription row and count/insert on the same transaction so concurrent
+      // branch creation requests cannot both consume the final plan slot.
+      await this.subscriptions.assertBranchCapacity(companyId, client);
 
-      if (existing.rows.length > 0) {
-        throw new ConflictException('A branch with this code already exists for this company.');
+      if (dto.code) {
+        const existing = await client.query<{ id: string }>(
+          'SELECT id FROM branches WHERE company_id = $1 AND code = $2',
+          [companyId, dto.code],
+        );
+
+        if (existing.rows.length > 0) {
+          throw new ConflictException('A branch with this code already exists for this company.');
+        }
       }
-    }
 
-    const result = await this.db.query<BranchRow>(
-      `INSERT INTO branches
-        (company_id, name, code, address_line1, address_line2, city,
-         county, postal_code, phone, email, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
-       RETURNING ${BRANCH_COLUMNS}`,
-      [
-        companyId,
-        dto.name,
-        dto.code ?? null,
-        dto.addressLine1 ?? null,
-        dto.addressLine2 ?? null,
-        dto.city ?? null,
-        dto.county ?? null,
-        dto.postalCode ?? null,
-        dto.phone ?? null,
-        dto.email ?? null,
-      ],
-    );
-
-    const branch = result.rows[0];
+      const result = await client.query<BranchRow>(
+        `INSERT INTO branches
+          (company_id, name, code, address_line1, address_line2, city,
+           county, postal_code, phone, email, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
+         RETURNING ${BRANCH_COLUMNS}`,
+        [
+          companyId,
+          dto.name,
+          dto.code ?? null,
+          dto.addressLine1 ?? null,
+          dto.addressLine2 ?? null,
+          dto.city ?? null,
+          dto.county ?? null,
+          dto.postalCode ?? null,
+          dto.phone ?? null,
+          dto.email ?? null,
+        ],
+      );
+      return result.rows[0];
+    });
 
     await this.audit.log({
       userId: user.userId,
