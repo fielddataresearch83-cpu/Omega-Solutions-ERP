@@ -9,6 +9,8 @@ function page(load: () => Promise<{ default: ComponentType }>) {
 export const routes: RouteObject[] = [
   { path: "/", lazy: page(() => import("@/app/landing/page")) },
   { path: "/login", lazy: page(() => import("@/app/login/page")) },
+  { path: "/reset-password", lazy: page(() => import("@/app/reset-password/page")) },
+  { path: "/reset-password/:token", lazy: page(() => import("@/app/reset-password/page")) },
   { path: "/accept-invitation", lazy: page(() => import("@/app/accept-invitation/page")) },
   {
     element: <ProtectedLayout />,
