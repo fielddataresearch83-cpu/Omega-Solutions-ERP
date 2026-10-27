@@ -73,7 +73,7 @@ export default function ResetPasswordPage() {
         <div className="relative hidden flex-col justify-between overflow-hidden auth-brand-panel p-10 text-white md:flex">
           <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(52,213,154,0.25),transparent_55%)]" />
           <div className="relative flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-black text-[#211F1E]">Ω</div>
+            <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-black text-[#000000]">Ω</div>
             <div><p className="font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-white/60">Business management, connected</p></div>
           </div>
           <div className="relative py-12">
