@@ -283,6 +283,9 @@ export class InventoryService {
       if (Math.abs(delta)<0.00005) throw new BadRequestException('The adjusted quantity matches the current stock.');
       if (Number(dto.newQuantity)<Number(stock.rows[0].reserved_quantity)) throw new BadRequestException('Adjusted stock cannot be lower than reserved stock.');
       const adjustmentCost=delta>0 ? Number(dto.unitCost ?? stock.rows[0].average_unit_cost) : Number(stock.rows[0].average_unit_cost);
+      if(delta>0 && dto.unitCost===undefined && adjustmentCost<=0){
+        throw new BadRequestException('A unit cost is required when increasing stock without an existing positive average cost.');
+      }
       if(delta>0){
         await client.query(
           `UPDATE inventory_stock_levels
