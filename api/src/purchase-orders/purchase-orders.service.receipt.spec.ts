@@ -13,6 +13,9 @@ describe('PurchaseOrdersService receipt atomicity', () => {
         if (sql.includes('SELECT id,product_id,quantity,received_quantity,unit_cost,product_name FROM purchase_order_items')) {
           return { rows: [{ id: 'line-1', product_id: 'product-1', quantity: 5, received_quantity: 0, unit_cost: 10, product_name: 'Widget' }], rowCount: 1 };
         }
+        if (sql.includes('SELECT id,is_active,is_service FROM products')) {
+          return { rows: [{ id: 'product-1', is_active: true, is_service: false }], rowCount: 1 };
+        }
         if (sql.includes('INSERT INTO journal_entry_sequences')) return { rows: [{ next_number: 1 }], rowCount: 1 };
         if (sql.includes('INSERT INTO journal_entries')) return { rows: [{ id: 'journal-1' }], rowCount: 1 };
         if (sql.includes('FROM chart_of_accounts')) {
