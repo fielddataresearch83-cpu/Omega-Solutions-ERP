@@ -86,6 +86,11 @@ export class ContractsService {
     const allowed:Record<string,string>={title:'title',description:'description',startDate:'start_date',endDate:'end_date',renewalDate:'renewal_date',contractValue:'contract_value',monthlyBudget:'monthly_budget',notes:'notes'};
     const keys=Object.keys(allowed).filter(k=>body[k]!==undefined);
     await this.db.transaction(async client=>{
+      const locked = await client.query('SELECT id,status,branch_id FROM contracts WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id IS NULL OR branch_id=$3) FOR UPDATE',[membership.companyId,id,membership.branchId]);
+      const current = locked.rows[0];
+      if (!current) throw new NotFoundException('Contract not found.');
+      this.assertBranchWritable(membership,current);
+      if (current.status !== 'draft') throw new BadRequestException('Only draft contracts can be edited. Submit the contract again after making changes.');
       if(keys.length) {
         const vals:unknown[]=[membership.companyId,id]; const sets=keys.map(k=>{vals.push(body[k]);return `${allowed[k]}=$${vals.length}`});
         await client.query(`UPDATE contracts SET ${sets.join(',')},updated_at=NOW() WHERE company_id=$1 AND id=$2 AND ($${vals.length+1}::uuid IS NULL OR branch_id IS NULL OR branch_id=$${vals.length+1})`,[...vals,membership.branchId] as (string|number|boolean|Date|null)[]);
