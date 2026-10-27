@@ -488,10 +488,13 @@ export class InvoicesService {
       if (input.reverse) {
         const originalMovement = await client.query<{ unit_cost: string | number; quantity: string | number }>(
           `SELECT unit_cost,quantity FROM inventory_stock_movements
-           WHERE company_id=$1 AND product_id=$2 AND warehouse_id=$3 AND reference=$4
+           WHERE company_id=$1 AND product_id=$2 AND warehouse_id=$3
+             AND (reference=$4 OR reference IN (
+               SELECT sale_number FROM pos_sales WHERE company_id=$1 AND invoice_id=$5
+             ))
              AND movement_type='issue'
            ORDER BY created_at DESC LIMIT 1 FOR SHARE`,
-          [input.companyId, line.product_id, warehouseId, input.invoiceNumber],
+          [input.companyId, line.product_id, warehouseId, input.invoiceNumber, input.invoiceId],
         );
         if (!originalMovement.rows[0]) {
           throw new BadRequestException(`Cannot reverse stock for "${line.product_id}" because its original issue movement was not found.`);
