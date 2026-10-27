@@ -13,10 +13,14 @@ function makeGuard(required: string, subscriptions: {status:string;modules:strin
   return { guard: new ModuleEntitlementsGuard(reflector as never, database as never), database };
 }
 describe('ModuleEntitlementsGuard', () => {
-  it('preserves existing access without an assigned subscription', async () => {
+  it('blocks optional modules when no subscription is assigned', async () => {
     const {guard,database}=makeGuard('inventory',[]);
-    await expect(guard.canActivate(context())).resolves.toBe(true);
+    await expect(guard.canActivate(context())).rejects.toBeInstanceOf(ForbiddenException);
     expect(database.query).toHaveBeenCalledTimes(1);
+  });
+  it('allows platform core without a subscription so a company can manage its plan', async () => {
+    const {guard}=makeGuard('core',[]);
+    await expect(guard.canActivate(context())).resolves.toBe(true);
   });
   it('allows an enabled module with its dependencies', async () => {
     const {guard}=makeGuard('pos',[{status:'active',modules:['core','inventory','sales','pos']}]);
