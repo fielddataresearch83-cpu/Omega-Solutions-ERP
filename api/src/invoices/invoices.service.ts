@@ -448,8 +448,8 @@ export class InvoicesService {
       [input.companyId, input.invoiceId],
     );
     let costTotal = 0;
-    // POS checkout already issues stock from its selected warehouse. A later
-    // invoice cancellation must reverse that same warehouse, not assume MAIN.
+    // POS checkout already issues stock from its selected warehouse. Cancellation
+    // must restore that warehouse and reverse the cost actually recorded at issue time.
     const posWarehouse = await client.query<{ warehouse_id: string | null }>(
       'SELECT warehouse_id FROM pos_sales WHERE company_id=$1 AND invoice_id=$2 ORDER BY created_at ASC LIMIT 1',
       [input.companyId, input.invoiceId],
@@ -467,15 +467,14 @@ export class InvoicesService {
     }
     for (const line of lines.rows) {
       if (line.is_service) continue;
-      if (!input.reverse) costTotal += Number(line.quantity) * Number(line.cost_price);
       await client.query(
         `INSERT INTO inventory_stock_levels(company_id,warehouse_id,product_id,quantity,reserved_quantity,reorder_level)
          SELECT $1,$2,p.id,0,0,p.reorder_level FROM products p WHERE p.id=$3 AND p.company_id=$1 AND p.is_service=false
          ON CONFLICT(warehouse_id,product_id) DO NOTHING`,
         [input.companyId, warehouseId, line.product_id],
       );
-      const stock = await client.query<{ quantity: string | number; reserved_quantity: string | number }>(
-        'SELECT quantity,reserved_quantity FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE',
+      const stock = await client.query<{ quantity: string | number; reserved_quantity: string | number; average_unit_cost: string | number }>(
+        'SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE',
         [input.companyId, warehouseId, line.product_id],
       );
       if (!stock.rows[0]) throw new BadRequestException('Stock record could not be initialized for an invoice item.');
@@ -484,12 +483,33 @@ export class InvoicesService {
       if (!input.reverse && available < quantity) {
         throw new BadRequestException(`Insufficient available stock for invoice item. Available: ${available}; required: ${quantity}.`);
       }
+
+      let movementCost = Number(stock.rows[0].average_unit_cost ?? 0);
       if (input.reverse) {
+        const originalMovement = await client.query<{ unit_cost: string | number; quantity: string | number }>(
+          `SELECT unit_cost,quantity FROM inventory_stock_movements
+           WHERE company_id=$1 AND product_id=$2 AND warehouse_id=$3 AND reference=$4
+             AND movement_type='issue'
+           ORDER BY created_at DESC LIMIT 1 FOR SHARE`,
+          [input.companyId, line.product_id, warehouseId, input.invoiceNumber],
+        );
+        if (!originalMovement.rows[0]) {
+          throw new BadRequestException(`Cannot reverse stock for "${line.product_id}" because its original issue movement was not found.`);
+        }
+        movementCost = Number(originalMovement.rows[0].unit_cost);
+        if (!Number.isFinite(movementCost) || movementCost < 0) {
+          throw new BadRequestException('The original stock issue has an invalid unit cost.');
+        }
+        costTotal += quantity * movementCost;
         await client.query(
-          'UPDATE inventory_stock_levels SET quantity=quantity+$1,updated_at=NOW() WHERE company_id=$2 AND warehouse_id=$3 AND product_id=$4',
-          [quantity, input.companyId, warehouseId, line.product_id],
+          `UPDATE inventory_stock_levels
+           SET average_unit_cost=CASE WHEN quantity+$1>0 THEN ((quantity*average_unit_cost)+($1*$2))/(quantity+$1) ELSE $2 END,
+               quantity=quantity+$1,updated_at=NOW()
+           WHERE company_id=$3 AND warehouse_id=$4 AND product_id=$5`,
+          [quantity, movementCost, input.companyId, warehouseId, line.product_id],
         );
       } else {
+        costTotal += quantity * movementCost;
         await client.query(
           'UPDATE inventory_stock_levels SET quantity=quantity-$1,updated_at=NOW() WHERE company_id=$2 AND warehouse_id=$3 AND product_id=$4',
           [quantity, input.companyId, warehouseId, line.product_id],
@@ -501,7 +521,7 @@ export class InvoicesService {
          VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
         [
           input.companyId, line.product_id, warehouseId, input.reverse ? 'receipt' : 'issue',
-          input.reverse ? quantity : -quantity, Number(line.cost_price) || 0, input.invoiceNumber,
+          input.reverse ? quantity : -quantity, movementCost, input.invoiceNumber,
           input.reverse ? 'Stock reversal for cancelled invoice' : 'Stock issue for sent invoice',
           input.userId,
         ],
@@ -512,15 +532,6 @@ export class InvoicesService {
          ),updated_at=NOW() WHERE company_id=$1 AND id=$2`,
         [input.companyId, line.product_id],
       );
-    }
-    if (input.reverse) {
-      const originalCost = await client.query<{ cost_total: string | number }>(
-        `SELECT COALESCE(SUM(ABS(quantity) * unit_cost),0) AS cost_total
-         FROM inventory_stock_movements
-         WHERE company_id=$1 AND reference=$2 AND movement_type='issue' AND notes='Stock issue for sent invoice'`,
-        [input.companyId, input.invoiceNumber],
-      );
-      costTotal = Number(originalCost.rows[0]?.cost_total ?? 0);
     }
     return Math.round(costTotal * 100) / 100;
   }
