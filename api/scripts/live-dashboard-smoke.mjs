@@ -50,8 +50,33 @@ async function login() {
   if (!tokenResponse.ok) throw new Error(`Neon Auth JWT endpoint failed with HTTP ${tokenResponse.status}.`);
   const identityToken = tokenData?.token ?? tokenData?.data?.token;
   if (typeof identityToken !== "string" || identityToken.split(".").length !== 3) throw new Error("Neon Auth did not return a usable JWT.");
-  const exchange = await api("POST", "/auth/neon/exchange", null, { token: identityToken });
-  if (![200, 201].includes(exchange.status)) throw new Error(`Omega identity exchange failed with HTTP ${exchange.status}.`);
+
+  // Company selection is explicit for multi-tenant identities. Discover active
+  // memberships first so this smoke test exercises the same safe login contract
+  // as the UI rather than relying on an implicit first-company fallback.
+  const companyResponse = await api("POST", "/auth/neon/companies", null, { token: identityToken });
+  if (![200, 201].includes(companyResponse.status) || !Array.isArray(companyResponse.data?.companies)) {
+    throw new Error(`Omega active-company discovery failed with HTTP ${companyResponse.status}.`);
+  }
+  const companies = companyResponse.data.companies;
+  const configuredCompanyId = process.env.OMEGA_DASHBOARD_TEST_COMPANY_ID
+    || process.env.OMEGA_SECURITY_TEST_A_COMPANY_ID;
+  let companyId;
+  if (configuredCompanyId) {
+    if (!companies.some(company => company.id === configuredCompanyId)) {
+      throw new Error("Configured dashboard test company is not an active membership of the test account.");
+    }
+    companyId = configuredCompanyId;
+  } else if (companies.length === 1) {
+    companyId = companies[0].id;
+  } else if (companies.length > 1) {
+    throw new Error("Dashboard test account has multiple active companies; configure OMEGA_DASHBOARD_TEST_COMPANY_ID to select the intended test company.");
+  } else {
+    throw new Error("Dashboard test account has no active Omega company membership.");
+  }
+
+  const exchange = await api("POST", "/auth/neon/exchange", null, { token: identityToken, companyId });
+  if (![200, 201].includes(exchange.status)) throw new Error(`Omega identity exchange failed with HTTP ${exchange.status} for the explicitly selected company.`);
   assert(true, "test account authenticated through Neon Auth identity exchange");
   return exchange.data;
 }
