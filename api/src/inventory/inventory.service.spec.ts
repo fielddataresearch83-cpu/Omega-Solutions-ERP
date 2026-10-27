@@ -356,7 +356,9 @@ describe('InventoryService', () => {
     expect(db.transaction).not.toHaveBeenCalled();
   });
 
-  it('records receipts as a stock-ledger movement and synchronizes the legacy product quantity', async () => {
+  it('records receipts as a stock-ledger movement and preserves branch context in the audit event', async () => {
+    const branchId = '11111111-1111-4111-8111-111111111111';
+    memberships.getMembership.mockResolvedValue({ companyId: 'company-1', branchId, role: 'manager' });
     const client = { query: vi.fn(async (sql: string, params?: unknown[]) => {
       if (sql.includes('SELECT id,is_service FROM products')) return { rows: [{ id: 'product-1', is_service: false }], rowCount: 1 };
       if (sql.includes('FROM warehouses WHERE id=$1')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
@@ -375,7 +377,12 @@ describe('InventoryService', () => {
     expect(calls.some(([sql, params]) => sql.includes('UPDATE inventory_stock_levels') && sql.includes('average_unit_cost=CASE') && params?.[0] === 4 && params?.[1] === 15)).toBe(true);
     expect(calls.some(([sql, params]) => sql.includes('INSERT INTO inventory_stock_movements') && params?.[3] === 'receipt' && params?.[4] === 4 && params?.[5] === 15)).toBe(true);
     expect(calls.some(([sql, params]) => sql.includes('UPDATE products SET stock_quantity') && params?.[0] === 'company-1')).toBe(true);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'inventory.stock.receipt', entityId: 'receipt-movement' }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'inventory.stock.receipt',
+      entityId: 'receipt-movement',
+      companyId: 'company-1',
+      branchId,
+    }));
   });
 
   it('uses existing weighted-average cost for stock issues', async () => {
