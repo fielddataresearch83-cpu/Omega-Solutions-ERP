@@ -124,6 +124,12 @@ export class AuthService {
     if (user && !user.is_active) {
       throw new UnauthorizedException('Account is deactivated');
     }
+    if (!user && dto.intent !== 'register') {
+      throw new UnauthorizedException('No Omega account exists for this email. Please register first or accept a company invitation.');
+    }
+    if (user && dto.intent === 'register') {
+      throw new ConflictException('An Omega account already exists for this email. Please sign in instead.');
+    }
 
     if (!user) {
       const userId = uuidv4();
