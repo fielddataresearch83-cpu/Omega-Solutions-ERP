@@ -118,7 +118,7 @@ export class DashboardService {
                 GREATEST(i.total - i.amount_paid - COALESCE(i.credited_amount, 0), 0) AS balance
          FROM invoices i
          JOIN customers c ON c.id = i.customer_id AND c.company_id = i.company_id
-         WHERE i.company_id = $1 AND i.status NOT IN ('draft', 'cancelled', 'paid')
+         WHERE i.company_id = $1 AND i.currency = $2 AND i.status NOT IN ('draft', 'cancelled', 'paid')
            AND i.due_date < CURRENT_DATE
            AND GREATEST(i.total - i.amount_paid - COALESCE(i.credited_amount, 0), 0) > 0
            ${branchFilter}
