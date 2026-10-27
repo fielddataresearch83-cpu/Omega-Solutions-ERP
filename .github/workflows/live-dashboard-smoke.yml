@@ -6,7 +6,8 @@ on:
       - development
     paths:
       - "api/scripts/live-dashboard-smoke.mjs"
-      - "api/src/dashboard/dashboard.service.ts"
+      - "api/src/dashboard/**"
+      - "api/src/subscriptions/**"
       - ".github/workflows/live-dashboard-smoke.yml"
 
 permissions:
