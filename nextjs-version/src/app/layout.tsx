@@ -9,7 +9,13 @@ import { inter } from "@/lib/fonts"
 
 export const metadata: Metadata = {
   title: "Omega Solutions ERP",
-  description: "Omega Solutions ERP brings finance, inventory, workforce, payroll, sales, and operations together in one secure workspace.",
+  description: "One platform for your business. Omega Solutions brings finance, inventory, workforce, payroll, sales, and operations together in one secure workspace.",
+  applicationName: "Omega Solutions",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+    apple: "/favicon.svg",
+  },
 }
 
 export default function RootLayout({
