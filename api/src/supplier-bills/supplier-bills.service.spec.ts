@@ -54,6 +54,33 @@ describe('SupplierBillsService date validation', () => {
   });
 });
 
+describe('SupplierBillsService purchase-order line integrity', () => {
+  it('rejects duplicate purchase-order line references before any bill or ledger writes', async () => {
+    const db = { query: vi.fn(), transaction: vi.fn() };
+    const memberships = {
+      getMembership: vi.fn(),
+      getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null }),
+    };
+    const audit = { log: vi.fn() };
+    const accounting = { ensureDefaults: vi.fn() };
+    const service = new SupplierBillsService(db as any, memberships as any, audit as any, accounting as any);
+
+    await expect(service.create({ userId: 'user-1', companyId: 'company-1' } as any, {
+      supplierId: 'supplier-1',
+      purchaseOrderId: 'po-1',
+      items: [
+        { description: 'Cleaning materials', quantity: 4, unitCost: 100, purchaseOrderItemId: 'po-line-1' },
+        { description: 'Cleaning materials split line', quantity: 4, unitCost: 100, purchaseOrderItemId: 'po-line-1' },
+      ],
+    } as any)).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(db.transaction).not.toHaveBeenCalled();
+    expect(db.query).not.toHaveBeenCalled();
+    expect(accounting.ensureDefaults).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+});
+
 describe('SupplierBillsService duplicate supplier invoice protection', () => {
   it('rejects a duplicate supplier invoice number before creating a second bill', async () => {
     const user = { userId: 'user-1', companyId: 'company-1' } as any;
