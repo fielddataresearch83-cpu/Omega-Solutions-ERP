@@ -47,6 +47,9 @@ describe('DashboardService.summary', () => {
     expect(result.inventory).toMatchObject({ activeProducts: 9, lowStock: 2, costValue: 15000 });
     expect(result.invoiceTrend).toEqual([{ key: '2026-10', total: 5000 }]);
     expect(result.overdueInvoices?.[0]).toMatchObject({ invoice_number: 'INV-1', balance: 100 });
+    const invoiceQueries = db.query.mock.calls.filter(([sql]) => String(sql).includes('FROM invoices i'));
+    expect(invoiceQueries).toHaveLength(2);
+    expect(invoiceQueries.every(([sql]) => String(sql).includes('i.currency = $2::text'))).toBe(true);
   });
 
   it('does not expose company-wide supplier or customer balances to branch-bound users', async () => {
