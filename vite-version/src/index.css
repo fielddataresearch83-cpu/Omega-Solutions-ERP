@@ -56,11 +56,11 @@
 
   /* Omega Solutions brand palette: Doctor, Purple Veil, Ginger Milk, Indian Ocean, Green Teal and Umbra. */
   --background: #F9F9F9;
-  --foreground: #211F1E;
+  --foreground: #000000;
   --card: #FFFFFF;
-  --card-foreground: #211F1E;
+  --card-foreground: #000000;
   --popover: #FFFFFF;
-  --popover-foreground: #211F1E;
+  --popover-foreground: #000000;
   --primary: #0FB96F;
   --primary-foreground: #FFFFFF;
   --secondary: #D5D6DF;
@@ -68,7 +68,7 @@
   --muted: #D5D6DF;
   --muted-foreground: #62666A;
   --accent: #E3F1EB;
-  --accent-foreground: #211F1E;
+  --accent-foreground: #000000;
   --destructive: #b42318;
   --success: #0C8E58;
   --success-foreground: #FFFFFF;
@@ -86,7 +86,7 @@
   --chart-5: #0FB96F;
 
   /* The dark navigation rail anchors the brand in both appearance modes. */
-  --sidebar: #211F1E;
+  --sidebar: #000000;
   --sidebar-foreground: #F9F9F9;
   --sidebar-primary: #0FB96F;
   --sidebar-primary-foreground: #FFFFFF;
@@ -98,7 +98,7 @@
 
 .dark {
   color-scheme: dark;
-  --background: #211F1E;
+  --background: #000000;
   --foreground: #F8FAFC;
   --card: #302D2B;
   --card-foreground: #F8FAFC;
@@ -127,7 +127,7 @@
   --chart-3: #d2ded5;
   --chart-4: #9AA3AB;
   --chart-5: #0FB96F;
-  --sidebar: #211F1E;
+  --sidebar: #000000;
   --sidebar-foreground: #F9F9F9;
   --sidebar-primary: #0FB96F;
   --sidebar-primary-foreground: #FFFFFF;
@@ -228,7 +228,7 @@ html { scroll-behavior: smooth; }
 :root:not(.dark) [data-slot="select-trigger"] {
   border-color: #D5D6DF;
   background-color: #ffffff;
-  color: #211F1E;
+  color: #000000;
 }
 :root:not(.dark) [data-slot="input"]:hover,
 :root:not(.dark) [data-slot="textarea"]:hover,
@@ -284,11 +284,11 @@ html { scroll-behavior: smooth; }
   --omega-canvas: #F9F9F9;
   --omega-surface: #FFFFFF;
   --omega-border: #D5D6DF;
-  --omega-ink: #211F1E;
+  --omega-ink: #000000;
   --omega-muted: #62666A;
 }
 .dark {
-  --omega-canvas: #211F1E;
+  --omega-canvas: #000000;
   --omega-surface: #302D2B;
   --omega-border: rgba(255,255,255,.08);
   --omega-ink: #F8FAFC;
@@ -301,7 +301,7 @@ html { scroll-behavior: smooth; }
     var(--background);
 }
 .auth-brand-panel {
-  background-color: #211F1E;
+  background-color: #000000;
   background-image:
     radial-gradient(ellipse at 82% 12%, rgb(15 122 99 / 18%), transparent 43%),
     radial-gradient(ellipse at 12% 92%, rgb(15 122 99 / 8%), transparent 45%);
