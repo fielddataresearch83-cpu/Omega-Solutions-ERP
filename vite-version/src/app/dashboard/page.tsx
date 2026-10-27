@@ -86,9 +86,9 @@ function MetricCard({
 }) {
   const tones: Record<MetricTone, string> = {
     emerald: "bg-success/10 text-success ring-success/15",
-    sky: "bg-sky-500/10 text-sky-600 ring-sky-500/15 dark:text-sky-400",
-    violet: "bg-violet-500/10 text-violet-600 ring-violet-500/15 dark:text-violet-400",
-    amber: "bg-amber-500/10 text-amber-700 ring-amber-500/15 dark:text-amber-300",
+    sky: "bg-chart-2/10 text-chart-2 ring-chart-2/15 dark:text-chart-2",
+    violet: "bg-chart-4/10 text-chart-4 ring-chart-4/15 dark:text-chart-4",
+    amber: "bg-warning/10 text-warning ring-amber-500/15 dark:text-warning",
   }
 
   return (
@@ -208,7 +208,7 @@ export default function Page() {
       <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-7 px-4 py-3 sm:px-6 lg:px-8">
         <section className="relative isolate overflow-hidden rounded-2xl border border-border bg-card px-5 py-6 shadow-sm dark:border-border dark:bg-card sm:px-7 sm:py-8">
           <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 size-72 rounded-full bg-primary/10 blur-3xl dark:bg-primary/10" />
-          <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 right-1/4 -z-10 size-56 rounded-full bg-sky-400/[0.08] blur-3xl" />
+          <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 right-1/4 -z-10 size-56 rounded-full bg-chart-2/[0.08] blur-3xl" />
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/10 px-3 py-1.5 text-[10px] font-bold tracking-[0.16em] text-success">
@@ -242,9 +242,9 @@ export default function Page() {
         </section>
 
         {dashboard.error && !loading && (
-          <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/[0.05] p-4 sm:flex-row sm:items-center">
+          <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-destructive/20 bg-destructive/[0.05] p-4 sm:flex-row sm:items-center">
             <div className="flex min-w-0 flex-1 items-start gap-3">
-              <div className="rounded-xl bg-rose-500/10 p-2 text-rose-600 dark:text-rose-400"><CircleAlert className="size-5" /></div>
+              <div className="rounded-xl bg-destructive/10 p-2 text-destructive dark:text-destructive"><CircleAlert className="size-5" /></div>
               <div>
                 <p className="text-sm font-semibold text-foreground">Some dashboard data could not be loaded</p>
                 <p className="mt-1 break-words text-xs leading-relaxed text-muted-foreground">{dashboard.error}</p>
@@ -253,7 +253,7 @@ export default function Page() {
             <button
               type="button"
               onClick={() => setRetryKey((value) => value + 1)}
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-rose-500/20 px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-500/10 dark:text-rose-300"
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-destructive/20 px-3 text-xs font-semibold text-destructive transition hover:bg-destructive/10 dark:text-destructive"
             >
               <RefreshCw className="size-3.5" /> Try again
             </button>
@@ -368,7 +368,7 @@ export default function Page() {
             <Card className="min-w-0 rounded-2xl border-border bg-card shadow-sm dark:border-border dark:bg-card">
               <CardHeader className="space-y-1">
                 <CardTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
-                  <CalendarClock className="size-4 text-amber-600 dark:text-amber-400" /> Overdue invoices
+                  <CalendarClock className="size-4 text-warning dark:text-warning" /> Overdue invoices
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">Past-due invoices with an outstanding balance</CardDescription>
               </CardHeader>
@@ -388,7 +388,7 @@ export default function Page() {
                           <p className="mt-1 truncate text-xs text-muted-foreground">{invoice.customer_name}</p>
                           <p className="mt-1 text-[10px] text-muted-foreground">Due {invoice.due_date}</p>
                         </div>
-                        <p className="shrink-0 text-right text-xs font-bold tabular-nums text-rose-600 dark:text-rose-300">
+                        <p className="shrink-0 text-right text-xs font-bold tabular-nums text-destructive dark:text-destructive">
                           {new Intl.NumberFormat("en-KE", { style: "currency", currency: invoice.currency || currency, maximumFractionDigits: 0 }).format(invoice.balance)}
                         </p>
                       </div>
@@ -421,18 +421,18 @@ export default function Page() {
             </Card>
           )}
           {canReadProcurement && dashboard.data?.suppliers && (
-            <Card className="relative overflow-hidden rounded-2xl border border-amber-500/15 bg-card shadow-sm dark:bg-card">
-              <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-amber-400/[0.08] blur-3xl" />
+            <Card className="relative overflow-hidden rounded-2xl border border-warning/15 bg-card shadow-sm dark:bg-card">
+              <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-warning/[0.08] blur-3xl" />
               <CardHeader className="relative flex flex-row items-start justify-between gap-3 space-y-0">
                 <div className="space-y-2">
                   <CardDescription className="text-xs font-semibold text-muted-foreground">Supplier payables</CardDescription>
-                  <CardTitle className="break-words text-2xl font-extrabold tracking-tight text-amber-700 dark:text-amber-300 sm:text-3xl">{payables === null ? "—" : formatCompanyCurrency(payables)}</CardTitle>
+                  <CardTitle className="break-words text-2xl font-extrabold tracking-tight text-warning dark:text-warning sm:text-3xl">{payables === null ? "—" : formatCompanyCurrency(payables)}</CardTitle>
                 </div>
-                <div className="rounded-xl bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300"><ArrowDownRight className="size-5" /></div>
+                <div className="rounded-xl bg-warning/10 p-3 text-warning dark:text-warning"><ArrowDownRight className="size-5" /></div>
               </CardHeader>
               <CardContent className="relative flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 dark:border-border">
                 <p className="text-xs text-muted-foreground">Outstanding balances recorded against suppliers</p>
-                <Link to="/suppliers" className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:text-amber-600 dark:text-amber-300">Review suppliers <ChevronRight className="size-3.5" /></Link>
+                <Link to="/suppliers" className="inline-flex items-center gap-1 text-xs font-semibold text-warning hover:text-warning dark:text-warning">Review suppliers <ChevronRight className="size-3.5" /></Link>
               </CardContent>
             </Card>
           )}
@@ -446,7 +446,7 @@ export default function Page() {
                   <CardTitle className="flex items-center gap-2 text-sm font-bold text-foreground"><Package className="size-4 text-success" /> Stock requiring attention</CardTitle>
                   <CardDescription className="mt-1.5 text-xs text-muted-foreground">Products at or below their configured reorder level</CardDescription>
                 </div>
-                <span className={"shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold tabular-nums " + (lowStockCount > 0 ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-success/10 text-success")}>{lowStockCount} flagged</span>
+                <span className={"shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold tabular-nums " + (lowStockCount > 0 ? "bg-warning/10 text-warning dark:text-warning" : "bg-success/10 text-success")}>{lowStockCount} flagged</span>
               </CardHeader>
               <CardContent>
                 {lowStockCount === 0 ? (
@@ -470,7 +470,7 @@ export default function Page() {
                           <tr key={product.id} className="border-b border-border last:border-0 dark:border-border">
                             <td className="max-w-52 truncate py-3 pr-4 font-semibold text-foreground">{product.name}</td>
                             <td className="py-3 pr-4 text-muted-foreground">{product.sku || "—"}</td>
-                            <td className="py-3 pr-4 text-right font-semibold tabular-nums text-amber-700 dark:text-amber-300">{formatNumber(Number(product.stock_quantity))}</td>
+                            <td className="py-3 pr-4 text-right font-semibold tabular-nums text-warning dark:text-warning">{formatNumber(Number(product.stock_quantity))}</td>
                             <td className="py-3 text-right tabular-nums text-muted-foreground">{formatNumber(Number(product.reorder_level))}</td>
                           </tr>
                         ))}
@@ -497,21 +497,21 @@ export default function Page() {
                 )}
                 {canReadCustomers && (
                   <Link to="/customers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400"><Users className="size-[18px]" /></span>
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-chart-2/10 text-chart-2 dark:text-chart-2"><Users className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Manage customers</span><span className="mt-1 block text-[11px] text-muted-foreground">Open your customer directory</span></span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-success" />
                   </Link>
                 )}
                 {canReadProcurement && (
                   <Link to="/suppliers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300"><BriefcaseBusiness className="size-[18px]" /></span>
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning dark:text-warning"><BriefcaseBusiness className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Manage suppliers</span><span className="mt-1 block text-[11px] text-muted-foreground">Review supplier records and balances</span></span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-success" />
                   </Link>
                 )}
                 {canReadProducts && (
                   <Link to="/products" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400"><Boxes className="size-[18px]" /></span>
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-chart-4/10 text-chart-4 dark:text-chart-4"><Boxes className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Product catalogue</span><span className="mt-1 block text-[11px] text-muted-foreground">Check products and stock levels</span></span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-success" />
                   </Link>
@@ -520,7 +520,7 @@ export default function Page() {
                   <p className="py-4 text-xs leading-relaxed text-muted-foreground">No quick actions are available for the current role and enabled modules.</p>
                 )}
                 {lowStockCount > 0 && (
-                  <div className="flex items-center gap-2 py-3 text-xs font-medium text-amber-700 dark:text-amber-300">
+                  <div className="flex items-center gap-2 py-3 text-xs font-medium text-warning dark:text-warning">
                     <ArrowDownRight className="size-4 shrink-0" />
                     {lowStockCount} product{lowStockCount === 1 ? "" : "s"} need stock review.
                   </div>
