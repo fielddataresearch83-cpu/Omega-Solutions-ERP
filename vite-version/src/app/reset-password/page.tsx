@@ -68,17 +68,17 @@ export default function ResetPasswordPage() {
     <main className="auth-shell relative flex min-h-svh items-center justify-center overflow-hidden bg-background px-4 py-10">
       <div className="absolute right-4 top-4"><ModeToggle /></div>
       <div aria-hidden="true" className="pointer-events-none absolute -left-40 -top-40 size-96 rounded-full bg-primary/10 blur-3xl" />
-      <div aria-hidden="true" className="pointer-events-none absolute -bottom-48 -right-32 size-[28rem] rounded-full bg-emerald-500/10 blur-3xl" />
-      <section className="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border bg-card shadow-2xl shadow-emerald-950/10 md:grid-cols-2">
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-48 -right-32 size-[28rem] rounded-full bg-primary/10 blur-3xl" />
+      <section className="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border bg-card shadow-2xl shadow-primary/10 md:grid-cols-2">
         <div className="relative hidden flex-col justify-between overflow-hidden auth-brand-panel p-10 text-white md:flex">
           <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(52,213,154,0.25),transparent_55%)]" />
           <div className="relative flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-black text-[#000000]">Ω</div>
+            <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-black text-primary-foreground">Ω</div>
             <div><p className="font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-white/60">Business management, connected</p></div>
           </div>
           <div className="relative py-12">
-            <div className="mb-5 flex size-12 items-center justify-center rounded-2xl border border-[#0FB96F]/30 bg-[#0FB96F]/10 text-[#0FB96F]"><ShieldCheck className="size-6" /></div>
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-[#0FB96F]">Secure account recovery</p>
+            <div className="mb-5 flex size-12 items-center justify-center rounded-2xl border border-primary/30 bg-primary/10 text-primary"><ShieldCheck className="size-6" /></div>
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-primary">Secure account recovery</p>
             <h1 className="max-w-sm text-4xl font-semibold leading-tight tracking-tight">Get back to business with confidence.</h1>
             <p className="mt-5 max-w-sm text-sm leading-6 text-white/65">We’ll help you securely restore access to your Omega workspace.</p>
           </div>
