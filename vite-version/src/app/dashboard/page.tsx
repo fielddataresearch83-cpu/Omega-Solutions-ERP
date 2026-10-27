@@ -302,7 +302,7 @@ export default function Page() {
                     Monthly invoice totals · last six months · {currency}
                   </CardDescription>
                 </div>
-                <Link to="/invoices" className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 transition hover:text-success">
+                <Link to="/invoices" className="inline-flex items-center gap-1.5 text-xs font-semibold text-success transition hover:text-success">
                   View invoices <ArrowUpRight className="size-3.5" />
                 </Link>
               </CardHeader>
@@ -319,17 +319,17 @@ export default function Page() {
                       <ComposedChart data={invoiceTrend} margin={{ top: 14, right: 8, bottom: 0, left: -12 }}>
                         <defs>
                           <linearGradient id="omegaInvoiceArea" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#10B981" stopOpacity={0.24} />
-                            <stop offset="68%" stopColor="#10B981" stopOpacity={0.06} />
-                            <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+                            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.24} />
+                            <stop offset="68%" stopColor="var(--chart-1)" stopOpacity={0.06} />
+                            <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.09} strokeDasharray="3 6" />
-                        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#94A3B8", fontSize: 11 }} tickMargin={12} />
+                        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} tickMargin={12} />
                         <YAxis
                           axisLine={false}
                           tickLine={false}
-                          tick={{ fill: "#94A3B8", fontSize: 10 }}
+                          tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
                           tickMargin={8}
                           width={62}
                           tickFormatter={(value: number) => value >= 1000000 ? (value / 1000000).toFixed(1) + "m" : value >= 1000 ? Math.round(value / 1000) + "k" : String(value)}
@@ -344,12 +344,12 @@ export default function Page() {
                           type="monotone"
                           dataKey="total"
                           name="Invoice total"
-                          stroke="#10B981"
+                          stroke="var(--chart-1)"
                           strokeWidth={3}
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           dot={false}
-                          activeDot={{ r: 5, fill: "#10B981", stroke: "var(--background)", strokeWidth: 2 }}
+                          activeDot={{ r: 5, fill: "var(--chart-1)", stroke: "var(--background)", strokeWidth: 2 }}
                           style={{ filter: "drop-shadow(0 0 5px rgba(16,185,129,0.35))" }}
                           isAnimationActive
                           animationDuration={650}
@@ -384,7 +384,7 @@ export default function Page() {
                     {overdueInvoices.slice(0, 5).map((invoice) => (
                       <div key={invoice.id} className="flex min-w-0 items-start justify-between gap-3 border-b border-border py-3.5 last:border-0 dark:border-border">
                         <div className="min-w-0">
-                          <Link to="/invoices" className="text-xs font-bold text-slate-800 underline-offset-4 hover:text-success hover:underline dark:text-slate-100 dark:hover:text-emerald-400">{invoice.invoice_number}</Link>
+                          <Link to="/invoices" className="text-xs font-bold text-slate-800 underline-offset-4 hover:text-success hover:underline dark:text-slate-100 dark:hover:text-success">{invoice.invoice_number}</Link>
                           <p className="mt-1 truncate text-xs text-muted-foreground">{invoice.customer_name}</p>
                           <p className="mt-1 text-[10px] text-muted-foreground">Due {invoice.due_date}</p>
                         </div>
@@ -393,7 +393,7 @@ export default function Page() {
                         </p>
                       </div>
                     ))}
-                    <Link to="/invoices" className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-success">
+                    <Link to="/invoices" className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-success hover:text-success">
                       Review all invoices <ArrowRight className="size-3.5" />
                     </Link>
                   </div>
@@ -405,7 +405,7 @@ export default function Page() {
 
         <section aria-label="Financial balances" className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
           {canReadCustomers && dashboard.data?.customers && (
-            <Card className="relative overflow-hidden rounded-2xl border border-emerald-500/15 bg-card shadow-sm dark:bg-card">
+            <Card className="relative overflow-hidden rounded-2xl border border-success/15 bg-card shadow-sm dark:bg-card">
               <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-success/[0.08] blur-3xl" />
               <CardHeader className="relative flex flex-row items-start justify-between gap-3 space-y-0">
                 <div className="space-y-2">
@@ -416,7 +416,7 @@ export default function Page() {
               </CardHeader>
               <CardContent className="relative flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 dark:border-border">
                 <p className="text-xs text-muted-foreground">Outstanding balances recorded against customers</p>
-                <Link to="/customers" className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-success">Review customers <ChevronRight className="size-3.5" /></Link>
+                <Link to="/customers" className="inline-flex items-center gap-1 text-xs font-semibold text-success hover:text-success">Review customers <ChevronRight className="size-3.5" /></Link>
               </CardContent>
             </Card>
           )}
@@ -450,7 +450,7 @@ export default function Page() {
               </CardHeader>
               <CardContent>
                 {lowStockCount === 0 ? (
-                  <div className="flex min-h-28 items-center gap-3 rounded-xl bg-success/[0.05] px-4 py-5 text-sm text-slate-600 dark:text-muted-foreground">
+                  <div className="flex min-h-28 items-center gap-3 rounded-xl bg-success/[0.05] px-4 py-5 text-sm text-muted-foreground">
                     <CheckCircle2 className="size-5 shrink-0 text-success" />
                     No low-stock products in the records currently available.
                   </div>
@@ -478,7 +478,7 @@ export default function Page() {
                     </table>
                   </div>
                 )}
-                <Link to="/products" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-success">Open product catalogue <ArrowRight className="size-3.5" /></Link>
+                <Link to="/products" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-success hover:text-success">Open product catalogue <ArrowRight className="size-3.5" /></Link>
               </CardContent>
             </Card>
 
@@ -487,30 +487,30 @@ export default function Page() {
                 <CardTitle className="text-sm font-bold text-foreground">Quick actions</CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">Jump straight into common tasks</CardDescription>
               </CardHeader>
-              <CardContent className="divide-y divide-slate-100 dark:divide-white/[0.06]">
+              <CardContent className="divide-y divide-border dark:divide-border">
                 {canReadSales && (
-                  <Link to="/invoices" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-card/[0.035]">
+                  <Link to="/invoices" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-success/10 text-success"><ReceiptText className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Sales invoices</span><span className="mt-1 block text-[11px] text-muted-foreground">Review and manage customer billing</span></span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-success" />
                   </Link>
                 )}
                 {canReadCustomers && (
-                  <Link to="/customers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-card/[0.035]">
+                  <Link to="/customers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400"><Users className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Manage customers</span><span className="mt-1 block text-[11px] text-muted-foreground">Open your customer directory</span></span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-success" />
                   </Link>
                 )}
                 {canReadProcurement && (
-                  <Link to="/suppliers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-card/[0.035]">
+                  <Link to="/suppliers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300"><BriefcaseBusiness className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Manage suppliers</span><span className="mt-1 block text-[11px] text-muted-foreground">Review supplier records and balances</span></span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-success" />
                   </Link>
                 )}
                 {canReadProducts && (
-                  <Link to="/products" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-card/[0.035]">
+                  <Link to="/products" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400"><Boxes className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Product catalogue</span><span className="mt-1 block text-[11px] text-muted-foreground">Check products and stock levels</span></span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-success" />
