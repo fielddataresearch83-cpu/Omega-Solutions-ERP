@@ -59,7 +59,7 @@ export class CompaniesService {
     user: AuthenticatedUser,
     dto: CreateCompanyDto,
   ): Promise<CompanyRow> {
-    const membership = await this.memberships.requireOwnerOrAdmin(
+    await this.memberships.requireOwnerOrAdmin(
       user.userId,
       user.companyId ?? '',
     );
