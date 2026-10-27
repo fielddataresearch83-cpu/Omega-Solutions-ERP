@@ -83,6 +83,18 @@ describe('RequisitionsService approval submission', () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 
+  it('rejects requisitions assigned to an inactive branch', async () => {
+    client.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    await expect(service.create(user, {
+      branchId: 'inactive-branch', title: 'Office supplies', items: [{ productId: 'product-1', quantity: 1 }],
+    } as any)).rejects.toThrow('Active branch not found in this company.');
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining('AND is_active=true'),
+      ['inactive-branch', 'company-1'],
+    );
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
   it('prevents branch-bound members from creating requisitions for another branch', async () => {
     memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-a', role: 'staff' });
     const branchUser = { ...user, branchId: 'branch-a' };
