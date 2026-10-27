@@ -139,7 +139,7 @@ export class CreditNotesService {
       }
       const available = Math.round((Number(balance.credit_amount) - Number(balance.refunded_amount)) * 100) / 100;
       if (amount > available + 0.005) throw new BadRequestException(`Refund exceeds the available customer credit of ${available.toFixed(2)}.`);
-      await this.accounting.ensureDefaults(companyId);
+      await this.accounting.ensureDefaults(companyId, client);
       const inserted = await client.query<{ id: string }>(
         `INSERT INTO customer_credit_refunds(company_id,customer_credit_balance_id,amount,method,reference,notes,created_by)
          VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
@@ -312,7 +312,7 @@ export class CreditNotesService {
       const receivableAmount = Math.round(Math.min(total, remainingReceivable) * 100) / 100;
       const customerCreditAmount = Math.round((total - receivableAmount) * 100) / 100;
       // Defaults are only initialized after invoice, branch, line, quantity and balance checks pass.
-      await this.accounting.ensureDefaults(companyId);
+      await this.accounting.ensureDefaults(companyId, client);
       const year = Number(issueDate.slice(0, 4));
       const sequence = await client.query<{ next_number: number }>(
         `INSERT INTO credit_note_sequences(company_id,credit_year,next_number) VALUES($1,$2,1)
