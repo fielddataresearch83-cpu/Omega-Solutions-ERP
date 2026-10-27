@@ -212,7 +212,7 @@ export default function Page() {
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[10px] font-bold tracking-[0.16em] text-primary">
-                <span className="size-1.5 rounded-full bg-primary shadow-[0_0_9px_color-mix(in oklch, var(--primary) 75%, transparent)]" />
+                <span className="size-1.5 rounded-full bg-primary shadow-[0_0_9px_color-mix(in_oklch,var(--primary)_75%,transparent)]" />
                 BUSINESS OVERVIEW
               </div>
               <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
@@ -295,7 +295,7 @@ export default function Page() {
               <CardHeader className="flex flex-col gap-3 space-y-0 pb-0 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-primary shadow-[0_0_9px_color-mix(in oklch, var(--primary) 65%, transparent)]" />
+                    <span className="size-2 rounded-full bg-primary shadow-[0_0_9px_color-mix(in_oklch,var(--primary)_65%,transparent)]" />
                     <CardTitle className="text-sm font-bold text-foreground">Invoice trend</CardTitle>
                   </div>
                   <CardDescription className="mt-2 text-xs leading-relaxed text-muted-foreground">
