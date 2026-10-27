@@ -151,10 +151,18 @@ export class MfaService {
       await this.db.query('UPDATE user_mfa SET failed_attempts=0, locked_until=NULL, updated_at=NOW() WHERE user_id=$1', [userId]);
       return true;
     }
-    const next = (row.failed_attempts ?? 0) + 1;
+    // Increment in SQL so concurrent invalid attempts cannot overwrite one another
+    // and evade the lockout threshold through lost updates.
     await this.db.query(
-      'UPDATE user_mfa SET failed_attempts=$2, locked_until=CASE WHEN $2 >= 5 THEN NOW() + INTERVAL \'15 minutes\' ELSE locked_until END, updated_at=NOW() WHERE user_id=$1',
-      [userId, next],
+      `UPDATE user_mfa
+       SET failed_attempts = failed_attempts + 1,
+           locked_until = CASE
+             WHEN failed_attempts + 1 >= 5 THEN NOW() + INTERVAL '15 minutes'
+             ELSE locked_until
+           END,
+           updated_at = NOW()
+       WHERE user_id = $1`,
+      [userId],
     );
     return false;
   }
