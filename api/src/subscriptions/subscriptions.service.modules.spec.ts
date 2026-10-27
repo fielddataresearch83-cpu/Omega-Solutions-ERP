@@ -18,7 +18,7 @@ describe('SubscriptionsService.getModuleCatalogue', () => {
     expect(result.subscription).toBeNull();
     expect(result.modules.find((module) => module.code === 'core')?.enabled).toBe(true);
     expect(result.modules.find((module) => module.code === 'manufacturing')).toMatchObject({
-      includedInPlan: false, entitled: false, enabled: false, status: 'subscription_required',
+      includedInPlan: false, entitled: false, enabled: false, status: 'not_included',
     });
   });
 
