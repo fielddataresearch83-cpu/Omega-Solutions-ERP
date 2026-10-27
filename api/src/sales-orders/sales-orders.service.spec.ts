@@ -69,7 +69,7 @@ describe('SalesOrdersService inventory fulfilment', () => {
     expect(calls.some(([sql, params]) => sql.includes('INSERT INTO inventory_stock_movements') && params?.[3] === -2 && params?.[4] === 3.75 && params?.[5] === 'SO-2026-00001')).toBe(true);
     expect(calls.some(([sql, params]) => sql.includes('UPDATE sales_orders SET status') && params?.[0] === 'fulfilled')).toBe(true);
     expect(calls.some(([sql, params]) => sql.includes('INSERT INTO journal_entry_lines') && params?.[3] === 7.5 && params?.[4] === 'account-inventory')).toBe(true);
-    expect(accounting.ensureDefaults).toHaveBeenCalledWith('company-1');
+    expect(accounting.ensureDefaults).toHaveBeenCalledWith('company-1', client);
     expect(db.transaction).toHaveBeenCalledTimes(1);
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'sales_order.fulfilled' }));
   });
