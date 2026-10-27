@@ -390,7 +390,7 @@ export class InvoicesService {
         throw new BadRequestException('The confirmed amount would exceed the invoice balance.');
       }
       // Do not create company accounting defaults until the payment and balance are validated.
-      await this.accounting.ensureDefaults(membership.companyId);
+      await this.accounting.ensureDefaults(membership.companyId, client);
       const cashAccount = payment.method === 'cash' ? 'cash' : payment.method === 'mpesa' ? 'mpesa' : 'bank';
       await this.postJournal(client, {
         companyId: membership.companyId, date: null, description: `Confirmed receipt against invoice ${invoiceId}`,
@@ -637,7 +637,7 @@ export class InvoicesService {
 
       if (status === 'sent' && invoice.status === 'draft') {
         // Initialize accounting only after the status transition and invoice are validated.
-        await this.accounting.ensureDefaults(membership.companyId);
+        await this.accounting.ensureDefaults(membership.companyId, client);
         const stockCost = await this.applyInvoiceStock(client, { companyId: membership.companyId, invoiceId, invoiceNumber: invoice.invoice_number, userId: user.userId });
         if (stockCost > 0) {
           await this.postJournal(client, {
@@ -669,7 +669,7 @@ export class InvoicesService {
           [membership.companyId, invoiceId],
         );
         if (Number(reported.rows[0].count) > 0) throw new BadRequestException('Invoices with payment reports cannot be cancelled. Resolve the payment reports first.');
-        await this.accounting.ensureDefaults(membership.companyId);
+        await this.accounting.ensureDefaults(membership.companyId, client);
         const stockCost = await this.applyInvoiceStock(client, { companyId: membership.companyId, invoiceId, invoiceNumber: invoice.invoice_number, userId: user.userId, reverse: true });
         if (stockCost > 0) {
           await this.postJournal(client, {
