@@ -67,7 +67,13 @@ export class DashboardService {
         `SELECT
            COUNT(*) FILTER (WHERE is_active = TRUE)::int AS active_products,
            COUNT(*) FILTER (WHERE is_active = TRUE AND is_service = FALSE AND stock_quantity <= reorder_level)::int AS low_stock,
-           COALESCE(SUM(cost_price * stock_quantity) FILTER (WHERE is_active = TRUE), 0) AS cost_value
+           COALESCE((
+             SELECT SUM(ROUND(s.quantity * s.average_unit_cost, 2))
+             FROM inventory_stock_levels s
+             JOIN products valued_product
+               ON valued_product.id = s.product_id AND valued_product.company_id = s.company_id
+             WHERE s.company_id = $1 AND valued_product.is_service = FALSE
+           ), 0) AS cost_value
          FROM products WHERE company_id = $1`,
         [membership.companyId],
       );
