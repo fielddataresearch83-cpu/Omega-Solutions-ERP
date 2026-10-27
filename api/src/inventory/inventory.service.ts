@@ -353,7 +353,11 @@ export class InventoryService {
         [companyId,dto.warehouseId,dto.productId],
       );
       if (type==='issue' && Number(stock.rows[0].quantity)-Number(stock.rows[0].reserved_quantity)<dto.quantity) throw new BadRequestException('Insufficient available stock.');
-      const movementCost=type==='receipt' ? Number(dto.unitCost ?? 0) : Number(stock.rows[0].average_unit_cost ?? 0);
+      const existingAverageCost=Number(stock.rows[0].average_unit_cost ?? 0);
+      const movementCost=type==='receipt' ? Number(dto.unitCost ?? existingAverageCost) : existingAverageCost;
+      if(type==='receipt' && dto.unitCost===undefined && movementCost<=0){
+        throw new BadRequestException('A unit cost is required when receiving stock without an existing positive average cost.');
+      }
       if(type==='receipt'){
         await client.query(
           `UPDATE inventory_stock_levels
