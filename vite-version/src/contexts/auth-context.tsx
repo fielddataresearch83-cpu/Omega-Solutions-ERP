@@ -16,7 +16,7 @@ interface AuthContextValue {
   companyChoices: LoginCompanyChoice[];
   selectLoginCompany: (companyId: string) => Promise<void>;
   cancelLoginCompanySelection: () => void;
-  registerUser: (email: string, password: string, fullName: string, phone?: string, companyName?: string) => Promise<void>;
+  registerUser: (email: string, password: string, fullName: string, phone?: string, companyName?: string) => Promise<boolean>;
   finishNeonRegistration: (token: string, fullName: string, phone?: string, companyName?: string) => Promise<void>;
   finishNeonInvitation: (token: string, invitationToken: string) => Promise<boolean>;
   switchCompany: (companyId: string) => Promise<void>;
@@ -120,9 +120,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const registerUser = React.useCallback(async (email: string, password: string, fullName: string, phone?: string, companyName?: string) => {
     setError(null);
     const { registerWithNeon } = await import("@/lib/neon-auth-api");
-    await registerWithNeon({ email, password, fullName });
+    const verificationSent = await registerWithNeon({ email, password, fullName });
     void phone;
     void companyName;
+    return verificationSent;
   }, []);
 
   const finishNeonRegistration = React.useCallback(async (token: string, fullName: string, phone?: string, companyName?: string) => {
