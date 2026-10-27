@@ -108,7 +108,18 @@ export class BranchesService {
     branchId: string,
     dto: UpdateBranchDto,
   ): Promise<BranchRow> {
-    await this.memberships.requireRole(user.userId, companyId, ['owner', 'admin', 'manager']);
+    const membership = await this.memberships.requireRole(user.userId, companyId, ['owner', 'admin', 'manager']);
+
+    // Branch-bound managers may administer only their assigned branch. Company-wide
+    // owners/admins remain unrestricted; a missing branch assignment is company-wide
+    // only when the membership is not branch-bound by its authoritative record.
+    if (
+      membership.branchId &&
+      !['owner', 'admin'].includes(membership.role) &&
+      membership.branchId !== branchId
+    ) {
+      throw new ForbiddenException('You can only update your assigned branch.');
+    }
 
     const existing = await this.getByIdInternal(companyId, branchId);
 
