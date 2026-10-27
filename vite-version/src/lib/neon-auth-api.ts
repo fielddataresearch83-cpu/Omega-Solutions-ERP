@@ -203,3 +203,22 @@ export async function getNeonIdentityToken(): Promise<string> {
   }
   return token;
 }
+
+/**
+ * Request a password-reset email through Neon Auth. The provider owns token
+ * generation, expiry, single-use validation, and email delivery.
+ */
+export async function requestNeonPasswordReset(emailInput: string, redirectTo: string): Promise<void> {
+  await neonRequest("/request-password-reset", {
+    email: emailInput.trim().toLowerCase(),
+    redirectTo,
+  });
+}
+
+/** Complete a reset using the one-time token supplied by Neon Auth in the URL. */
+export async function resetNeonPassword(token: string, newPassword: string): Promise<void> {
+  await neonRequest("/reset-password", {
+    token,
+    newPassword,
+  });
+}
