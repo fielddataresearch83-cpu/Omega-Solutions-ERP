@@ -304,13 +304,16 @@ export class PosService {
            VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
           [companyId,invoiceId,line.productId,line.name,line.sku,line.quantity,line.unitPrice,line.taxRate,line.taxTreatment,line.subtotal,line.tax,line.total]);
         if(line.isService) continue;
-        const stockResult=await client.query<{quantity:string|number;reserved_quantity:string|number}>(
-          'SELECT quantity,reserved_quantity FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE',
+        const stockResult=await client.query<{quantity:string|number;reserved_quantity:string|number;average_unit_cost:string|number}>(
+          'SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE',
           [companyId,dto.warehouseId,line.productId]);
         const stock=stockResult.rows[0];
         if(!stock||Number(stock.quantity)-Number(stock.reserved_quantity)<line.quantity) {
           throw new BadRequestException(`Insufficient available stock for ${line.name}. Available: ${stock?Number(stock.quantity)-Number(stock.reserved_quantity):0}; required: ${line.quantity}.`);
         }
+        // COGS and the inventory credit must use the same warehouse weighted-average
+        // cost that values the stock ledger, not the mutable product master cost.
+        line.cost=Number(stock.average_unit_cost ?? line.cost);
         await client.query('UPDATE inventory_stock_levels SET quantity=quantity-$1,updated_at=NOW() WHERE company_id=$2 AND warehouse_id=$3 AND product_id=$4',[line.quantity,companyId,dto.warehouseId,line.productId]);
         await client.query(
           `INSERT INTO inventory_stock_movements(company_id,product_id,warehouse_id,movement_type,quantity,unit_cost,reference,notes,created_by)
