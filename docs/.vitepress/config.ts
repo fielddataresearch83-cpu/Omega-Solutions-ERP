@@ -3,8 +3,8 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   // Dev-server URLs like http://localhost:3000 are instructions, not pages
   ignoreDeadLinks: "localhostLinks",
-  title: 'Shadcn Dashboard & Landing',
-  description: 'Open-source admin dashboard & landing page template built with React, TypeScript, shadcn/ui, and Tailwind CSS v4. Developed by ShadcnStore.',
+  title: 'Omega Solutions',
+  description: 'Omega Solutions — One platform for your business.',
 
   // Theme configuration
   themeConfig: {
@@ -113,8 +113,8 @@ export default defineConfig({
 
     // Footer
     footer: {
-      message: 'Released under the MIT License. Developed by ShadcnStore.',
-      copyright: 'Copyright © 2024-present ShadcnStore'
+      message: 'One platform for your business.',
+      copyright: 'A product of Fezaton Enterprises'
     },
 
     // Search
@@ -140,10 +140,10 @@ export default defineConfig({
 
   // Head configuration
   head: [
-    ['link', { rel: 'icon', type: 'image/png', href: '/favicon.png' }],
-    ['link', { rel: 'shortcut icon', href: '/favicon.png' }],
-    ['link', { rel: 'apple-touch-icon', href: '/favicon.png' }],
-    ['meta', { name: 'theme-color', content: '#5f6368' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+    ['link', { rel: 'shortcut icon', href: '/favicon.svg' }],
+    ['link', { rel: 'apple-touch-icon', href: '/favicon.svg' }],
+    ['meta', { name: 'theme-color', content: '#0D1B2A' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:locale', content: 'en' }],
     ['meta', { property: 'og:title', content: 'Shadcn Dashboard + Landing Page Template | React & Next.js Starter Template' }],
