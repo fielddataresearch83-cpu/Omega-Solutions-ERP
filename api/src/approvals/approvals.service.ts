@@ -82,8 +82,9 @@ export class ApprovalsService {
       if (row.status !== 'pending') throw new BadRequestException('This approval has already been decided.');
       if (row.requester_user_id === user.userId) throw new BadRequestException('Requesters cannot approve or reject their own requests.');
       if (row.entity_type === 'requisition') {
-        const req = await client.query('SELECT id,status FROM requisitions WHERE company_id=$1 AND id=$2 FOR UPDATE', [membership.companyId,row.entity_id]);
+        const req = await client.query('SELECT id,status,branch_id FROM requisitions WHERE company_id=$1 AND id=$2 FOR UPDATE', [membership.companyId,row.entity_id]);
         if (!req.rows[0] || req.rows[0].status !== 'pending_approval') throw new BadRequestException('The requisition is not awaiting approval.');
+        if (membership.branchId && req.rows[0].branch_id !== membership.branchId) throw new NotFoundException('Requisition not found in this branch.');
         await client.query('UPDATE requisitions SET status=$1,updated_at=NOW() WHERE company_id=$2 AND id=$3', [decision,membership.companyId,row.entity_id]);
       } else if (row.entity_type === 'purchase_order') {
         const po = await client.query('SELECT id,status FROM purchase_orders WHERE company_id=$1 AND id=$2 FOR UPDATE', [membership.companyId,row.entity_id]);
