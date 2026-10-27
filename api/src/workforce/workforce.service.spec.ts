@@ -143,4 +143,26 @@ describe('WorkforceService validation and attendance', () => {
     await expect(service.createAssignment(user, { employeeId: 'employee-a', siteId: 'site-a', startDate: '2026-10-15', payBasis: 'weekly', payRate: 1000 })).rejects.toThrow(BadRequestException);
     expect(db.transaction).not.toHaveBeenCalled();
   });
+
+  it('prevents branch-bound members from creating assignments for another branch employee', async () => {
+    const branchUser = { ...user, branchId: 'branch-a', role: 'manager' };
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-a', branchId: 'branch-a', role: 'manager' });
+    const client = { query: vi.fn().mockResolvedValue({ rows: [] }) };
+    db.transaction.mockImplementation(async (work: (connection: { query: ReturnType<typeof vi.fn> }) => Promise<unknown>) => work(client));
+    await expect(service.createAssignment(branchUser, { employeeId: 'employee-b', siteId: 'site-a', startDate: '2026-10-15', payBasis: 'monthly', payRate: 1000 })).rejects.toThrow('Active employee not found');
+    expect(client.query.mock.calls[0][0]).toContain('branch_id=$3::uuid');
+    expect(client.query.mock.calls[0][1]).toEqual(['employee-b', 'company-a', 'branch-a']);
+    expect(client.query).toHaveBeenCalledTimes(1);
+  });
+
+  it('prevents branch-bound members from punching attendance for another branch employee', async () => {
+    const branchUser = { ...user, branchId: 'branch-a', role: 'manager' };
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-a', branchId: 'branch-a', role: 'manager' });
+    const client = { query: vi.fn().mockResolvedValue({ rows: [] }) };
+    db.transaction.mockImplementation(async (work: (connection: { query: ReturnType<typeof vi.fn> }) => Promise<unknown>) => work(client));
+    await expect(service.punch(branchUser, { employeeId: 'employee-b', punchType: 'in' })).rejects.toThrow('Active employee not found');
+    expect(client.query.mock.calls[0][0]).toContain('branch_id=$3::uuid');
+    expect(client.query.mock.calls[0][1]).toEqual(['employee-b', 'company-a', 'branch-a']);
+    expect(client.query).toHaveBeenCalledTimes(1);
+  });
 });
