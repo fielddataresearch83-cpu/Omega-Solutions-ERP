@@ -116,7 +116,7 @@ export default function LoginPage() {
             <div><p className="text-base font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-white/55">Business management platform</p></div>
           </div>
           <div className="relative max-w-lg py-12">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#0FB96F]/25 bg-[#0FB96F]/10 px-3 py-1.5 text-xs font-medium text-[#75edbd]"><Sparkles className="size-3.5" /> Built for the way you work</div>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#0FB96F]/25 bg-[#0FB96F]/10 px-3 py-1.5 text-xs font-medium text-[#85B7A1]"><Sparkles className="size-3.5" /> Built for the way you work</div>
             <h1 className="text-4xl font-semibold leading-[1.12] tracking-tight xl:text-5xl">One platform for your business.</h1>
             <p className="mt-6 max-w-md text-base leading-7 text-white/65">Your operations, finances, inventory, sales and people — connected in one place.</p>
             <div className="mt-10 grid max-w-md grid-cols-2 gap-3">
