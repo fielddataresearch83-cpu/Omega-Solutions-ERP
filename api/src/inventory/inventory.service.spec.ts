@@ -392,6 +392,25 @@ describe('InventoryService', () => {
     }));
   });
 
+  it('rejects an unpriced receipt when no positive average cost exists', async () => {
+    const client = { query: vi.fn(async (sql: string) => {
+      if (sql.includes('SELECT id,is_service FROM products')) return { rows: [{ id: 'product-1', is_service: false }], rowCount: 1 };
+      if (sql.includes('FROM warehouses WHERE id=$1')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
+      if (sql.includes('SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels')) return { rows: [{ quantity: '0', reserved_quantity: '0', average_unit_cost: '0' }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+
+    await expect(service.receive(user, {
+      productId: 'product-1', warehouseId: 'warehouse-1', quantity: 2,
+    })).rejects.toThrow('A unit cost is required');
+
+    const statements = client.query.mock.calls.map(([sql]) => String(sql));
+    expect(statements.some(sql => sql.includes('UPDATE inventory_stock_levels'))).toBe(false);
+    expect(statements.some(sql => sql.includes('INSERT INTO inventory_stock_movements'))).toBe(false);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
   it('uses existing weighted-average cost for stock issues', async () => {
     const client = { query: vi.fn(async (sql: string, params?: unknown[]) => {
       if (sql.includes('SELECT id,is_service FROM products')) return { rows: [{ id: 'product-1', is_service: false }], rowCount: 1 };
