@@ -100,7 +100,7 @@ export class DashboardService {
         `SELECT TO_CHAR(DATE_TRUNC('month', i.issue_date), 'YYYY-MM') AS key,
                 COALESCE(SUM(i.total), 0) AS total
          FROM invoices i
-         WHERE i.company_id = $1 AND i.currency = $2
+         WHERE i.company_id = $1 AND i.currency = $2::text
            AND i.status NOT IN ('draft', 'cancelled')
            AND i.issue_date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '5 months'
            AND i.issue_date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
@@ -118,7 +118,7 @@ export class DashboardService {
                 GREATEST(i.total - i.amount_paid - COALESCE(i.credited_amount, 0), 0) AS balance
          FROM invoices i
          JOIN customers c ON c.id = i.customer_id AND c.company_id = i.company_id
-         WHERE i.company_id = $1 AND i.currency = $2 AND i.status NOT IN ('draft', 'cancelled', 'paid')
+         WHERE i.company_id = $1 AND i.currency = $2::text AND i.status NOT IN ('draft', 'cancelled', 'paid')
            AND i.due_date < CURRENT_DATE
            AND GREATEST(i.total - i.amount_paid - COALESCE(i.credited_amount, 0), 0) > 0
            ${branchFilter}
