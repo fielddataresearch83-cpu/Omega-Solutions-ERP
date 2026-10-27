@@ -97,13 +97,43 @@ describe('ContractsService branch mutation authorization', () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 
+  it('rejects an edit if the contract leaves draft status before the update transaction locks it', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [{ id: 'contract-a', company_id: 'company-1', branch_id: 'branch-a', status: 'draft' }],
+      rowCount: 1,
+    });
+    const txQuery = vi.fn().mockResolvedValue({
+      rows: [{ id: 'contract-a', status: 'pending_approval', branch_id: 'branch-a' }],
+      rowCount: 1,
+    });
+    db.transaction.mockImplementation(async (callback: (client: { query: Mock }) => Promise<unknown>) =>
+      callback({ query: txQuery }),
+    );
+
+    await expect(service.update(user, 'contract-a', { title: 'Late edit' }))
+      .rejects.toThrow('Only draft contracts can be edited. Submit the contract again after making changes.');
+
+    expect(txQuery).toHaveBeenCalledWith(
+      expect.stringContaining('FOR UPDATE'),
+      ['company-1', 'contract-a', 'branch-a'],
+    );
+    expect(txQuery.mock.calls.some(([sql]) => String(sql).includes('UPDATE contracts SET'))).toBe(false);
+    expect(txQuery.mock.calls.some(([sql]) => String(sql).includes('DELETE FROM contract_items'))).toBe(false);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
   it('allows mutation checks to proceed for a contract assigned to the member branch', async () => {
     db.query.mockResolvedValueOnce({
       rows: [{ id: 'contract-a', company_id: 'company-1', branch_id: 'branch-a', status: 'draft' }],
       rowCount: 1,
     });
     db.transaction.mockImplementation(async (callback: (client: { query: Mock }) => Promise<unknown>) =>
-      callback({ query: vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }) }),
+      callback({ query: vi.fn().mockImplementation(async (sql: string) => {
+        if (sql.includes('SELECT id,status,branch_id FROM contracts')) {
+          return { rows: [{ id: 'contract-a', status: 'draft', branch_id: 'branch-a' }], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 1 };
+      }) }),
     );
     db.query.mockResolvedValueOnce({
       rows: [{ id: 'contract-a', company_id: 'company-1', branch_id: 'branch-a', status: 'draft' }],
