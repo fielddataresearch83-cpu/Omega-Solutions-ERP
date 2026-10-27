@@ -52,5 +52,10 @@ describe('InvoicesService POS stock reversal warehouse', () => {
       call.sql.includes('SET average_unit_cost=CASE WHEN quantity+$1>0') &&
       call.params?.[1] === 8,
     )).toBe(true);
+    const originalIssueLookup = calls.find((call) =>
+      call.sql.includes('SELECT unit_cost,quantity FROM inventory_stock_movements'),
+    );
+    expect(originalIssueLookup?.sql).toContain('SELECT sale_number FROM pos_sales WHERE company_id=$1 AND invoice_id=$5');
+    expect(originalIssueLookup?.params).toEqual(['company-1', 'product-1', 'branch-warehouse-2', 'INV-2026-00001', 'invoice-1']);
   });
 });
