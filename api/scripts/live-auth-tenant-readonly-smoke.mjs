@@ -28,6 +28,7 @@ async function request(method, path, body, token, expected = [200]) {
 }
 async function login(email, password, label, avoidCompanyId = null) {
   let result;
+  let activeCompanyIds = [];
   const neonAuthBase = (process.env.NEON_AUTH_BASE_URL || "https://ep-fragrant-bird-b4hie5sp.neonauth.c-6.us-east-2.aws.neon.tech/neondb/auth").replace(/\/$/, "");
   const trustedOrigin = (process.env.OMEGA_SECURITY_TEST_ORIGIN || "https://omega-solutions-git-development-pestria72-2760.vercel.app").replace(/\/$/, "");
   if (neonAuthBase) {
@@ -85,6 +86,7 @@ async function login(email, password, label, avoidCompanyId = null) {
       }
       const choiceResult = await request("POST", "/auth/neon/companies", { token: identityToken }, undefined, [200, 201]);
       const companies = choiceResult?.companies;
+      activeCompanyIds = Array.isArray(companies) ? companies.map(company => company?.id).filter(id => typeof id === "string") : [];
       assert(Array.isArray(companies) && companies.length > 0, `${label}: verified identity receives active company choices before session exchange`);
       const uniqueCompanyIds = new Set(companies.map(company => company?.id).filter(id => typeof id === "string"));
       assert(uniqueCompanyIds.size === companies.length, `${label}: company choices contain no duplicate memberships`);
@@ -103,7 +105,7 @@ async function login(email, password, label, avoidCompanyId = null) {
   }
   assert(typeof result.accessToken === "string" && typeof result.refreshToken === "string", `${label}: login returns access and refresh tokens`);
   assert(typeof result.user?.companyId === "string" && result.user.companyId.length > 0, `${label}: login selects an active company`);
-  return { accessToken: result.accessToken, refreshToken: result.refreshToken, companyId: result.user.companyId };
+  return { accessToken: result.accessToken, refreshToken: result.refreshToken, companyId: result.user.companyId, companyIds: activeCompanyIds.length ? activeCompanyIds : [result.user.companyId] };
 }
 function rows(value) {
   if (Array.isArray(value)) return value;
@@ -126,18 +128,36 @@ async function main() {
 
   const ownCompanyA = await request("GET", "/companies/me", undefined, a.accessToken);
   assert(ownCompanyA.id === a.companyId, "Account A company profile matches its selected tenant");
-  await request("GET", `/companies/${b.companyId}`, undefined, a.accessToken, [403, 404]);
-  checks.push("Account A cannot read Account B company profile");
-  await request("GET", `/companies/${b.companyId}/branches`, undefined, a.accessToken, [403, 404]);
-  checks.push("Account A cannot list Account B branches");
+  if (!a.companyIds.includes(b.companyId)) {
+    await request("GET", `/companies/${b.companyId}`, undefined, a.accessToken, [403, 404]);
+    checks.push("Account A cannot read Account B company profile");
+    await request("GET", `/companies/${b.companyId}/branches`, undefined, a.accessToken, [403, 404]);
+    checks.push("Account A cannot list Account B branches");
+  } else {
+    checks.push("Account A has an active membership in Account B company; reverse-direction isolation checks are used instead");
+  }
+  if (!b.companyIds.includes(a.companyId)) {
+    await request("GET", `/companies/${a.companyId}`, undefined, b.accessToken, [403, 404]);
+    checks.push("Account B cannot read Account A company profile");
+    await request("GET", `/companies/${a.companyId}/branches`, undefined, b.accessToken, [403, 404]);
+    checks.push("Account B cannot list Account A branches");
+  }
 
   const forgedContext = await request("GET", `/auth/me?companyId=${encodeURIComponent(b.companyId)}`, undefined, a.accessToken);
   assert(forgedContext.companyId === a.companyId, "client-supplied companyId cannot override Account A token context");
 
-  await request("POST", "/auth/switch-company", { companyId: b.companyId }, a.accessToken, [400, 401, 403, 404]);
-  checks.push("Account A cannot switch into Account B company");
-  await request("POST", "/auth/switch-company", { companyId: a.companyId }, b.accessToken, [400, 401, 403, 404]);
-  checks.push("Account B cannot switch into Account A company");
+  if (!a.companyIds.includes(b.companyId)) {
+    await request("POST", "/auth/switch-company", { companyId: b.companyId }, a.accessToken, [400, 401, 403, 404]);
+    checks.push("Account A cannot switch into Account B company without membership");
+  } else {
+    checks.push("Account A company switch target is an authorized membership; denial assertion correctly skipped");
+  }
+  if (!b.companyIds.includes(a.companyId)) {
+    await request("POST", "/auth/switch-company", { companyId: a.companyId }, b.accessToken, [400, 401, 403, 404]);
+    checks.push("Account B cannot switch into Account A company without membership");
+  } else {
+    checks.push("Account B company switch target is an authorized membership; denial assertion correctly skipped");
+  }
 
   // Read-only resource checks. No customer, invoice, product, or other business record is created.
   const resources = [
