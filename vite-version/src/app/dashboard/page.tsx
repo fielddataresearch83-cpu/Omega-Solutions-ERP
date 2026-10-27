@@ -168,7 +168,7 @@ export default function Page() {
   const canReadCustomers = canUseModule("sales") && permissions.has("customers:read")
   const canReadProcurement = canUseModule("procurement") &&
     permissions.has("suppliers:read") && Boolean(dashboard.data?.suppliers)
-  const canReadProducts = canUseModule("inventory") && permissions.has("products:read")
+  const canReadProducts = canUseModule("inventory") && permissions.has("products:read") && Boolean(dashboard.data?.inventory)
 
   const loading = authLoading || companyLoading || dashboard.loading
   const activeProducts = dashboard.data?.inventory?.activeProducts ?? 0
