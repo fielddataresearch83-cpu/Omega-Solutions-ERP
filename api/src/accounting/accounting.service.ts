@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
+import type { PoolClient } from 'pg';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
@@ -27,13 +28,15 @@ export class AccountingService {
  constructor(private readonly db:DatabaseService,private readonly memberships:MembershipsService,private readonly audit:AuditService){}
  private companyFor(user:AuthenticatedUser){return user.companyId?this.memberships.getMembershipForCompany(user.userId,user.companyId):this.memberships.getMembership(user.userId);}
  private assertCompanyWideAccounting(membership:{branchId?:string|null}){if(membership.branchId)throw new ForbiddenException('Accounting ledgers and reconciliations are company-wide. A company-wide accounting administrator must perform this action.');}
- async ensureDefaults(companyId:string){
-  await this.db.transaction(async client=>{
+ async ensureDefaults(companyId:string, transactionClient?:PoolClient){
+  const ensure=async(client:PoolClient)=>{
    for(const a of DEFAULT_ACCOUNTS) await client.query(
     `INSERT INTO chart_of_accounts(company_id,code,name,account_type,normal_side,system_code)
      VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(company_id,code) DO NOTHING`,
     [companyId,a.code,a.name,a.type,a.side,a.system]);
-  });
+  };
+  if(transactionClient){await ensure(transactionClient);return;}
+  await this.db.transaction(ensure);
  }
  async listAccounts(user:AuthenticatedUser){
   const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
