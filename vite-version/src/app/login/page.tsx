@@ -16,7 +16,7 @@ export default function LoginPage() {
   const destination = from?.pathname?.startsWith("/") && !from.pathname.startsWith("//")
     ? from.pathname + (from.search ?? "")
     : "/dashboard"
-  const { user, loading, loginEmail, companyChoices, selectLoginCompany, registerUser, finishNeonRegistration, mfaChallengePending, completeMfaCode } = useAuth()
+  const { user, loading, loginEmail, companyChoices, selectLoginCompany, cancelLoginCompanySelection, registerUser, finishNeonRegistration, mfaChallengePending, completeMfaCode } = useAuth()
   const [mode, setMode] = React.useState<"login" | "register">("login")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
@@ -183,6 +183,19 @@ export default function LoginPage() {
                     <ArrowRight className="ml-3 size-4 shrink-0" />
                   </Button>
                 ))}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full rounded-xl"
+                  disabled={submitting}
+                  onClick={() => {
+                    cancelLoginCompanySelection()
+                    setError(null)
+                    setNotice(null)
+                  }}
+                >
+                  Back to sign in
+                </Button>
               </div>
             ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
