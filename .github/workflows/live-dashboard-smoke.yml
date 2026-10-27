@@ -29,4 +29,5 @@ jobs:
           OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
           OMEGA_DASHBOARD_TEST_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
           OMEGA_DASHBOARD_TEST_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_A_PASSWORD }}
+          OMEGA_DASHBOARD_TEST_COMPANY_ID: ${{ secrets.OMEGA_SECURITY_TEST_A_COMPANY_ID }}
         run: node api/scripts/live-dashboard-smoke.mjs
