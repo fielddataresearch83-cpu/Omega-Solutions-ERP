@@ -110,7 +110,7 @@ export default function LoginPage() {
       <div aria-hidden="true" className="pointer-events-none absolute -bottom-44 -right-36 size-[30rem] rounded-full bg-primary/10 blur-3xl" />
       <section className="relative grid w-full max-w-6xl overflow-hidden rounded-3xl border border-border/70 bg-card shadow-2xl shadow-primary/10 lg:min-h-[680px] lg:grid-cols-[1.02fr_0.98fr]">
         <aside className="relative hidden flex-col justify-between overflow-hidden auth-brand-panel p-10 text-white sm:p-12 lg:flex">
-          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,color-mix(in oklch, var(--primary) 25%, transparent),transparent_55%)]" />
+          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,color-mix(in_oklch,var(--primary)_25%,transparent),transparent_55%)]" />
           <div aria-hidden="true" className="absolute -bottom-24 -left-20 size-80 rounded-full border border-white/10" />
           <div aria-hidden="true" className="absolute -bottom-12 -left-8 size-56 rounded-full border border-white/10" />
           <div className="relative flex items-center gap-3">
