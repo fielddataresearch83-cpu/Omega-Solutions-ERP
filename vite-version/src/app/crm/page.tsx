@@ -23,7 +23,7 @@ const blankOpportunity = {title:"",leadId:"",expectedValue:"0",probability:"25",
 const blankActivity = {activityType:"task",subject:"",description:"",leadId:"",opportunityId:"",customerId:"",dueAt:""}
 const stages = ["qualification","needs_analysis","proposal","negotiation","won","lost"] as const
 const stageLabel = (value:string) => value.replaceAll("_"," ").replace(/\b\w/g, x=>x.toUpperCase())
-const statusClass = (value:string) => value==="qualified"||value==="won" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" : value==="lost"||value==="unqualified" ? "bg-muted text-muted-foreground" : value==="converted" ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300" : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+const statusClass = (value:string) => value==="qualified"||value==="won" ? "bg-success/10 text-success" : value==="lost"||value==="unqualified" ? "bg-muted text-muted-foreground" : value==="converted" ? "bg-info/10 text-info" : "bg-warning/10 text-warning"
 const badge = (value:string) => <span className={"inline-flex rounded-full px-2.5 py-1 text-xs font-medium "+statusClass(value)}>{stageLabel(value)}</span>
 
 export default function CrmPage() {
