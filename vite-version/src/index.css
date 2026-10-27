@@ -54,60 +54,60 @@
   --font-inter: "Inter", system-ui, sans-serif;
   --radius: 0.625rem;
 
-  /* Omega Solutions: bright, calm surfaces and high-contrast green actions. */
-  --background: #F1F5F9;
-  --foreground: #0F172A;
+  /* Omega Solutions brand palette: navy, emerald, soft white and cool gray. */
+  --background: #F5F7FA;
+  --foreground: #081C2D;
   --card: #FFFFFF;
-  --card-foreground: #0F172A;
+  --card-foreground: #081C2D;
   --popover: #FFFFFF;
-  --popover-foreground: #0F172A;
-  --primary: #34D59A;
-  --primary-foreground: #062b1d;
+  --popover-foreground: #081C2D;
+  --primary: #0F7A63;
+  --primary-foreground: #FFFFFF;
   --secondary: #E2E8F0;
   --secondary-foreground: #1E293B;
   --muted: #E2E8F0;
   --muted-foreground: #475569;
-  --accent: #DCFCE7;
-  --accent-foreground: #14532D;
+  --accent: #E1F2ED;
+  --accent-foreground: #081C2D;
   --destructive: #b42318;
-  --success: #34D59A;
-  --success-foreground: #062b1d;
+  --success: #0F7A63;
+  --success-foreground: #FFFFFF;
   --warning: #8a4b08;
   --warning-foreground: #ffffff;
   --info: #245b8f;
   --info-foreground: #ffffff;
   --border: #E2E8F0;
   --input: #94A3B8;
-  --ring: #34D59A;
-  --chart-1: #059669;
-  --chart-2: #34D59A;
+  --ring: #0F7A63;
+  --chart-1: #0F7A63;
+  --chart-2: #0F7A63;
   --chart-3: #64748B;
-  --chart-4: #5FAF8D;
-  --chart-5: #34D59A;
+  --chart-4: #9AA3AB;
+  --chart-5: #0F7A63;
 
   /* The dark navigation rail anchors the brand in both appearance modes. */
-  --sidebar: #090D16;
+  --sidebar: #081C2D;
   --sidebar-foreground: #f8faf9;
-  --sidebar-primary: #34D59A;
-  --sidebar-primary-foreground: #062b1d;
+  --sidebar-primary: #0F7A63;
+  --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #1E293B;
   --sidebar-accent-foreground: #f8faf9;
-  --sidebar-border: #263244;
-  --sidebar-ring: #34D59A;
+  --sidebar-border: #263B4A;
+  --sidebar-ring: #0F7A63;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #090D16;
+  --background: #081C2D;
   --foreground: #F8FAFC;
-  --card: #121826;
+  --card: #102B3D;
   --card-foreground: #F8FAFC;
-  --popover: #121826;
+  --popover: #102B3D;
   --popover-foreground: #F8FAFC;
-  --primary: #34D59A;
+  --primary: #0F7A63;
   --primary-foreground: #064e3b;
   --secondary: #1E293B;
-  --secondary-foreground: #F1F5F9;
+  --secondary-foreground: #F5F7FA;
   --muted: #1E293B;
   --muted-foreground: #94A3B8;
   --accent: #1D3B32;
@@ -119,22 +119,22 @@
   --warning-foreground: #3e2708;
   --info: #9bc9f5;
   --info-foreground: #102d49;
-  --border: #273449;
+  --border: #263B4A;
   --input: #475569;
-  --ring: #34D59A;
-  --chart-1: #34D59A;
-  --chart-2: #34D59A;
+  --ring: #0F7A63;
+  --chart-1: #0F7A63;
+  --chart-2: #0F7A63;
   --chart-3: #d2ded5;
-  --chart-4: #5FAF8D;
+  --chart-4: #9AA3AB;
   --chart-5: #3c9b70;
-  --sidebar: #070B13;
+  --sidebar: #081C2D;
   --sidebar-foreground: #f5f7f6;
-  --sidebar-primary: #34D59A;
-  --sidebar-primary-foreground: #062b1d;
+  --sidebar-primary: #0F7A63;
+  --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #1E293B;
   --sidebar-accent-foreground: #f5f7f6;
-  --sidebar-border: #263244;
-  --sidebar-ring: #34D59A;
+  --sidebar-border: #263B4A;
+  --sidebar-ring: #0F7A63;
 }
 
 @layer base {
@@ -152,8 +152,8 @@
     outline-offset: 2px;
   }
   ::selection {
-    color: #062B1D;
-    background: #34D59A;
+    color: #FFFFFF;
+    background: #0F7A63;
   }
 }
 
@@ -208,7 +208,7 @@ html { scroll-behavior: smooth; }
   box-shadow: 0 1px 2px rgb(9 9 11 / 12%);
 }
 :root:not(.dark) [data-slot="button"].bg-primary:hover {
-  background-color: #25bd86;
+  background-color: #0D6B57;
   box-shadow: 0 3px 8px rgb(9 9 11 / 16%);
 }
 :root:not(.dark) [data-slot="button"].border-border {
@@ -216,8 +216,8 @@ html { scroll-behavior: smooth; }
   background-color: #ffffff;
 }
 :root:not(.dark) [data-slot="button"].border-border:hover {
-  border-color: #84988a;
-  background-color: #F1F5F9;
+  border-color: #9AA3AB;
+  background-color: #F5F7FA;
 }
 :root:not(.dark) [data-slot="card"] {
   border: 1px solid #E2E8F0;
@@ -228,14 +228,14 @@ html { scroll-behavior: smooth; }
 :root:not(.dark) [data-slot="select-trigger"] {
   border-color: #CBD5E1;
   background-color: #ffffff;
-  color: #0F172A;
+  color: #081C2D;
 }
 :root:not(.dark) [data-slot="input"]:hover,
 :root:not(.dark) [data-slot="textarea"]:hover,
 :root:not(.dark) [data-slot="select-trigger"]:hover {
   border-color: #94A3B8;
 }
-:root:not(.dark) [data-slot="table-header"] { background-color: #F1F5F9; }
+:root:not(.dark) [data-slot="table-header"] { background-color: #F5F7FA; }
 :root:not(.dark) [data-slot="table-head"] {
   color: #475569;
   font-size: 0.75rem;
@@ -243,7 +243,7 @@ html { scroll-behavior: smooth; }
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
-:root:not(.dark) [data-slot="table-row"]:hover { background-color: #F1F5F9; }
+:root:not(.dark) [data-slot="table-row"]:hover { background-color: #F5F7FA; }
 :root:not(.dark) [data-slot="sidebar"] { box-shadow: inset -1px 0 0 #303632; }
 :root:not(.dark) header.sticky {
   border-color: #E2E8F0;
@@ -280,31 +280,31 @@ html { scroll-behavior: smooth; }
 
 /* Shared Omega visual system: landing, authentication and every ERP module. */
 :root {
-  --omega-brand: #34D59A;
-  --omega-canvas: #F1F5F9;
+  --omega-brand: #0F7A63;
+  --omega-canvas: #F5F7FA;
   --omega-surface: #FFFFFF;
   --omega-border: #E2E8F0;
-  --omega-ink: #0F172A;
+  --omega-ink: #081C2D;
   --omega-muted: #475569;
 }
 .dark {
-  --omega-canvas: #090D16;
-  --omega-surface: #121826;
+  --omega-canvas: #081C2D;
+  --omega-surface: #102B3D;
   --omega-border: rgba(255,255,255,.08);
   --omega-ink: #F8FAFC;
   --omega-muted: #94A3B8;
 }
 .auth-shell {
   background:
-    radial-gradient(ellipse at 12% 8%, rgb(52 213 154 / 10%), transparent 34%),
-    radial-gradient(ellipse at 90% 88%, rgb(16 185 129 / 8%), transparent 32%),
+    radial-gradient(ellipse at 12% 8%, rgb(15 122 99 / 8%), transparent 34%),
+    radial-gradient(ellipse at 90% 88%, rgb(15 122 99 / 6%), transparent 32%),
     var(--background);
 }
 .auth-brand-panel {
-  background-color: #090D16;
+  background-color: #081C2D;
   background-image:
-    radial-gradient(ellipse at 82% 12%, rgb(52 213 154 / 23%), transparent 43%),
-    radial-gradient(ellipse at 12% 92%, rgb(16 185 129 / 10%), transparent 45%);
+    radial-gradient(ellipse at 82% 12%, rgb(15 122 99 / 18%), transparent 43%),
+    radial-gradient(ellipse at 12% 92%, rgb(15 122 99 / 8%), transparent 45%);
 }
 .omega-surface {
   border: 1px solid var(--border);
