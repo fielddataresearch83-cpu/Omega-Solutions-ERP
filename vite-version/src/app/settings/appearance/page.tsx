@@ -103,9 +103,9 @@ export default function AppearanceSettings() {
                       {option === "light" ? "Bright surfaces with dark, readable text." : "Dark surfaces with high-contrast text."}
                     </span>
                   </span>
-                  <span aria-hidden="true" className={`h-10 w-10 rounded-md border ${option === "light" ? "border-gray-300 bg-white" : "border-gray-700 bg-zinc-950"}`}>
+                  <span aria-hidden="true" className={`h-10 w-10 rounded-md border ${option === "light" ? "border-border bg-card" : "border-border bg-sidebar"}`}>
                     <span className="m-2 block h-2 rounded bg-primary" />
-                    <span className={`mx-2 block h-1.5 rounded ${option === "light" ? "bg-gray-300" : "bg-gray-600"}`} />
+                    <span className={`mx-2 block h-1.5 rounded ${option === "light" ? "bg-border" : "bg-sidebar-accent"}`} />
                   </span>
                 </label>
               ))}
@@ -148,7 +148,7 @@ export default function AppearanceSettings() {
           <div className="flex flex-wrap items-center gap-3">
             <Button type="submit">Save preferences</Button>
             <Button type="button" variant="outline" onClick={cancelChanges}>Discard unsaved typography changes</Button>
-            {saved && <p role="status" className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Preferences saved on this device.</p>}
+            {saved && <p role="status" className="text-sm font-medium text-success">Preferences saved on this device.</p>}
           </div>
         </form>
       </div>
