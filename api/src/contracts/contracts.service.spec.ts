@@ -67,21 +67,17 @@ describe('ContractsService branch mutation authorization', () => {
   });
 
   it('rejects generating a requisition when the contract branch is inactive', async () => {
-    db.query.mockResolvedValueOnce({
-      rows: [{
-        id: 'contract-a',
-        company_id: 'company-1',
-        branch_id: 'inactive-branch',
-        status: 'active',
-        title: 'Cleaning services',
-        contract_number: 'CON-2026-00001',
-      }],
-      rowCount: 1,
-    }).mockResolvedValueOnce({
-      rows: [{ product_id: 'product-1', description: 'Cleaning materials', quantity: 2, unit: 'pack' }],
-      rowCount: 1,
+    const txQuery = vi.fn().mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT * FROM contracts')) return { rows: [{
+        id: 'contract-a', company_id: 'company-1', branch_id: 'inactive-branch',
+        status: 'active', title: 'Cleaning services', contract_number: 'CON-2026-00001',
+      }], rowCount: 1 };
+      if (sql.includes('FROM contract_items')) return { rows: [{
+        product_id: 'product-1', description: 'Cleaning materials', quantity: 2, unit: 'pack',
+      }], rowCount: 1 };
+      if (sql.includes('FROM branches')) return { rows: [], rowCount: 0 };
+      return { rows: [], rowCount: 1 };
     });
-    const txQuery = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
     db.transaction.mockImplementation(async (callback: (client: { query: Mock }) => Promise<unknown>) =>
       callback({ query: txQuery }),
     );
@@ -94,6 +90,32 @@ describe('ContractsService branch mutation authorization', () => {
       ['inactive-branch', 'company-1'],
     );
     expect(txQuery.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO requisitions'))).toBe(false);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('rechecks the locked contract status before changing status', async () => {
+    db.transaction.mockImplementation(async (callback: (client: { query: Mock }) => Promise<unknown>) =>
+      callback({ query: vi.fn().mockResolvedValue({ rows: [{
+        id: 'contract-a', company_id: 'company-1', branch_id: 'branch-a',
+        status: 'pending_approval', created_by: user.userId,
+      }], rowCount: 1 }) }),
+    );
+
+    await expect(service.changeStatus(user, 'contract-a', 'active'))
+      .rejects.toThrow('Only draft or suspended contracts can be activated.');
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('rechecks creator and status under lock before submitting for approval', async () => {
+    db.transaction.mockImplementation(async (callback: (client: { query: Mock }) => Promise<unknown>) =>
+      callback({ query: vi.fn().mockResolvedValue({ rows: [{
+        id: 'contract-a', company_id: 'company-1', branch_id: 'branch-a',
+        status: 'pending_approval', created_by: user.userId,
+      }], rowCount: 1 }) }),
+    );
+
+    await expect(service.submitForApproval(user, 'contract-a'))
+      .rejects.toThrow('Only draft or suspended contracts can be submitted for approval.');
     expect(audit.log).not.toHaveBeenCalled();
   });
 
