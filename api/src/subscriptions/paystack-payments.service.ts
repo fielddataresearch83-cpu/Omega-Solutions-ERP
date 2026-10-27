@@ -236,6 +236,12 @@ export class PaystackPaymentsService {
     }
 
     await this.db.transaction(async (client: PoolClient) => {
+      // Use the same company lock as checkout creation, with a consistent lock
+      // order, so concurrent checkout and webhook processing cannot race.
+      await client.query(
+        'SELECT pg_advisory_xact_lock(hashtext($1))',
+        [`omega-subscription-checkout:${payment.company_id}`],
+      );
       const locked = await client.query<{
         company_id: string; plan_code: string; amount_kes: number; status: string;
       }>(
