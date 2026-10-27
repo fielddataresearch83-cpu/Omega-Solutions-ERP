@@ -185,12 +185,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           label: "My Workspace",
           module: "core",
           items: [
-            { title: "Sales Dashboard", url: "/sales-dashboard", icon: ChartNoAxesCombined },
-            { title: "Point of Sale", url: "/pos", icon: Store },
-            { title: "My Assigned Stock", url: "/salesperson-stock", icon: Boxes },
-            { title: "Customers", url: "/customers", icon: Users },
-          ].filter((item) => item.url !== "/pos" || canShowModule("pos"))
-            .filter((item) => item.url !== "/customers" || canShowModule("sales")),
+            { title: "Sales Dashboard", url: "/sales-dashboard", icon: ChartNoAxesCombined, module: "sales" },
+            { title: "Point of Sale", url: "/pos", icon: Store, module: "pos" },
+            { title: "My Assigned Stock", url: "/salesperson-stock", icon: Boxes, module: "inventory" },
+            { title: "Customers", url: "/customers", icon: Users, module: "sales" },
+          ].filter((item) => canShowModule(item.module)),
         },
       ]
     : navGroups.map((group) => ({
