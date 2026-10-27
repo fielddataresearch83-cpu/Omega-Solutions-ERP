@@ -6,9 +6,10 @@ import { MembershipsModule } from '../memberships/memberships.module.js';
 import { AuditModule } from '../audit/audit.module.js';
 import { AuthModule } from '../auth/auth.module.js';
 import { RbacModule } from '../rbac/rbac.module.js';
+import { AccountingModule } from '../accounting/accounting.module.js';
 
 @Module({
-  imports: [DatabaseModule, MembershipsModule, AuditModule, AuthModule, RbacModule],
+  imports: [DatabaseModule, MembershipsModule, AuditModule, AuthModule, RbacModule, AccountingModule],
   controllers: [InventoryController],
   providers: [InventoryService],
   exports: [InventoryService],
