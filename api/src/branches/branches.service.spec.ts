@@ -88,6 +88,20 @@ describe('BranchesService', () => {
       );
     });
 
+    it('lists only the assigned branch for a branch-bound manager', async () => {
+      memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'comp-a', branchId: 'br-a', role: 'manager' });
+      db.query.mockResolvedValue({ rows: [BRANCH_A], rowCount: 1 });
+
+      const manager = { ...USER_A, role: 'manager', branchId: 'br-a' };
+      const result = await service.listByCompany(manager, 'comp-a');
+
+      expect(result).toEqual([BRANCH_A]);
+      expect(db.query).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE company_id = $1 AND id = $2'),
+        ['comp-a', 'br-a'],
+      );
+    });
+
     it('throws ForbiddenException when user tries to list branches of another company', async () => {
       memberships.getMembershipForCompany.mockRejectedValue(
         new ForbiddenException('You do not have access to this company.'),
@@ -125,6 +139,15 @@ describe('BranchesService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    it('hides a different branch from a branch-bound manager', async () => {
+      memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'comp-a', branchId: 'br-a', role: 'manager' });
+
+      await expect(service.getById({ ...USER_A, role: 'manager', branchId: 'br-a' }, 'comp-a', 'br-other'))
+        .rejects.toThrow(NotFoundException);
+
+      expect(db.query).not.toHaveBeenCalled();
+    });
+
     it('throws NotFoundException when branch exists but belongs to a different company', async () => {
       memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'comp-a', branchId: null, role: 'owner' });
       db.query.mockResolvedValue({ rows: [], rowCount: 0 });
@@ -146,6 +169,17 @@ describe('BranchesService', () => {
       ).rejects.toThrow(ForbiddenException);
 
       expect(memberships.requireRole).toHaveBeenCalledWith('user-a', 'comp-b', ['owner', 'admin', 'manager']);
+    });
+
+    it('blocks a branch-bound manager from creating another branch', async () => {
+      memberships.requireRole.mockResolvedValue({ companyId: 'comp-a', branchId: 'br-a', role: 'manager' });
+
+      await expect(
+        service.create({ ...USER_A, role: 'manager', branchId: 'br-a' }, 'comp-a', { name: 'Another Branch' }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(db.transaction).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
     });
 
     it('does not create or audit a branch when subscription capacity is exhausted', async () => {
