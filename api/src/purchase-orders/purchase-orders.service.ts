@@ -126,6 +126,11 @@ export class PurchaseOrdersService {
         receiptValue += Math.round(r.quantity * Number(line.unit_cost) * 100) / 100;
         planned.push({ item: r, line });
       }
+      await client.query(
+        `INSERT INTO goods_receipts(id,company_id,purchase_order_id,warehouse_id,receipt_reference,notes,received_by,receipt_value)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [receiptId, m.companyId, po.id, dto.warehouseId, dto.reference ?? null, dto.notes ?? null, user.userId, receiptValue],
+      );
       await this.accounting.ensureDefaults(m.companyId);
       for (const { item: r, line } of planned) {
         await client.query(`INSERT INTO inventory_stock_levels(company_id,warehouse_id,product_id,quantity,reserved_quantity,reorder_level,average_unit_cost)
@@ -139,6 +144,12 @@ export class PurchaseOrdersService {
         await client.query(`INSERT INTO inventory_stock_movements(company_id,product_id,warehouse_id,movement_type,quantity,unit_cost,reference,notes,created_by)
           VALUES($1,$2,$3,'receipt',$4,$5,$6,$7,$8)`,
           [m.companyId, line.product_id, dto.warehouseId, r.quantity, Number(line.unit_cost), dto.reference ?? po.order_number, dto.notes ?? `Received against purchase order ${po.order_number}`, user.userId]);
+        const lineValue = Math.round(r.quantity * Number(line.unit_cost) * 100) / 100;
+        await client.query(
+          `INSERT INTO goods_receipt_items(company_id,goods_receipt_id,purchase_order_item_id,product_id,quantity,unit_cost,line_value)
+           VALUES($1,$2,$3,$4,$5,$6,$7)`,
+          [m.companyId, receiptId, line.id, line.product_id, r.quantity, Number(line.unit_cost), lineValue],
+        );
         await client.query('UPDATE purchase_order_items SET received_quantity=received_quantity+$1 WHERE id=$2 AND company_id=$3',
           [r.quantity, line.id, m.companyId]);
         await client.query('UPDATE products SET stock_quantity=(SELECT COALESCE(SUM(quantity),0) FROM inventory_stock_levels WHERE company_id=$1 AND product_id=$2),updated_at=NOW() WHERE id=$2 AND company_id=$1',
@@ -150,6 +161,20 @@ export class PurchaseOrdersService {
       await client.query('UPDATE purchase_orders SET status=$1,updated_at=NOW() WHERE id=$2 AND company_id=$3',[done?'received':'partially_received',id,m.companyId]);
     });
     await this.audit.log({userId:user.userId,companyId:m.companyId,branchId:null,action:'purchase_order.receive',entityType:'purchase_order',entityId:id,oldValues:null,newValues:{warehouseId:dto.warehouseId,itemCount:dto.items.length,receiptId},ipAddress:null});
-    return {...await this.getById(user,id), receiptId};
+    const receiptResult = await this.db.query(
+      `SELECT id,company_id,purchase_order_id,warehouse_id,receipt_reference,notes,received_by,received_at,receipt_value
+       FROM goods_receipts WHERE id=$1 AND company_id=$2 AND purchase_order_id=$3`,
+      [receiptId, m.companyId, id],
+    );
+    const receiptItems = await this.db.query(
+      `SELECT id,purchase_order_item_id,product_id,quantity,unit_cost,line_value,created_at
+       FROM goods_receipt_items WHERE goods_receipt_id=$1 AND company_id=$2 ORDER BY created_at,id`,
+      [receiptId, m.companyId],
+    );
+    return {
+      ...await this.getById(user,id),
+      receiptId,
+      receipt: receiptResult.rows[0] ? {...receiptResult.rows[0], items: receiptItems.rows} : null,
+    };
   }
 }
