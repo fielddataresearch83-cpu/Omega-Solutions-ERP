@@ -50,6 +50,7 @@ try {
  const partialReceiptJournal=partialJournals.find(x=>x.source_type==="purchase_order_receipt"&&x.source_id===partial.receiptId);
  ok(!!partial.receiptId&&!!partialReceiptJournal&&partialReceiptJournal.description.includes(po.order_number)&&Math.abs(Number(partialReceiptJournal.total_debits)-200)<0.005&&Math.abs(Number(partialReceiptJournal.total_credits)-200)<0.005,"partial receipt has unique receipt ID and balanced KES 200 inventory/GRNI journal");
  const partialReceiptDetail=(await req("GET",`/accounting/journals/${partialReceiptJournal.id}`,undefined,token)).data;
+ ok(partialReceiptDetail.goods_receipt_id===partial.receiptId&&partialReceiptDetail.source_id===partial.receiptId,"accounting journal has an enforced foreign-key link to the durable goods receipt");
  ok(partialReceiptDetail.lines.some(x=>x.account_code==="1200"&&Math.abs(Number(x.debit)-200)<0.005),"receipt journal debits inventory");
  ok(partialReceiptDetail.lines.some(x=>/goods received/i.test(x.description||"")&&Math.abs(Number(x.credit)-200)<0.005),"receipt journal credits GRNI");
  await req("POST",`/purchase-orders/${po.id}/receive`,{warehouseId:warehouse.id,items:[{itemId:line.id,quantity:4}]},token,[400]);ok(true,"over-receipt rejected");
