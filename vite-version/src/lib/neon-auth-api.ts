@@ -75,16 +75,26 @@ export async function registerWithNeon(input: {
   email: string;
   password: string;
   fullName: string;
-}): Promise<void> {
+}): Promise<boolean> {
+  const email = input.email.trim().toLowerCase();
   await neonRequest("/sign-up/email", {
     name: input.fullName,
-    email: input.email.trim().toLowerCase(),
+    email,
     password: input.password,
   });
-  await neonRequest("/email-otp/send-verification-otp", {
-    email: input.email.trim().toLowerCase(),
-    type: "email-verification",
-  });
+
+  // Account creation is already complete. If OTP delivery fails, keep the UI
+  // on the verification step so the user can retry delivery instead of
+  // submitting registration again and hitting an existing-account conflict.
+  try {
+    await neonRequest("/email-otp/send-verification-otp", {
+      email,
+      type: "email-verification",
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function resendNeonVerification(email: string): Promise<void> {
