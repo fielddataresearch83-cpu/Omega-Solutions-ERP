@@ -115,7 +115,7 @@ export default function AcceptInvitationPage() {
     <Card><CardHeader><CardTitle className="flex items-center gap-2"><MailCheck className="size-5"/>Invitation details</CardTitle><CardDescription>Omega verifies your email and activates the company membership assigned by your administrator.</CardDescription></CardHeader><CardContent className="space-y-4">
       {error && <div role="alert" className="flex gap-2 rounded-md border border-destructive/30 p-3 text-sm text-destructive"><AlertCircle className="size-4 shrink-0"/>{error}</div>}
       {notice && <div role="status" className="rounded-md border p-3 text-sm text-muted-foreground">{notice}</div>}
-      {accepted ? <div role="status" className="space-y-3"><p className="flex items-center gap-2 text-sm"><CheckCircle2 className="size-5 text-emerald-600"/>Invitation accepted. Your company membership is active.</p><Button onClick={()=>navigate("/dashboard",{replace:true})}>Continue to dashboard</Button></div>
+      {accepted ? <div role="status" className="space-y-3"><p className="flex items-center gap-2 text-sm"><CheckCircle2 className="size-5 text-success"/>Invitation accepted. Your company membership is active.</p><Button onClick={()=>navigate("/dashboard",{replace:true})}>Continue to dashboard</Button></div>
       : <form className="space-y-4" onSubmit={handleSubmit}>
         <p className="text-sm text-muted-foreground">This invitation expires after seven days and can be used only once. Create your Omega account here. Email verification and invitation acceptance happen in this flow.</p>
         {!user && !verificationPending && <div className="space-y-2">
