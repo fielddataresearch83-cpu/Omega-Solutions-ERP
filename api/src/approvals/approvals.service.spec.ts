@@ -42,7 +42,7 @@ describe('ApprovalsService', () => {
       if (sql.includes('SELECT * FROM approval_requests')) {
         return { rows: [{ id: 'approval-1', company_id: 'company-1', entity_type: 'requisition', entity_id: 'req-1', requester_user_id: requester, status: 'pending' }], rowCount: 1 };
       }
-      if (sql.includes('SELECT id,status FROM requisitions')) {
+      if (sql.includes('SELECT id,status,branch_id FROM requisitions')) {
         return { rows: [{ id: 'req-1', status: 'pending_approval' }], rowCount: 1 };
       }
       return { rows: [], rowCount: 1 };
@@ -105,7 +105,7 @@ describe('ApprovalsService', () => {
       if (sql.includes('SELECT * FROM approval_requests')) {
         return { rows: [{ id: 'approval-1', entity_type: 'requisition', entity_id: 'req-1', requester_user_id: 'requester-1', status: 'pending' }], rowCount: 1 };
       }
-      if (sql.includes('SELECT id,status FROM requisitions')) {
+      if (sql.includes('SELECT id,status,branch_id FROM requisitions')) {
         return { rows: [{ id: 'req-1', status: 'approved' }], rowCount: 1 };
       }
       return { rows: [], rowCount: 1 };
