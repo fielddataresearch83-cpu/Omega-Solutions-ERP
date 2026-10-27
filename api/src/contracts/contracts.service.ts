@@ -128,9 +128,14 @@ export class ContractsService {
     const requisitionId = randomUUID();
     const requestNumber = `REQ-${new Date().getFullYear()}-${requisitionId.slice(0,8).toUpperCase()}`;
     await this.db.transaction(async client => {
+      const targetBranchId = row.branch_id ?? membership.branchId ?? null;
+      if (targetBranchId) {
+        const branch = await client.query('SELECT id FROM branches WHERE id=$1 AND company_id=$2 AND is_active=true', [targetBranchId, membership.companyId]);
+        if (!branch.rows[0]) throw new NotFoundException('Active branch not found in this company.');
+      }
       await client.query(`INSERT INTO requisitions(id,company_id,branch_id,contract_id,request_number,requester_user_id,title,notes,required_by)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [requisitionId, membership.companyId, row.branch_id ?? membership.branchId, id, requestNumber, user.userId, `Contract materials: ${row.title}`, `Generated from contract ${row.contract_number}. Review quantities and submit for approval.`, null]);
+        [requisitionId, membership.companyId, targetBranchId, id, requestNumber, user.userId, `Contract materials: ${row.title}`, `Generated from contract ${row.contract_number}. Review quantities and submit for approval.`, null]);
       for (const item of planned.rows) {
         await client.query(`INSERT INTO requisition_items(company_id,requisition_id,product_id,quantity,notes) VALUES($1,$2,$3,$4,$5)`,
           [membership.companyId, requisitionId, item.product_id, item.quantity, `Contract ${row.contract_number}: ${item.description}${item.unit ? ` (${item.unit})` : ''}`]);
