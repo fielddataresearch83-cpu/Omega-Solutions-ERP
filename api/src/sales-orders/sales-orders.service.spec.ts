@@ -97,4 +97,42 @@ describe('SalesOrdersService inventory fulfilment', () => {
     expect(calls.some(([sql]) => sql.includes('UPDATE sales_orders SET status'))).toBe(false);
     expect(audit.log).not.toHaveBeenCalled();
   });
+
+  it('rejects a repeated fulfilment request after the order is already fulfilled', async () => {
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM sales_orders WHERE id = $1') && sql.includes('FOR UPDATE')) {
+        return { rows: [{ id: 'order-1', status: 'fulfilled', order_number: 'SO-2026-00001' }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 1 };
+    });
+
+    await expect(service.updateStatus(user, 'order-1', 'fulfilled', 'warehouse-1')).rejects.toThrow(BadRequestException);
+    const calls = client.query.mock.calls as unknown as [string, unknown[]?][];
+    expect(calls.some(([sql]) => sql.includes('UPDATE inventory_stock_levels'))).toBe(false);
+    expect(calls.some(([sql]) => sql.includes('INSERT INTO inventory_stock_movements'))).toBe(false);
+    expect(calls.some(([sql]) => sql.includes('INSERT INTO journal_entries'))).toBe(false);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('does not mark an order fulfilled or audit success when COGS journal posting fails', async () => {
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('INSERT INTO journal_entry_lines')) throw new Error('journal line insert failed');
+      if (sql.includes('FROM sales_orders WHERE id = $1') && sql.includes('FOR UPDATE')) {
+        return { rows: [{ id: 'order-1', status: 'processing', order_number: 'SO-2026-00001' }], rowCount: 1 };
+      }
+      if (sql.includes('FROM warehouses WHERE id = $1')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
+      if (sql.includes('FROM sales_order_items soi')) return { rows: [{ product_id: 'product-1', quantity: '2', is_service: false, is_active: true, cost_price: '4.5', product_name: 'Widget' }], rowCount: 1 };
+      if (sql.includes('FROM inventory_stock_levels')) return { rows: [{ quantity: '10', reserved_quantity: '1', average_unit_cost: '3.75' }], rowCount: 1 };
+      if (sql.includes('INSERT INTO journal_entry_sequences')) return { rows: [{ next_number: 1 }], rowCount: 1 };
+      if (sql.includes('FROM chart_of_accounts')) return { rows: [{ id: 'account-inventory', system_code: 'inventory' }, { id: 'account-cogs', system_code: 'purchases_expense' }], rowCount: 2 };
+      if (sql.includes('INSERT INTO journal_entries')) return { rows: [{ id: 'journal-1' }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    });
+
+    await expect(service.updateStatus(user, 'order-1', 'fulfilled', 'warehouse-1')).rejects.toThrow('journal line insert failed');
+    const calls = client.query.mock.calls as unknown as [string, unknown[]?][];
+    expect(calls.some(([sql]) => sql.includes('UPDATE inventory_stock_levels'))).toBe(true);
+    expect(calls.some(([sql]) => sql.includes('UPDATE sales_orders SET status'))).toBe(false);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
 });
