@@ -18,6 +18,7 @@ export class WorkforceService {
   async sites(u: AuthenticatedUser) { const m = await this.membership(u); return (await this.db.query('SELECT * FROM client_sites WHERE company_id=$1 ORDER BY client_name,site_name', [m.companyId])).rows; }
   async createSite(u: AuthenticatedUser, d: Record<string, unknown>) {
     const m = await this.membership(u);
+    if (m.branchId) throw new ForbiddenException('Client sites are company-wide and do not have branch attribution. A company-wide administrator must create them.');
     try {
       const row = (await this.db.query('INSERT INTO client_sites(company_id,site_code,site_name,client_name,address,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING *', [m.companyId,this.required(d.siteCode,'siteCode'),this.required(d.siteName,'siteName'),this.required(d.clientName,'clientName'),typeof d.address === 'string' ? d.address.trim() || null : null,u.userId])).rows[0];
       await this.audit.log({userId:u.userId,companyId:m.companyId,branchId:m.branchId,action:'workforce.site.create',entityType:'client_site',entityId:String(row.id),oldValues:null,newValues:{siteCode:row.site_code,siteName:row.site_name},ipAddress:null}); return row;
