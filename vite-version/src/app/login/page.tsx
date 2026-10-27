@@ -112,7 +112,7 @@ export default function LoginPage() {
           <div aria-hidden="true" className="absolute -bottom-24 -left-20 size-80 rounded-full border border-white/10" />
           <div aria-hidden="true" className="absolute -bottom-12 -left-8 size-56 rounded-full border border-white/10" />
           <div className="relative flex items-center gap-3">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-2xl font-black text-[#090D16] shadow-lg shadow-emerald-950/20">Ω</div>
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-2xl font-black text-[#211F1E] shadow-lg shadow-emerald-950/20">Ω</div>
             <div><p className="text-base font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-white/55">Business management platform</p></div>
           </div>
           <div className="relative max-w-lg py-12">
@@ -130,7 +130,7 @@ export default function LoginPage() {
         <div className="flex items-center justify-center p-5 sm:p-10 lg:px-12">
           <div className="w-full max-w-md py-5">
             <div className="mb-9 flex items-center gap-3 lg:hidden">
-              <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-black text-[#090D16]">Ω</div>
+              <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-black text-[#211F1E]">Ω</div>
               <div><p className="font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-muted-foreground">One platform for your business.</p></div>
             </div>
             <div className="mb-8">
