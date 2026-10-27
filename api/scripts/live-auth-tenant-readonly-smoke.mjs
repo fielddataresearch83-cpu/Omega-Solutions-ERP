@@ -127,26 +127,33 @@ async function main() {
     { path: "/suppliers", detail: id => `/suppliers/${id}`, label: "suppliers" },
     { path: "/invoices", detail: id => `/invoices/${id}`, label: "invoices" },
   ];
+  const failures = [];
   for (const resource of resources) {
-    const [responseA, responseB] = await Promise.all([
-      request("GET", resource.path, undefined, a.accessToken, [200, 403]),
-      request("GET", resource.path, undefined, b.accessToken, [200, 403]),
-    ]);
-    if (responseA?.statusCode === 403 || responseB?.statusCode === 403) {
-      checks.push(`${resource.label}: access denied by role/module policy for at least one account; cross-tenant list comparison skipped`);
-      continue;
-    }
-    const listA = rows(responseA);
-    const listB = rows(responseB);
-    const idsA = new Set(listA.map(row => row?.id).filter(id => typeof id === "string"));
-    const overlap = listB.filter(row => typeof row?.id === "string" && idsA.has(row.id));
-    assert(overlap.length === 0, `${resource.label}: list results contain no shared record IDs across companies`);
-    const foreignRecord = listA.find(row => typeof row?.id === "string");
-    if (foreignRecord) {
-      await request("GET", resource.detail(foreignRecord.id), undefined, b.accessToken, [403, 404]);
-      checks.push(`${resource.label}: Account B cannot fetch Account A record ${foreignRecord.id}`);
-    } else {
-      checks.push(`${resource.label}: Account A has no records; direct foreign-record lookup not applicable`);
+    try {
+      const [responseA, responseB] = await Promise.all([
+        request("GET", resource.path, undefined, a.accessToken, [200, 403]),
+        request("GET", resource.path, undefined, b.accessToken, [200, 403]),
+      ]);
+      if (responseA?.statusCode === 403 || responseB?.statusCode === 403) {
+        checks.push(`${resource.label}: access denied by role/module policy for at least one account; cross-tenant list comparison skipped`);
+        continue;
+      }
+      const listA = rows(responseA);
+      const listB = rows(responseB);
+      const idsA = new Set(listA.map(row => row?.id).filter(id => typeof id === "string"));
+      const overlap = listB.filter(row => typeof row?.id === "string" && idsA.has(row.id));
+      assert(overlap.length === 0, `${resource.label}: list results contain no shared record IDs across companies`);
+      const foreignRecord = listA.find(row => typeof row?.id === "string");
+      if (foreignRecord) {
+        await request("GET", resource.detail(foreignRecord.id), undefined, b.accessToken, [403, 404]);
+        checks.push(`${resource.label}: Account B cannot fetch Account A record ${foreignRecord.id}`);
+      } else {
+        checks.push(`${resource.label}: Account A has no records; direct foreign-record lookup not applicable`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      failures.push(`${resource.label}: ${message}`);
+      checks.push(`${resource.label}: CHECK FAILED — ${message}`);
     }
   }
 
@@ -157,7 +164,8 @@ async function main() {
   await request("GET", "/auth/me", undefined, undefined, [401, 403]);
   checks.push("protected profile endpoint rejects unauthenticated requests");
 
-  console.log(JSON.stringify({ result: "PASS", mode: "read-only", api: base, checks }, null, 2));
+  console.log(JSON.stringify({ result: failures.length ? "FAIL" : "PASS", mode: "read-only", api: base, checks, failures }, null, 2));
+  if (failures.length) throw new Error(`Read-only tenant smoke found ${failures.length} endpoint/resource failure(s).`);
 }
 main().catch(error => {
   console.error(error instanceof Error ? error.message : String(error));
