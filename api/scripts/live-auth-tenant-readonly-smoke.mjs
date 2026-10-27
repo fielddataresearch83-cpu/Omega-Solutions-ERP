@@ -83,7 +83,14 @@ async function login(email, password, label) {
       if (typeof identityToken !== "string" || identityToken.split(".").length !== 3) {
         throw new Error(label + ": Neon Auth JWT endpoint did not return a JWT in data.token; no tenant checks were run.");
       }
-      result = await request("POST", "/auth/neon/exchange", { token: identityToken }, undefined, [200, 201]);
+      const choiceResult = await request("POST", "/auth/neon/companies", { token: identityToken }, undefined, [200, 201]);
+      const companies = choiceResult?.companies;
+      assert(Array.isArray(companies) && companies.length > 0, `${label}: verified identity receives active company choices before session exchange`);
+      const uniqueCompanyIds = new Set(companies.map(company => company?.id).filter(id => typeof id === "string"));
+      assert(uniqueCompanyIds.size === companies.length, `${label}: company choices contain no duplicate memberships`);
+      const selectedCompany = companies[0];
+      result = await request("POST", "/auth/neon/exchange", { token: identityToken, companyId: selectedCompany.id }, undefined, [200, 201]);
+      assert(result.user?.companyId === selectedCompany.id, `${label}: session exchange honors the explicitly selected company`);
       assert(true, `${label}: authenticated through Neon Auth identity exchange`);
     }
   } else {
