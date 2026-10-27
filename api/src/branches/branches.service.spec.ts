@@ -176,6 +176,39 @@ describe('BranchesService', () => {
   });
 
   describe('update (tenant isolation)', () => {
+    it('blocks a branch-bound manager from updating a different branch in the same company', async () => {
+      const manager: AuthenticatedUser = {
+        ...USER_A,
+        role: 'manager',
+        branchId: 'br-assigned',
+      };
+      memberships.requireRole.mockResolvedValue({ companyId: 'comp-a', branchId: 'br-assigned', role: 'manager' });
+
+      await expect(
+        service.update(manager, 'comp-a', 'br-other', { name: 'Out of scope' }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(db.query).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
+    it('allows a branch-bound manager to update their assigned branch', async () => {
+      const manager: AuthenticatedUser = {
+        ...USER_A,
+        role: 'manager',
+        branchId: 'br-a',
+      };
+      memberships.requireRole.mockResolvedValue({ companyId: 'comp-a', branchId: 'br-a', role: 'manager' });
+      db.query
+        .mockResolvedValueOnce({ rows: [BRANCH_A], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [{ ...BRANCH_A, name: 'Assigned branch updated' }], rowCount: 1 });
+
+      const result = await service.update(manager, 'comp-a', 'br-a', { name: 'Assigned branch updated' });
+
+      expect(result.name).toBe('Assigned branch updated');
+      expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'branch.update', branchId: 'br-a' }));
+    });
+
     it('throws ForbiddenException when user tries to update a branch in another company', async () => {
       memberships.requireRole.mockRejectedValue(
         new ForbiddenException('You do not have access to this company.'),
