@@ -38,8 +38,8 @@ export class RequisitionsService {
     const targetBranchId = membership.branchId ?? dto.branchId ?? null;
     const id = await this.db.transaction(async client => {
       if (targetBranchId) {
-        const branch = await client.query('SELECT id FROM branches WHERE id=$1 AND company_id=$2', [targetBranchId, companyId]);
-        if (!branch.rows[0]) throw new NotFoundException('Branch not found in this company.');
+        const branch = await client.query('SELECT id FROM branches WHERE id=$1 AND company_id=$2 AND is_active=true', [targetBranchId, companyId]);
+        if (!branch.rows[0]) throw new NotFoundException('Active branch not found in this company.');
       }
       for (const item of dto.items) {
         const product = await client.query('SELECT id FROM products WHERE id=$1 AND company_id=$2 AND is_active=true', [item.productId, companyId]);
