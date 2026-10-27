@@ -172,9 +172,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const canShowModule = (moduleCode: string) => {
     if (!accessLoaded) return moduleCode === "core"
-    if (!access?.subscription) return true // Legacy tenants retain their current navigation.
     if (moduleCode === "core") return true
-    if (!["active", "trialing"].includes(access.subscription.status)) return false
+    // Optional modules are visible only when the API explicitly confirms an active entitlement.
+    if (!access?.subscription || !["active", "trialing"].includes(access.subscription.status)) return false
     if (Array.isArray(access.modules)) return access.modules.some((module) => module.code === moduleCode && module.enabled)
     return access.modules?.[moduleCode] === true
   }
