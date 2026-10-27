@@ -103,51 +103,84 @@ export class ContractsService {
     await this.audit.log({userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'update',entityType:'contract',entityId:id,oldValues:null,newValues:body,ipAddress:null});
     return this.get(user,id);
   }
-  async submitForApproval(user: AuthenticatedUser,id:string) {
-    const {membership,row}=await this.scoped(user,id); this.assertBranchWritable(membership,row);
-    if(row.created_by!==user.userId) throw new ForbiddenException('Only the contract creator can submit it for approval.');
-    if(!['draft','suspended'].includes(String(row.status))) throw new BadRequestException('Only draft or suspended contracts can be submitted for approval.');
-    await this.db.transaction(async client=>{
-      await client.query("UPDATE contracts SET status='pending_approval',updated_at=NOW() WHERE company_id=$1 AND id=$2",[membership.companyId,id]);
-      await client.query("INSERT INTO approval_requests(company_id,branch_id,entity_type,entity_id,requester_user_id,status,decision_note,requested_at,decided_at,approver_user_id) VALUES($1,$2,'contract',$3,$4,'pending',NULL,NOW(),NULL,NULL) ON CONFLICT(company_id,entity_type,entity_id) DO UPDATE SET status='pending',requester_user_id=$4,approver_user_id=NULL,decision_note=NULL,requested_at=NOW(),decided_at=NULL",[membership.companyId,row.branch_id ?? null,id,user.userId]);
+  async submitForApproval(user: AuthenticatedUser, id: string) {
+    const membership = await this.companyFor(user);
+    const result = await this.db.transaction(async client => {
+      const locked = await client.query(
+        'SELECT * FROM contracts WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id IS NULL OR branch_id=$3) FOR UPDATE',
+        [membership.companyId, id, membership.branchId],
+      );
+      const row = locked.rows[0] as Record<string, unknown> | undefined;
+      if (!row) throw new NotFoundException('Contract not found.');
+      this.assertBranchWritable(membership, row);
+      if (row.created_by !== user.userId) throw new ForbiddenException('Only the contract creator can submit it for approval.');
+      if (!['draft', 'suspended'].includes(String(row.status))) {
+        throw new BadRequestException('Only draft or suspended contracts can be submitted for approval.');
+      }
+      await client.query("UPDATE contracts SET status='pending_approval',updated_at=NOW() WHERE company_id=$1 AND id=$2", [membership.companyId, id]);
+      await client.query("INSERT INTO approval_requests(company_id,branch_id,entity_type,entity_id,requester_user_id,status,decision_note,requested_at,decided_at,approver_user_id) VALUES($1,$2,'contract',$3,$4,'pending',NULL,NOW(),NULL,NULL) ON CONFLICT(company_id,entity_type,entity_id) DO UPDATE SET status='pending',requester_user_id=$4,approver_user_id=NULL,decision_note=NULL,requested_at=NOW(),decided_at=NULL", [membership.companyId, row.branch_id ?? null, id, user.userId]);
+      return { oldStatus: String(row.status) };
     });
-    await this.audit.log({userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'submit_for_approval',entityType:'contract',entityId:id,oldValues:{status:row.status},newValues:{status:'pending_approval'},ipAddress:null});
-    return this.get(user,id);
+    await this.audit.log({ userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'submit_for_approval', entityType: 'contract', entityId: id, oldValues: { status: result.oldStatus }, newValues: { status: 'pending_approval' }, ipAddress: null });
+    return this.get(user, id);
   }
-  async changeStatus(user: AuthenticatedUser,id:string,status:'active'|'suspended') {
-    const {membership,row}=await this.scoped(user,id); this.assertBranchWritable(membership,row);
-    if(status==='active'&&!['draft','suspended'].includes(String(row.status))) throw new BadRequestException('Only draft or suspended contracts can be activated.');
-    if(status==='suspended'&&row.status!=='active') throw new BadRequestException('Only active contracts can be suspended.');
-    await this.db.query('UPDATE contracts SET status=$3,updated_at=NOW() WHERE company_id=$1 AND id=$2 AND ($4::uuid IS NULL OR branch_id IS NULL OR branch_id=$4)',[membership.companyId,id,status,membership.branchId]);
-    await this.audit.log({userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'status_change',entityType:'contract',entityId:id,oldValues:{status:row.status},newValues:{status},ipAddress:null});
-    return this.get(user,id);
+
+  async changeStatus(user: AuthenticatedUser, id: string, status: 'active' | 'suspended') {
+    const membership = await this.companyFor(user);
+    const result = await this.db.transaction(async client => {
+      const locked = await client.query(
+        'SELECT * FROM contracts WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id IS NULL OR branch_id=$3) FOR UPDATE',
+        [membership.companyId, id, membership.branchId],
+      );
+      const row = locked.rows[0] as Record<string, unknown> | undefined;
+      if (!row) throw new NotFoundException('Contract not found.');
+      this.assertBranchWritable(membership, row);
+      if (status === 'active' && !['draft', 'suspended'].includes(String(row.status))) throw new BadRequestException('Only draft or suspended contracts can be activated.');
+      if (status === 'suspended' && row.status !== 'active') throw new BadRequestException('Only active contracts can be suspended.');
+      await client.query('UPDATE contracts SET status=$3,updated_at=NOW() WHERE company_id=$1 AND id=$2', [membership.companyId, id, status]);
+      return { oldStatus: String(row.status) };
+    });
+    await this.audit.log({ userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'status_change', entityType: 'contract', entityId: id, oldValues: { status: result.oldStatus }, newValues: { status }, ipAddress: null });
+    return this.get(user, id);
   }
+
   async createRequisition(user: AuthenticatedUser, id: string) {
-    const { membership, row } = await this.scoped(user, id); this.assertBranchWritable(membership,row);
-    if (!['active', 'draft'].includes(String(row.status))) throw new BadRequestException('Only draft or active contracts can generate a requisition.');
-    const planned = await this.db.query(`SELECT i.product_id, i.description, i.quantity, i.unit
-      FROM contract_items i JOIN products p ON p.id=i.product_id AND p.company_id=i.company_id
-      WHERE i.company_id=$1 AND i.contract_id=$2 AND i.item_type='material' AND i.product_id IS NOT NULL AND p.is_active=true
-      ORDER BY i.created_at`, [membership.companyId, id]);
-    if (!planned.rows.length) throw new BadRequestException('Add at least one material linked to an active inventory product before generating a requisition.');
+    const membership = await this.companyFor(user);
     const requisitionId = randomUUID();
-    const requestNumber = `REQ-${new Date().getFullYear()}-${requisitionId.slice(0,8).toUpperCase()}`;
-    await this.db.transaction(async client => {
-      const targetBranchId = row.branch_id ?? membership.branchId ?? null;
+    const requestNumber = `REQ-${new Date().getFullYear()}-${requisitionId.slice(0, 8).toUpperCase()}`;
+    const result = await this.db.transaction(async client => {
+      const locked = await client.query(
+        'SELECT * FROM contracts WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id IS NULL OR branch_id=$3) FOR UPDATE',
+        [membership.companyId, id, membership.branchId],
+      );
+      const row = locked.rows[0] as Record<string, unknown> | undefined;
+      if (!row) throw new NotFoundException('Contract not found.');
+      this.assertBranchWritable(membership, row);
+      if (!['active', 'draft'].includes(String(row.status))) throw new BadRequestException('Only draft or active contracts can generate a requisition.');
+      const planned = await client.query(
+        `SELECT i.product_id, i.description, i.quantity, i.unit
+         FROM contract_items i JOIN products p ON p.id=i.product_id AND p.company_id=i.company_id
+         WHERE i.company_id=$1 AND i.contract_id=$2 AND i.item_type='material'
+           AND i.product_id IS NOT NULL AND p.is_active=true
+         ORDER BY i.created_at`,
+        [membership.companyId, id],
+      );
+      if (!planned.rows.length) throw new BadRequestException('Add at least one material linked to an active inventory product before generating a requisition.');
+      const targetBranchId = (row.branch_id as string | null) ?? membership.branchId ?? null;
       if (targetBranchId) {
         const branch = await client.query('SELECT id FROM branches WHERE id=$1 AND company_id=$2 AND is_active=true', [targetBranchId, membership.companyId]);
         if (!branch.rows[0]) throw new NotFoundException('Active branch not found in this company.');
       }
-      await client.query(`INSERT INTO requisitions(id,company_id,branch_id,contract_id,request_number,requester_user_id,title,notes,required_by)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [requisitionId, membership.companyId, targetBranchId, id, requestNumber, user.userId, `Contract materials: ${row.title}`, `Generated from contract ${row.contract_number}. Review quantities and submit for approval.`, null]);
+      await client.query(`INSERT INTO requisitions(id,company_id,branch_id,contract_id,request_number,requester_user_id,title,notes,required_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [requisitionId, membership.companyId, targetBranchId, id, requestNumber, user.userId, `Contract materials: ${String(row.title)}`, `Generated from contract ${String(row.contract_number)}. Review quantities and submit for approval.`, null]);
       for (const item of planned.rows) {
-        await client.query(`INSERT INTO requisition_items(company_id,requisition_id,product_id,quantity,notes) VALUES($1,$2,$3,$4,$5)`,
-          [membership.companyId, requisitionId, item.product_id, item.quantity, `Contract ${row.contract_number}: ${item.description}${item.unit ? ` (${item.unit})` : ''}`]);
+        await client.query('INSERT INTO requisition_items(company_id,requisition_id,product_id,quantity,notes) VALUES($1,$2,$3,$4,$5)',
+          [membership.companyId, requisitionId, item.product_id, item.quantity, `Contract ${String(row.contract_number)}: ${item.description}${item.unit ? ` (${item.unit})` : ''}`]);
       }
+      return { contractNumber: String(row.contract_number), branchId: targetBranchId, itemCount: planned.rows.length };
     });
-    await this.audit.log({ userId:user.userId, companyId:membership.companyId, branchId:typeof row.branch_id==='string'?row.branch_id:membership.branchId, action:'create_from_contract', entityType:'requisition', entityId:requisitionId, oldValues:null, newValues:{ contractId:id, contractNumber:row.contract_number, status:'draft', itemCount:planned.rows.length }, ipAddress:null });
-    return { id: requisitionId, requestNumber, contractId:id, status:'draft', itemCount:planned.rows.length, message:'Draft requisition created. Review it and submit it through the normal approval workflow.' };
+    await this.audit.log({ userId: user.userId, companyId: membership.companyId, branchId: result.branchId ?? membership.branchId, action: 'create_from_contract', entityType: 'requisition', entityId: requisitionId, oldValues: null, newValues: { contractId: id, contractNumber: result.contractNumber, status: 'draft', itemCount: result.itemCount }, ipAddress: null });
+    return { id: requisitionId, requestNumber, contractId: id, status: 'draft', itemCount: result.itemCount, message: 'Draft requisition created. Review it and submit it through the normal approval workflow.' };
   }
   async addObligation(user:AuthenticatedUser,id:string,body:Record<string,unknown>) {
     if(typeof body.title!=='string'||!body.title.trim()) throw new BadRequestException('Obligation title is required.');
