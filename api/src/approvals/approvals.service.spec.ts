@@ -116,6 +116,24 @@ describe('ApprovalsService', () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 
+  it('does not let a branch-bound approver decide a requisition assigned to another branch', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-2', role: 'manager' });
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT * FROM approval_requests')) {
+        return { rows: [{ id: 'approval-1', entity_type: 'requisition', entity_id: 'req-1', branch_id: 'branch-2', requester_user_id: 'requester-1', status: 'pending' }], rowCount: 1 };
+      }
+      if (sql.includes('SELECT id,status,branch_id FROM requisitions')) {
+        return { rows: [{ id: 'req-1', status: 'pending_approval', branch_id: 'branch-3' }], rowCount: 1 };
+      }
+      return { rows: [], rowCount: 1 };
+    });
+
+    await expect(service.decide(user, 'approval-1', 'approved')).rejects.toThrow(NotFoundException);
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE requisitions'))).toBe(false);
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE approval_requests'))).toBe(false);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
   it('does not return approvals from another company in the inbox query', async () => {
     db.query.mockResolvedValue({ rows: [], rowCount: 0 });
 
