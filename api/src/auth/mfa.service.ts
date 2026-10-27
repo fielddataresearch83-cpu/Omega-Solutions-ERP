@@ -88,7 +88,9 @@ export class MfaService {
 
   async status(userId: string): Promise<{ enabled: boolean; recoveryCodesRemaining: number }> {
     const check = await this.db.query<{ table_name: string | null }>("SELECT to_regclass('public.user_mfa')::text AS table_name");
-    if (!check.rows[0]?.table_name) return { enabled: false, recoveryCodesRemaining: 0 };
+    if (!check.rows[0]?.table_name) {
+      throw new ServiceUnavailableException('MFA schema is not yet installed on this environment.');
+    }
     const result = await this.db.query<{ enabled_at: Date | null; recovery_code_hashes: string[] }>(
       'SELECT enabled_at, recovery_code_hashes FROM user_mfa WHERE user_id=$1',
       [userId],
