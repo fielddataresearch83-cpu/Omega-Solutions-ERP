@@ -40,19 +40,19 @@ export class ProductsService {
   }
 
   private async validateConfiguredTaxRate(companyId: string, treatment: string | undefined, rate: number | undefined) {
-    if (treatment !== 'standard') return;
     const result = await this.db.query<{ settings: unknown }>(
       'SELECT settings FROM companies WHERE id = $1',
       [companyId],
     );
-    const policy = readCompanyTaxPolicy(result.rows[0]?.settings);
-    if (policy.mode === 'configured') {
-      resolveTaxTreatment({
-        policy,
-        productTreatment: 'standard',
-        productRate: Number(rate ?? 0),
-      });
+    if (!result.rows[0]) {
+      throw new BadRequestException('Company tax settings are unavailable. Correct the company configuration before creating or updating products.');
     }
+    const policy = readCompanyTaxPolicy(result.rows[0].settings);
+    resolveTaxTreatment({
+      policy,
+      productTreatment: (treatment ?? 'legacy') as 'legacy' | 'standard' | 'zero_rated' | 'exempt' | 'out_of_scope',
+      productRate: Number(rate ?? 0),
+    });
   }
 
   async list(user: AuthenticatedUser, search?: string): Promise<ProductRow[]> {
