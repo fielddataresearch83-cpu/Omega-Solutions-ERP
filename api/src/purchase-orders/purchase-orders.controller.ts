@@ -13,6 +13,7 @@ import { ModuleEntitlementsGuard } from '../subscriptions/module-entitlements.gu
 export class PurchaseOrdersController {
  constructor(private readonly orders:PurchaseOrdersService){}
  @Get() @RequirePermissions('purchases:read') list(@Req() req:{user:AuthenticatedUser}){return this.orders.list(req.user);}
+ @Get(':id/receipts') @RequirePermissions('purchases:read') listReceipts(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.orders.listReceipts(req.user,id);}
  @Get(':id') @RequirePermissions('purchases:read') getById(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.orders.getById(req.user,id);}
  @Post() @RequirePermissions('purchases:write') create(@Req() req:{user:AuthenticatedUser},@Body() dto:CreatePurchaseOrderDto){return this.orders.create(req.user,dto);}
  @Patch(':id/status') @RequirePermissions('purchases:write') updateStatus(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Body() dto:UpdatePurchaseOrderStatusDto){return this.orders.updateStatus(req.user,id,dto);}
