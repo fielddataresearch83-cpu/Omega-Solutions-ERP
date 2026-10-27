@@ -109,7 +109,7 @@ export default function PurchaseOrdersPage(){
   try{
    await api.post(`/purchase-orders/${receivingOrder.id}/receive`,{warehouseId:receiveWarehouse,items,reference:receiveReference.trim()||receivingOrder.order_number,notes:receiveNotes.trim()||undefined});
    setReceivingOrder(null);setReceiveItems([]);setReceiveQuantities({});await refresh();
-   setReceiptOrder(receivingOrder);setReceiptHistory(await api.get<Receipt[]>(`/purchase-orders/${receivingOrder.id}/receipts`));
+   await viewReceiptHistory(receivingOrder);
   }catch(e){setError(messageOf(e))}finally{setBusyId("")}
  };
  const visible=orders.filter(o=>filter==="all"||o.status===filter);
