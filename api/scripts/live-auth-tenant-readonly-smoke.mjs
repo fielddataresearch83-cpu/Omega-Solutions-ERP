@@ -26,7 +26,7 @@ async function request(method, path, body, token, expected = [200]) {
   }
   return data;
 }
-async function login(email, password, label) {
+async function login(email, password, label, avoidCompanyId = null) {
   let result;
   const neonAuthBase = (process.env.NEON_AUTH_BASE_URL || "https://ep-fragrant-bird-b4hie5sp.neonauth.c-6.us-east-2.aws.neon.tech/neondb/auth").replace(/\/$/, "");
   const trustedOrigin = (process.env.OMEGA_SECURITY_TEST_ORIGIN || "https://omega-solutions-git-development-pestria72-2760.vercel.app").replace(/\/$/, "");
@@ -92,7 +92,8 @@ async function login(email, password, label) {
         await request("POST", "/auth/neon/exchange", { token: identityToken }, undefined, [401]);
         checks.push(`${label}: exchange without companyId is rejected for a multi-company identity`);
       }
-      const selectedCompany = companies[0];
+      // Keep the two smoke-test sessions in different tenants even when one identity has multiple memberships.
+      const selectedCompany = companies.find(company => company?.id !== avoidCompanyId) || companies[0];
       result = await request("POST", "/auth/neon/exchange", { token: identityToken, companyId: selectedCompany.id }, undefined, [200, 201]);
       assert(result.user?.companyId === selectedCompany.id, `${label}: session exchange honors the explicitly selected company`);
       assert(true, `${label}: authenticated through Neon Auth identity exchange`);
@@ -115,7 +116,7 @@ async function main() {
   assert(health?.status === "ok" && health?.database === "connected", "configured API and database are healthy");
 
   const a = await login(emailA, passwordA, "Account A");
-  const b = await login(emailB, passwordB, "Account B");
+  const b = await login(emailB, passwordB, "Account B", a.companyId);
   assert(a.companyId !== b.companyId, "accounts belong to different companies; test is not accidentally same-tenant");
 
   const meA = await request("GET", "/auth/me", undefined, a.accessToken);
