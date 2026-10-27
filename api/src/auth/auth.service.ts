@@ -17,6 +17,7 @@ import type {
   TokenPair,
 } from './interfaces/authenticated-user.js';
 import { MfaService } from './mfa.service.js';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service.js';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -26,6 +27,7 @@ export class AuthService {
     private readonly db: DatabaseService,
     private readonly jwtService: JwtService,
     private readonly mfaService: MfaService,
+    private readonly subscriptions: SubscriptionsService,
   ) {}
 
   async register(dto: RegisterDto): Promise<{ userId: string; companyId: string | null }> {
@@ -230,6 +232,9 @@ export class AuthService {
         [omegaUser.id, invitation.company_id],
       );
       if (membership.rows.length) throw new ConflictException('This account already belongs to the invited company.');
+      // This exchange endpoint accepts the invitation directly, so enforce the same
+      // reserved-user quota as the regular invitation acceptance endpoint.
+      await this.subscriptions.assertUserCapacity(invitation.company_id, client, true);
       await client.query(
         `INSERT INTO company_memberships (user_id, company_id, branch_id, role, is_active)
          VALUES ($1, $2, $3, $4, true)`,
