@@ -131,6 +131,16 @@ export class PurchaseOrdersService {
         );
         const line = lineRes.rows[0];
         if (!line) throw new NotFoundException('Purchase order line not found.');
+        const product = await client.query<{ id: string; is_active: boolean; is_service: boolean }>(
+          'SELECT id,is_active,is_service FROM products WHERE id=$1 AND company_id=$2 FOR SHARE',
+          [line.product_id, m.companyId],
+        );
+        if (!product.rows[0] || !product.rows[0].is_active) {
+          throw new NotFoundException('A selected product is missing or inactive in this company.');
+        }
+        if (product.rows[0].is_service) {
+          throw new BadRequestException('Service items cannot be received into inventory.');
+        }
         if (!Number.isFinite(r.quantity) || r.quantity <= 0) throw new BadRequestException('Receipt quantities must be positive.');
         if (r.quantity > Number(line.quantity) - Number(line.received_quantity) + 0.0000001) {
           throw new BadRequestException(`Receipt exceeds remaining quantity for "${line.product_name}".`);
