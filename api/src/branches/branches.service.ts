@@ -27,7 +27,17 @@ export class BranchesService {
   ) {}
 
   async listByCompany(user: AuthenticatedUser, companyId: string): Promise<BranchRow[]> {
-    await this.memberships.getMembershipForCompany(user.userId, companyId);
+    const membership = await this.memberships.getMembershipForCompany(user.userId, companyId);
+
+    // Branch-bound non-owner/admin members must not enumerate branches outside their assignment.
+    if (membership.branchId && !['owner', 'admin'].includes(membership.role)) {
+      const result = await this.db.query<BranchRow>(
+        `SELECT ${BRANCH_COLUMNS} FROM branches
+         WHERE company_id = $1 AND id = $2 ORDER BY created_at`,
+        [companyId, membership.branchId],
+      );
+      return result.rows;
+    }
 
     const result = await this.db.query<BranchRow>(
       `SELECT ${BRANCH_COLUMNS} FROM branches WHERE company_id = $1 ORDER BY created_at`,
@@ -38,7 +48,15 @@ export class BranchesService {
   }
 
   async getById(user: AuthenticatedUser, companyId: string, branchId: string): Promise<BranchRow> {
-    await this.memberships.getMembershipForCompany(user.userId, companyId);
+    const membership = await this.memberships.getMembershipForCompany(user.userId, companyId);
+    if (
+      membership.branchId &&
+      !['owner', 'admin'].includes(membership.role) &&
+      membership.branchId !== branchId
+    ) {
+      // Avoid disclosing whether an out-of-scope branch exists.
+      throw new NotFoundException('Branch not found for this company.');
+    }
 
     return this.getByIdInternal(companyId, branchId);
   }
@@ -48,7 +66,10 @@ export class BranchesService {
     companyId: string,
     dto: CreateBranchDto,
   ): Promise<BranchRow> {
-    await this.memberships.requireRole(user.userId, companyId, ['owner', 'admin', 'manager']);
+    const membership = await this.memberships.requireRole(user.userId, companyId, ['owner', 'admin', 'manager']);
+    if (membership.branchId && !['owner', 'admin'].includes(membership.role)) {
+      throw new ForbiddenException('Only company-wide members can create branches.');
+    }
 
     const branch = await this.db.transaction(async (client) => {
       // Lock the subscription row and count/insert on the same transaction so concurrent
