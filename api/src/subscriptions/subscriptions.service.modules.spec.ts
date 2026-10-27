@@ -11,12 +11,15 @@ function makeService(subscriptionRows: Array<{ status: string; plan_code: string
 }
 
 describe('SubscriptionsService.getModuleCatalogue', () => {
-  it('preserves legacy tenant access while clearly identifying legacy mode', async () => {
+  it('requires a plan for optional modules while preserving core access for legacy tenants', async () => {
     const { service } = makeService([]);
     const result = await service.getModuleCatalogue('company-1');
-    expect(result.accessMode).toBe('legacy_unmetered');
+    expect(result.accessMode).toBe('subscription_required');
     expect(result.subscription).toBeNull();
-    expect(result.modules.find((module) => module.code === 'manufacturing')?.enabled).toBe(true);
+    expect(result.modules.find((module) => module.code === 'core')?.enabled).toBe(true);
+    expect(result.modules.find((module) => module.code === 'manufacturing')).toMatchObject({
+      includedInPlan: false, entitled: false, enabled: false, status: 'subscription_required',
+    });
   });
 
   it('reports modules excluded from an active plan as unavailable', async () => {
