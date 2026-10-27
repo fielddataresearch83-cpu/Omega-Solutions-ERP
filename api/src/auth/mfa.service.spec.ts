@@ -51,3 +51,34 @@ describe('MfaService.status', () => {
     await expect(service.status('user-1')).rejects.toThrow('database unavailable');
   });
 });
+
+describe('MfaService.verifyUserCode lockout accounting', () => {
+  it('increments failed attempts atomically in the database', async () => {
+    const db = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [{ table_name: 'user_mfa' }] })
+        .mockResolvedValueOnce({
+          rows: [{
+            secret_encrypted: 'encrypted-secret',
+            pending_secret_encrypted: null,
+            enabled_at: new Date(),
+            recovery_code_hashes: [],
+            failed_attempts: 4,
+            locked_until: null,
+          }],
+        })
+        .mockResolvedValueOnce({ rowCount: 1 }),
+    };
+    const service = new MfaService(db as any);
+    (service as any).decrypt = vi.fn().mockReturnValue('secret');
+    (service as any).verifyTotp = vi.fn().mockReturnValue(false);
+
+    await expect(service.verifyUserCode('user-1', '000000')).resolves.toBe(false);
+
+    const update = db.query.mock.calls[2][0] as string;
+    expect(update).toContain('failed_attempts = failed_attempts + 1');
+    expect(update).toContain('WHEN failed_attempts + 1 >= 5');
+    expect(update).not.toContain('SET failed_attempts=$2');
+    expect(db.query.mock.calls[2][1]).toEqual(['user-1']);
+  });
+});
