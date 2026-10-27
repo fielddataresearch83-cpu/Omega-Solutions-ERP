@@ -119,6 +119,13 @@ async function main() {
   assert(meA.companyId === a.companyId, "Account A profile matches its token company");
   assert(meB.companyId === b.companyId, "Account B profile matches its token company");
 
+  const ownCompanyA = await request("GET", "/companies/me", undefined, a.accessToken);
+  assert(ownCompanyA.id === a.companyId, "Account A company profile matches its selected tenant");
+  await request("GET", `/companies/${b.companyId}`, undefined, a.accessToken, [403, 404]);
+  checks.push("Account A cannot read Account B company profile");
+  await request("GET", `/companies/${b.companyId}/branches`, undefined, a.accessToken, [403, 404]);
+  checks.push("Account A cannot list Account B branches");
+
   const forgedContext = await request("GET", `/auth/me?companyId=${encodeURIComponent(b.companyId)}`, undefined, a.accessToken);
   assert(forgedContext.companyId === a.companyId, "client-supplied companyId cannot override Account A token context");
 
