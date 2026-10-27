@@ -32,9 +32,15 @@ export class UsersRolesService {
        LEFT JOIN role_permissions rp ON rp.role = m.role
        LEFT JOIN permissions p ON p.id = rp.permission_id
        WHERE m.company_id = $1
+         AND (
+           $2::uuid IS NULL
+           OR m.branch_id IS NULL
+           OR m.branch_id = $2::uuid
+           OR $3::text IN ('owner', 'admin')
+         )
        GROUP BY m.id, u.id, b.name
        ORDER BY u.full_name, u.email`,
-      [membership.companyId],
+      [membership.companyId, membership.branchId, membership.role],
     )).rows;
   }
 
