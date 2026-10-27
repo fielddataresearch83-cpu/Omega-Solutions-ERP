@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, MaxLength, IsOptional, IsUUID } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, IsOptional, IsUUID, IsIn } from 'class-validator';
 
 export class RegisterDto {
   @IsEmail()
@@ -44,6 +44,9 @@ export class RefreshDto {
 }
 
 export class NeonExchangeDto {
+  @IsIn(['login', 'register'])
+  intent!: 'login' | 'register';
+
   @IsString()
   @MinLength(20)
   @MaxLength(8192)
