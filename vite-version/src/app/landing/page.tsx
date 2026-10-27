@@ -89,7 +89,7 @@ const navLinks = [
 function BrandMark() {
   return (
     <a href="/" className="group inline-flex items-center gap-3" aria-label="Omega Solutions home">
-      <span className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-primary shadow-[0_0_28px_color-mix(in oklch, var(--primary) 7%, transparent)]">
+      <span className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-primary shadow-[0_0_28px_color-mix(in_oklch,var(--primary)_7%,transparent)]">
         <Boxes className="h-5 w-5" strokeWidth={2.2} />
       </span>
       <span className="text-[15px] font-semibold tracking-[-0.03em] text-white sm:text-base">
@@ -193,7 +193,7 @@ export default function LandingPage() {
           </div>
           <div className="hidden items-center gap-3 md:flex">
             <a href="/login" className="rounded-xl border border-white/[0.12] px-4 py-2.5 text-[12px] font-medium text-slate-200 transition hover:border-white/25 hover:bg-white/[0.04]">Sign In</a>
-            <a href="/accept-invitation" className="group inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_0_28px_color-mix(in oklch, var(--primary) 8%, transparent)] transition hover:bg-primary">Get Started <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></a>
+            <a href="/accept-invitation" className="group inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-[12px] font-semibold text-white shadow-[0_0_28px_color-mix(in_oklch,var(--primary)_8%,transparent)] transition hover:bg-primary">Get Started <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></a>
           </div>
           <button type="button" className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 text-slate-200 md:hidden" aria-label={mobileMenuOpen ? "Close menu" : "Open menu"} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen((open) => !open)}>{mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
         </nav>
@@ -210,7 +210,7 @@ export default function LandingPage() {
               <h1 className="text-[clamp(2.8rem,5.5vw,5.1rem)] font-semibold leading-[1.02] tracking-[-0.065em] text-white">The Operating System for <span className="text-primary">Modern Enterprise.</span></h1>
               <p className="mt-7 max-w-xl text-base leading-7 text-slate-400 sm:text-lg sm:leading-8">Bring CRM, Finance, POS, Manufacturing, Procurement, and HRM together in one connected ERP—so your people, processes, and business information move in sync.</p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <a href="/accept-invitation" className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white shadow-[0_0_34px_color-mix(in oklch, var(--primary) 10%, transparent)] transition hover:-translate-y-0.5 hover:bg-primary">Get Started <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></a>
+                <a href="/accept-invitation" className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white shadow-[0_0_34px_color-mix(in_oklch,var(--primary)_10%,transparent)] transition hover:-translate-y-0.5 hover:bg-primary">Get Started <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></a>
                 <a href="#modules" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.025] px-6 py-3 text-sm font-medium text-slate-200 transition hover:border-white/20 hover:bg-white/[0.05]"><Play className="h-4 w-4 fill-current" /> Explore the platform</a>
               </div>
               <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3 text-[11px] text-slate-500"><span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-primary" /> Connected business workflows</span><span className="inline-flex items-center gap-2"><Check className="h-3.5 w-3.5 text-primary" /> Role-aware access</span></div>
@@ -279,7 +279,7 @@ export default function LandingPage() {
             <div aria-hidden="true" className="pointer-events-none absolute -bottom-44 left-1/3 h-80 w-80 rounded-full bg-primary/[0.06] blur-[100px]" />
             <div className="relative flex flex-col items-start justify-between gap-8 lg:flex-row lg:items-center">
               <div className="max-w-2xl"><span className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.2em] text-primary"><Building2 className="h-3.5 w-3.5" /> Your business. Better connected.</span><h2 className="mt-4 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-4xl">One platform for your business.</h2><p className="mt-4 max-w-xl text-sm leading-7 text-slate-400 sm:text-base">Bring your teams, workflows, and business information together with Omega Solutions.</p></div>
-              <a href="/accept-invitation" className="group inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-[0_0_35px_color-mix(in oklch, var(--primary) 8%, transparent)] transition hover:-translate-y-0.5 hover:bg-primary">Get Started <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></a>
+              <a href="/accept-invitation" className="group inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-[0_0_35px_color-mix(in_oklch,var(--primary)_8%,transparent)] transition hover:-translate-y-0.5 hover:bg-primary">Get Started <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></a>
             </div>
           </div>
         </section>
