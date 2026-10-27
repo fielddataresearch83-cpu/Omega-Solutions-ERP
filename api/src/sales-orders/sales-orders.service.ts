@@ -121,7 +121,6 @@ export class SalesOrdersService {
     this.assertCompanyWideAccess(membership);
     let fromStatus: SalesOrderStatus = 'confirmed';
     let costOfGoods = 0;
-    if (next === 'fulfilled') await this.accounting.ensureDefaults(membership.companyId);
     const transition = await this.db.transaction(async (client) => {
       const current = await client.query<{ id: string; status: string; order_number: string }>(
         'SELECT id, status, order_number FROM sales_orders WHERE id = $1 AND company_id = $2 FOR UPDATE',
@@ -199,6 +198,7 @@ export class SalesOrdersService {
       }
 
       if (next === 'fulfilled' && costOfGoods > 0) {
+        await this.accounting.ensureDefaults(membership.companyId, client);
         const year = new Date().getFullYear();
         const seq = await client.query<{ next_number: number }>(
           `INSERT INTO journal_entry_sequences(company_id,entry_year,next_number)
