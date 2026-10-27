@@ -1,5 +1,6 @@
 import * as React from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { ArrowRight, Eye, EyeOff, Layers3, ShieldCheck, Sparkles } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +20,7 @@ export default function LoginPage() {
   const [mode, setMode] = React.useState<"login" | "register">("login")
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
+  const [showPassword, setShowPassword] = React.useState(false)
   const [fullName, setFullName] = React.useState("")
   const [phone, setPhone] = React.useState("")
   const [companyName, setCompanyName] = React.useState("")
@@ -30,7 +32,7 @@ export default function LoginPage() {
 
   React.useEffect(() => {
     if (!loading && user) navigate(destination, { replace: true })
-  }, [user, loading, navigate])
+  }, [user, loading, navigate, destination])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,13 +41,13 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       if (mfaChallengePending) {
-        const code = otp.trim();
+        const code = otp.trim()
         if (!/^(\d{6}|[a-fA-F0-9]{10})$/.test(code)) {
-          setError("Enter the 6-digit authenticator code or one unused 10-character recovery code.");
-          return;
+          setError("Enter the 6-digit authenticator code or one unused 10-character recovery code.")
+          return
         }
-        await completeMfaCode(code);
-        navigate(destination, { replace: true });
+        await completeMfaCode(code)
+        navigate(destination, { replace: true })
       } else if (verificationPending) {
         if (!/^\d{6}$/.test(otp.trim())) {
           setError("Enter the 6-digit verification code sent to your email.")
@@ -53,7 +55,6 @@ export default function LoginPage() {
         }
         const token = await verifyNeonEmailAndSignIn({ email, password, otp })
         await finishNeonRegistration(token, fullName || email.split("@")[0], phone || undefined, companyName || undefined)
-        // Preserve the protected destination so a new invitee returns to the invitation link after email verification.
         navigate(destination, { replace: true })
       } else if (mode === "login") {
         await loginEmail(email, password)
@@ -91,105 +92,107 @@ export default function LoginPage() {
   }
 
   if (loading) {
-    return <div className="flex min-h-svh items-center justify-center"><LoadingSpinner /></div>
+    return <div className="flex min-h-svh items-center justify-center bg-background"><LoadingSpinner /></div>
   }
 
+  const heading = mfaChallengePending
+    ? "Two-step verification"
+    : verificationPending
+      ? "Verify your email"
+      : mode === "login" ? "Welcome back" : "Create your account"
+
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-6 p-4">
-      <div className="absolute right-4 top-4"><ModeToggle /></div>
-      <div className="flex flex-col items-center gap-2">
-        <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-          <span className="text-xl font-bold">Ω</span>
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight">Omega Solutions</h1>
-        <p className="text-sm text-muted-foreground">ERP Platform</p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-xl border bg-card p-6 shadow-sm">
-        <div className="space-y-1 text-center">
-          <h2 className="text-lg font-semibold">
-            {mfaChallengePending ? "Two-step verification" : verificationPending ? "Verify your email" : mode === "login" ? "Sign in to your account" : "Create a new account"}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {mfaChallengePending
-              ? "Enter your authenticator code or an unused recovery code to finish signing in."
-              : verificationPending
-                ? `Enter the verification code sent to ${email}. You will then be signed in and taken to your dashboard.`
-                : mode === "login"
-                  ? "Enter your credentials to access the dashboard"
-                  : "Create your account. You must verify your email before your Omega company account is created."}
-          </p>
-        </div>
-
-        {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>}
-        {notice && <div role="status" className="rounded-lg border px-3 py-2 text-sm text-muted-foreground">{notice}</div>}
-
-        {mode === "register" && !verificationPending && !mfaChallengePending && (
-          <>
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="Jane Doe" autoComplete="name" />
+    <main className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background px-4 py-10 sm:px-6">
+      <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6"><ModeToggle /></div>
+      <div aria-hidden="true" className="pointer-events-none absolute -left-36 -top-36 size-[26rem] rounded-full bg-primary/10 blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-44 -right-36 size-[30rem] rounded-full bg-emerald-500/10 blur-3xl" />
+      <section className="relative grid w-full max-w-6xl overflow-hidden rounded-3xl border border-border/70 bg-card shadow-2xl shadow-emerald-950/10 lg:min-h-[680px] lg:grid-cols-[1.02fr_0.98fr]">
+        <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#0c2822] p-10 text-white sm:p-12 lg:flex">
+          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(52,213,154,0.25),transparent_55%)]" />
+          <div aria-hidden="true" className="absolute -bottom-24 -left-20 size-80 rounded-full border border-white/10" />
+          <div aria-hidden="true" className="absolute -bottom-12 -left-8 size-56 rounded-full border border-white/10" />
+          <div className="relative flex items-center gap-3">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-[#34D59A] text-2xl font-black text-[#0c2822] shadow-lg shadow-emerald-950/20">Ω</div>
+            <div><p className="text-base font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-white/55">Business management platform</p></div>
+          </div>
+          <div className="relative max-w-lg py-12">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#34D59A]/25 bg-[#34D59A]/10 px-3 py-1.5 text-xs font-medium text-[#75edbd]"><Sparkles className="size-3.5" /> Built for the way you work</div>
+            <h1 className="text-4xl font-semibold leading-[1.12] tracking-tight xl:text-5xl">One platform for your business.</h1>
+            <p className="mt-6 max-w-md text-base leading-7 text-white/65">Your operations, finances, inventory, sales and people — connected in one place.</p>
+            <div className="mt-10 grid max-w-md grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><Layers3 className="mb-4 size-5 text-[#34D59A]" /><p className="text-sm font-medium">Connected workflows</p><p className="mt-1 text-xs leading-5 text-white/50">Less switching. Better visibility.</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><ShieldCheck className="mb-4 size-5 text-[#34D59A]" /><p className="text-sm font-medium">Secure by design</p><p className="mt-1 text-xs leading-5 text-white/50">Your workspace, your access.</p></div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="companyName">Company Name</Label>
-              <Input id="companyName" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Acacia Trading Ltd" />
+          </div>
+          <div className="relative flex items-center justify-between text-xs text-white/40"><span>© {new Date().getFullYear()} Omega Solutions</span><span>Business, in sync.</span></div>
+        </aside>
+
+        <div className="flex items-center justify-center p-5 sm:p-10 lg:px-12">
+          <div className="w-full max-w-md py-5">
+            <div className="mb-9 flex items-center gap-3 lg:hidden">
+              <div className="flex size-11 items-center justify-center rounded-xl bg-[#0c2822] text-xl font-black text-[#34D59A]">Ω</div>
+              <div><p className="font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-muted-foreground">One platform for your business.</p></div>
             </div>
-          </>
-        )}
+            <div className="mb-8">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-primary">{mfaChallengePending ? "Account security" : verificationPending ? "Email verification" : mode === "login" ? "Your workspace awaits" : "Get started with Omega"}</p>
+              <h2 className="text-3xl font-semibold tracking-tight">{heading}</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {mfaChallengePending
+                  ? "Enter your authenticator code or an unused recovery code to finish signing in."
+                  : verificationPending
+                    ? `Enter the verification code sent to ${email}. You will then be signed in and returned to your requested page.`
+                    : mode === "login"
+                      ? "Sign in to continue to your Omega business workspace."
+                      : "Create your account. You must verify your email before your Omega company account is created."}
+              </p>
+            </div>
 
-        {!mfaChallengePending && <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={verificationPending} placeholder="you@example.com" autoComplete="email" />
-        </div>}
+            {error && <div role="alert" className="mb-5 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
+            {notice && <div role="status" className="mb-5 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">{notice}</div>}
 
-        {!verificationPending && !mfaChallengePending && (
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder={mode === "login" ? "Enter password" : "Min 8 characters"} autoComplete={mode === "login" ? "current-password" : "new-password"} />
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {mode === "register" && !verificationPending && !mfaChallengePending && (
+                <>
+                  <div className="space-y-2"><Label htmlFor="fullName">Full name</Label><Input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} required placeholder="Jane Doe" autoComplete="name" className="h-11 rounded-xl px-3" /></div>
+                  <div className="space-y-2"><Label htmlFor="companyName">Company name <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="companyName" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Acacia Trading Ltd" className="h-11 rounded-xl px-3" /></div>
+                </>
+              )}
+
+              {!mfaChallengePending && <div className="space-y-2">
+                <Label htmlFor="email">Email address</Label>
+                <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={verificationPending} placeholder="you@company.com" autoComplete="email" className="h-11 rounded-xl px-3" />
+              </div>}
+
+              {!verificationPending && !mfaChallengePending && <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3"><Label htmlFor="password">Password</Label>{mode === "login" && <Link to="/reset-password" className="text-xs font-semibold text-primary underline-offset-4 hover:underline">Forgot password?</Link>}</div>
+                <div className="relative">
+                  <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : undefined} placeholder={mode === "login" ? "Enter your password" : "At least 8 characters"} autoComplete={mode === "login" ? "current-password" : "new-password"} className="h-11 rounded-xl px-3 pr-12" />
+                  <button type="button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Eye className={showPassword ? "hidden size-4" : "size-4"} /><EyeOff className={showPassword ? "size-4" : "hidden size-4"} /></button>
+                </div>
+              </div>}
+
+              {mode === "register" && !verificationPending && !mfaChallengePending && <div className="space-y-2"><Label htmlFor="phone">Phone <span className="font-normal text-muted-foreground">(optional)</span></Label><Input id="phone" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+254 712 345 678" autoComplete="tel" className="h-11 rounded-xl px-3" /></div>}
+
+              {(verificationPending || mfaChallengePending) && <div className="space-y-2">
+                <Label htmlFor="otp">{mfaChallengePending ? "Authenticator / recovery code" : "Email verification code"}</Label>
+                <Input id="otp" inputMode={mfaChallengePending ? "text" : "numeric"} autoComplete="one-time-code" value={otp} onChange={e => setOtp(mfaChallengePending ? e.target.value.replace(/[^a-fA-F0-9]/g, "").slice(0, 10) : e.target.value.replace(/\D/g, "").slice(0, 6))} required placeholder={mfaChallengePending ? "6-digit or recovery code" : "6-digit code"} className="h-11 rounded-xl px-3" />
+                {verificationPending && <div className="text-right"><button type="button" onClick={resendCode} disabled={submitting} className="text-xs font-semibold text-primary underline-offset-4 hover:underline disabled:opacity-50">Resend verification code</button></div>}
+              </div>}
+
+              <Button type="submit" className="h-11 w-full rounded-xl bg-[#167653] font-semibold text-white shadow-lg shadow-emerald-950/10 transition-all hover:bg-[#105d41] dark:bg-[#34D59A] dark:text-[#0c2822] dark:hover:bg-[#62e5b3]" disabled={submitting}>
+                {submitting ? <LoadingSpinner className="size-4" /> : <>{mfaChallengePending ? "Verify and sign in" : verificationPending ? "Verify email and continue" : mode === "login" ? "Sign in to Omega" : "Create Omega account"}{!submitting && <ArrowRight className="ml-2 size-4" />}</>}
+              </Button>
+            </form>
+
+            {!verificationPending && <p className="mt-7 text-center text-sm text-muted-foreground">
+              {mode === "login" ? "New to Omega?" : "Already have an account?"}{" "}
+              <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); setNotice(null); setShowPassword(false) }} className="font-semibold text-primary underline-offset-4 hover:underline">{mode === "login" ? "Create an account" : "Sign in instead"}</button>
+            </p>}
+            {verificationPending && <div className="mt-7 text-center text-sm"><button type="button" onClick={() => { setVerificationPending(false); setOtp(""); setError(null); setNotice(null) }} className="font-semibold text-primary underline-offset-4 hover:underline">Back to registration</button></div>}
+            <div className="mt-8 flex items-center justify-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="size-3.5" /> Secure access to your business workspace</div>
           </div>
-        )}
-
-        {mode === "register" && !verificationPending && !mfaChallengePending && (
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone (optional)</Label>
-            <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+254 712 345 678" autoComplete="tel" />
-          </div>
-        )}
-
-        {(verificationPending || mfaChallengePending) && (
-          <div className="space-y-2">
-            <Label htmlFor="otp">{mfaChallengePending ? "Authenticator / recovery code" : "Email verification code"}</Label>
-            <Input id="otp" inputMode={mfaChallengePending ? "text" : "numeric"} autoComplete="one-time-code" value={otp} onChange={(e) => setOtp(mfaChallengePending ? e.target.value.replace(/[^a-fA-F0-9]/g, "").slice(0, 10) : e.target.value.replace(/\D/g, "").slice(0, 6))} required placeholder={mfaChallengePending ? "6-digit code or recovery code" : "6-digit code"} />
-            {verificationPending && <div className="text-right">
-              <button type="button" onClick={resendCode} disabled={submitting} className="text-sm font-medium text-primary hover:underline">Resend code</button>
-            </div>}
-          </div>
-        )}
-
-        <Button type="submit" className="w-full" disabled={submitting}>
-          {submitting ? <LoadingSpinner className="size-4" /> : mfaChallengePending ? "Verify and Sign In" : verificationPending ? "Verify email and continue" : mode === "login" ? "Sign In" : "Register"}
-        </Button>
-
-        {!verificationPending && (
-          <div className="text-center text-sm text-muted-foreground">
-            {mode === "login" ? (
-              <>Don't have an account?{" "}
-                <button type="button" onClick={() => { setMode("register"); setError(null); setNotice(null) }} className="font-medium text-primary hover:underline">Register</button>
-              </>
-            ) : (
-              <>Already have an account?{" "}
-                <button type="button" onClick={() => { setMode("login"); setError(null); setNotice(null) }} className="font-medium text-primary hover:underline">Sign in</button>
-              </>
-            )}
-          </div>
-        )}
-
-        {verificationPending && (
-          <div className="text-center text-sm text-muted-foreground">
-            <button type="button" onClick={() => { setVerificationPending(false); setOtp(""); setError(null); setNotice(null) }} className="font-medium text-primary hover:underline">Back to registration</button>
-          </div>
-        )}
-      </form>
-    </div>
+        </div>
+      </section>
+    </main>
   )
 }
