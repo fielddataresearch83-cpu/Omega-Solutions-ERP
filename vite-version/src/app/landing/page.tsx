@@ -116,7 +116,7 @@ function DashboardPreview() {
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0FB96F] text-[9px] font-bold text-white">O</div>
         </div>
         <div className="grid min-h-[330px] grid-cols-[108px_1fr] sm:grid-cols-[142px_1fr]">
-          <aside className="border-r border-white/[0.06] bg-[#211F1E]/70 p-2.5 sm:p-3.5">
+          <aside className="border-r border-white/[0.06] bg-[#000000]/70 p-2.5 sm:p-3.5">
             <p className="mb-3 px-2 text-[8px] font-semibold uppercase tracking-[.18em] text-slate-600">Workspace</p>
             {[
               ["Overview", BarChart3],
@@ -184,8 +184,8 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#211F1E] text-white selection:bg-[#0FB96F]/20 selection:text-white">
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#211F1E]/85 backdrop-blur-xl">
+    <div className="min-h-screen overflow-hidden bg-[#000000] text-white selection:bg-[#0FB96F]/20 selection:text-white">
+      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#000000]/85 backdrop-blur-xl">
         <nav className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8 lg:px-10" aria-label="Main navigation">
           <BrandMark />
           <div className="hidden items-center gap-8 md:flex">
@@ -197,7 +197,7 @@ export default function LandingPage() {
           </div>
           <button type="button" className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 text-slate-200 md:hidden" aria-label={mobileMenuOpen ? "Close menu" : "Open menu"} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen((open) => !open)}>{mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
         </nav>
-        {mobileMenuOpen && <div className="border-t border-white/[0.06] bg-[#211F1E] px-5 py-4 md:hidden"><div className="flex flex-col gap-1">{navLinks.map((link) => <a key={link.label} href={link.href} onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm text-slate-300 hover:bg-white/[0.04]">{link.label}</a>)}<div className="mt-2 grid grid-cols-2 gap-2"><a href="/login" className="rounded-xl border border-white/10 px-3 py-3 text-center text-sm">Sign In</a><a href="/accept-invitation" className="rounded-xl bg-[#0FB96F] px-3 py-3 text-center text-sm font-semibold text-white">Get Started</a></div></div></div>}
+        {mobileMenuOpen && <div className="border-t border-white/[0.06] bg-[#000000] px-5 py-4 md:hidden"><div className="flex flex-col gap-1">{navLinks.map((link) => <a key={link.label} href={link.href} onClick={() => setMobileMenuOpen(false)} className="rounded-lg px-3 py-3 text-sm text-slate-300 hover:bg-white/[0.04]">{link.label}</a>)}<div className="mt-2 grid grid-cols-2 gap-2"><a href="/login" className="rounded-xl border border-white/10 px-3 py-3 text-center text-sm">Sign In</a><a href="/accept-invitation" className="rounded-xl bg-[#0FB96F] px-3 py-3 text-center text-sm font-semibold text-white">Get Started</a></div></div></div>}
       </header>
 
       <main>
@@ -267,7 +267,7 @@ export default function LandingPage() {
                 { number: "1", suffix: "", title: "Shared platform", note: "A more connected workflow", icon: Globe2, color: "#0FB96F" },
                 { number: "360°", suffix: "", title: "Business visibility", note: "Information across teams", icon: BarChart3, color: "#0FB96F" },
                 { number: "24/7", suffix: "", title: "Access when needed", note: "A web-based workspace", icon: ShieldCheck, color: "#0FB96F" },
-              ].map((stat) => <div key={stat.title} className="rounded-2xl border border-white/[0.07] bg-[#211F1E]/55 p-6 text-center sm:p-7"><stat.icon className="mx-auto h-5 w-5" style={{ color: stat.color }} /><p className="mt-5 text-4xl font-semibold tracking-[-0.05em] text-white">{stat.number}{stat.suffix}</p><p className="mt-2 text-sm font-semibold text-slate-200">{stat.title}</p><p className="mt-1.5 text-xs text-slate-500">{stat.note}</p></div>)}
+              ].map((stat) => <div key={stat.title} className="rounded-2xl border border-white/[0.07] bg-[#000000]/55 p-6 text-center sm:p-7"><stat.icon className="mx-auto h-5 w-5" style={{ color: stat.color }} /><p className="mt-5 text-4xl font-semibold tracking-[-0.05em] text-white">{stat.number}{stat.suffix}</p><p className="mt-2 text-sm font-semibold text-slate-200">{stat.title}</p><p className="mt-1.5 text-xs text-slate-500">{stat.note}</p></div>)}
             </div>
             <p className="mt-5 text-center text-[10px] text-slate-600">Platform capability indicators, not customer-count or uptime claims.</p>
           </div>
@@ -285,7 +285,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-white/[0.06] bg-[#211F1E]">
+      <footer className="border-t border-white/[0.06] bg-[#000000]">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
           <BrandMark />
           <p className="text-xs text-slate-600">One platform for your business.</p>
