@@ -1,5 +1,6 @@
 import {
   Injectable,
+  BadRequestException,
   ConflictException,
   UnauthorizedException,
   NotFoundException,
@@ -72,6 +73,24 @@ export class AuthService {
     return { userId, companyId: result.companyId };
   }
 
+  async getNeonIdentityCompanies(token: string): Promise<Array<{ id: string; name: string; role: string; branchId: string | null }>> {
+    const identity = await verifyNeonIdentityToken(token);
+    const neonUserResult = await this.db.query<{ id: string; email: string; emailVerified: boolean }>(
+      'SELECT id, email, "emailVerified" AS "emailVerified" FROM neon_auth."user" WHERE id = $1 LIMIT 1',
+      [identity.sub],
+    );
+    const neonUser = neonUserResult.rows[0];
+    if (!neonUser || neonUser.emailVerified !== true || !neonUser.email) {
+      throw new UnauthorizedException('Verify your email address before accessing Omega.');
+    }
+    const omegaUser = await this.db.query<{ id: string; is_active: boolean }>(
+      'SELECT id, is_active FROM users WHERE lower(email) = $1',
+      [neonUser.email.trim().toLowerCase()],
+    );
+    if (!omegaUser.rows[0]) return [];
+    if (!omegaUser.rows[0].is_active) throw new UnauthorizedException('Account is deactivated');
+    return this.getActiveCompanies(omegaUser.rows[0].id);
+  }
   async exchangeNeonIdentity(dto: NeonExchangeDto): Promise<(TokenPair & { user: Omit<AuthenticatedUser, 'permissions'> }) | { mfaRequired: true; mfaChallengeToken: string }> {
     const identity = await verifyNeonIdentityToken(dto.token);
     // Read the verified identity from Neon Auth's own database schema; never trust an email supplied by the browser.
@@ -134,6 +153,10 @@ export class AuthService {
       user = { id: userId, email, full_name: fullName, is_active: true };
       membership = { companyId: created.companyId, branchId: null, role: 'owner' };
     } else {
+      if (!dto.companyId) {
+        const activeCompanies = await this.getActiveCompanies(user.id);
+        if (activeCompanies.length > 1) throw new BadRequestException('Choose a company before signing in.');
+      }
       membership = await this.getUserMembership(user.id, dto.companyId);
       if (!membership.companyId) {
         throw new UnauthorizedException('This account has no active company membership. Contact your administrator.');
