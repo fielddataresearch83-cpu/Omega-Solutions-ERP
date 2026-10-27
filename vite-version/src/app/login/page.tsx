@@ -102,17 +102,17 @@ export default function LoginPage() {
       : mode === "login" ? "Welcome back" : "Create your account"
 
   return (
-    <main className="relative flex min-h-svh items-center justify-center overflow-hidden bg-background px-4 py-10 sm:px-6">
+    <main className="auth-shell relative flex min-h-svh items-center justify-center overflow-hidden bg-background px-4 py-10 sm:px-6">
       <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6"><ModeToggle /></div>
       <div aria-hidden="true" className="pointer-events-none absolute -left-36 -top-36 size-[26rem] rounded-full bg-primary/10 blur-3xl" />
       <div aria-hidden="true" className="pointer-events-none absolute -bottom-44 -right-36 size-[30rem] rounded-full bg-emerald-500/10 blur-3xl" />
       <section className="relative grid w-full max-w-6xl overflow-hidden rounded-3xl border border-border/70 bg-card shadow-2xl shadow-emerald-950/10 lg:min-h-[680px] lg:grid-cols-[1.02fr_0.98fr]">
-        <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#0c2822] p-10 text-white sm:p-12 lg:flex">
+        <aside className="relative hidden flex-col justify-between overflow-hidden auth-brand-panel p-10 text-white sm:p-12 lg:flex">
           <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(52,213,154,0.25),transparent_55%)]" />
           <div aria-hidden="true" className="absolute -bottom-24 -left-20 size-80 rounded-full border border-white/10" />
           <div aria-hidden="true" className="absolute -bottom-12 -left-8 size-56 rounded-full border border-white/10" />
           <div className="relative flex items-center gap-3">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-[#34D59A] text-2xl font-black text-[#0c2822] shadow-lg shadow-emerald-950/20">Ω</div>
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-2xl font-black text-[#090D16] shadow-lg shadow-emerald-950/20">Ω</div>
             <div><p className="text-base font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-white/55">Business management platform</p></div>
           </div>
           <div className="relative max-w-lg py-12">
@@ -130,7 +130,7 @@ export default function LoginPage() {
         <div className="flex items-center justify-center p-5 sm:p-10 lg:px-12">
           <div className="w-full max-w-md py-5">
             <div className="mb-9 flex items-center gap-3 lg:hidden">
-              <div className="flex size-11 items-center justify-center rounded-xl bg-[#0c2822] text-xl font-black text-[#34D59A]">Ω</div>
+              <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-black text-[#090D16]">Ω</div>
               <div><p className="font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-muted-foreground">One platform for your business.</p></div>
             </div>
             <div className="mb-8">
@@ -179,7 +179,7 @@ export default function LoginPage() {
                 {verificationPending && <div className="text-right"><button type="button" onClick={resendCode} disabled={submitting} className="text-xs font-semibold text-primary underline-offset-4 hover:underline disabled:opacity-50">Resend verification code</button></div>}
               </div>}
 
-              <Button type="submit" className="h-11 w-full rounded-xl bg-[#167653] font-semibold text-white shadow-lg shadow-emerald-950/10 transition-all hover:bg-[#105d41] dark:bg-[#34D59A] dark:text-[#0c2822] dark:hover:bg-[#62e5b3]" disabled={submitting}>
+              <Button type="submit" className="h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground shadow-lg shadow-emerald-950/10 transition-all hover:bg-primary/90" disabled={submitting}>
                 {submitting ? <LoadingSpinner className="size-4" /> : <>{mfaChallengePending ? "Verify and sign in" : verificationPending ? "Verify email and continue" : mode === "login" ? "Sign in to Omega" : "Create Omega account"}{!submitting && <ArrowRight className="ml-2 size-4" />}</>}
               </Button>
             </form>
