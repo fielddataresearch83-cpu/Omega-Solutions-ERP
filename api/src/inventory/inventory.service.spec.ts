@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { AccountingService } from '../accounting/accounting.service.js';
 import { InventoryService } from './inventory.service.js';
 
 type Mock = ReturnType<typeof vi.fn>;
@@ -12,11 +13,13 @@ describe('InventoryService', () => {
   let db: { query: Mock; transaction: Mock };
   let memberships: { getMembership: Mock };
   let audit: { log: Mock };
+  let accounting: { ensureDefaults: Mock };
 
   beforeEach(async () => {
     db = { query: vi.fn(), transaction: vi.fn() };
     memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'owner' }) };
     audit = { log: vi.fn().mockResolvedValue(undefined) };
+    accounting = { ensureDefaults: vi.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -24,6 +27,7 @@ describe('InventoryService', () => {
         { provide: DatabaseService, useValue: db },
         { provide: MembershipsService, useValue: memberships },
         { provide: AuditService, useValue: audit },
+        { provide: AccountingService, useValue: accounting },
       ],
     }).compile();
 
@@ -364,6 +368,9 @@ describe('InventoryService', () => {
       if (sql.includes('FROM warehouses WHERE id=$1')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
       if (sql.includes('SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels')) return { rows: [{ quantity: '3', reserved_quantity: '1', average_unit_cost: '10' }], rowCount: 1 };
       if (sql.includes('INSERT INTO inventory_stock_movements')) return { rows: [{ id: 'receipt-movement', movement_type: params?.[3], quantity: params?.[4] }], rowCount: 1 };
+      if (sql.includes("system_code IN ('inventory','purchases_expense')")) return { rows: [{id:'account-inventory',system_code:'inventory'},{id:'account-adjustment',system_code:'purchases_expense'}], rowCount: 2 };
+      if (sql.includes('INSERT INTO journal_entry_sequences')) return { rows: [{next_number:1}], rowCount:1 };
+      if (sql.includes('INSERT INTO journal_entries')) return { rows: [{id:'journal-receipt'}], rowCount:1 };
       return { rows: [], rowCount: 1 };
     }) };
     db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
@@ -391,6 +398,9 @@ describe('InventoryService', () => {
       if (sql.includes('FROM warehouses WHERE id=$1')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
       if (sql.includes('SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels')) return { rows: [{ quantity: '10', reserved_quantity: '1', average_unit_cost: '7.25' }], rowCount: 1 };
       if (sql.includes('INSERT INTO inventory_stock_movements')) return { rows: [{ id: 'issue-movement', movement_type: params?.[3], quantity: params?.[4], unit_cost: params?.[5] }], rowCount: 1 };
+      if (sql.includes("system_code IN ('inventory','purchases_expense')")) return { rows: [{id:'account-inventory',system_code:'inventory'},{id:'account-adjustment',system_code:'purchases_expense'}], rowCount: 2 };
+      if (sql.includes('INSERT INTO journal_entry_sequences')) return { rows: [{next_number:1}], rowCount:1 };
+      if (sql.includes('INSERT INTO journal_entries')) return { rows: [{id:'journal-issue'}], rowCount:1 };
       return { rows: [], rowCount: 1 };
     }) };
     db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
