@@ -102,6 +102,48 @@ export class PurchaseOrdersService {
     await this.audit.log({userId:user.userId,companyId:m.companyId,branchId:null,action:'purchase_order.status_change',entityType:'purchase_order',entityId:id,oldValues:{status:state},newValues:{status:dto.status},ipAddress:null});
     return this.getById(user,id);
   }
+  async listReceipts(user: AuthenticatedUser, id: string) {
+    const membership = await this.companyFor(user);
+    this.assertCompanyWideProcurement(membership);
+    const { companyId } = membership;
+    const order = await this.db.query(
+      'SELECT id FROM purchase_orders WHERE id=$1 AND company_id=$2',
+      [id, companyId],
+    );
+    if (!order.rows[0]) throw new NotFoundException('Purchase order not found.');
+    const receipts = await this.db.query(
+      `SELECT gr.id,gr.company_id,gr.purchase_order_id,gr.warehouse_id,w.name AS warehouse_name,
+              gr.receipt_reference,gr.notes,gr.received_by,gr.received_at,gr.receipt_value,
+              u.name AS received_by_name
+       FROM goods_receipts gr
+       JOIN warehouses w ON w.id=gr.warehouse_id AND w.company_id=gr.company_id
+       LEFT JOIN users u ON u.id=gr.received_by
+       WHERE gr.company_id=$1 AND gr.purchase_order_id=$2
+       ORDER BY gr.received_at DESC,gr.id DESC`,
+      [companyId, id],
+    );
+    const items = await this.db.query(
+      `SELECT gri.id,gri.goods_receipt_id,gri.purchase_order_item_id,gri.product_id,
+              p.name AS product_name,gri.quantity,gri.unit_cost,gri.line_value,gri.created_at
+       FROM goods_receipt_items gri
+       JOIN products p ON p.id=gri.product_id AND p.company_id=gri.company_id
+       JOIN goods_receipts gr ON gr.id=gri.goods_receipt_id AND gr.company_id=gri.company_id
+       WHERE gri.company_id=$1 AND gr.purchase_order_id=$2
+       ORDER BY gri.created_at,gri.id`,
+      [companyId, id],
+    );
+    const itemsByReceipt = new Map<string, typeof items.rows>();
+    for (const item of items.rows) {
+      const bucket = itemsByReceipt.get(item.goods_receipt_id) ?? [];
+      bucket.push(item);
+      itemsByReceipt.set(item.goods_receipt_id, bucket);
+    }
+    return receipts.rows.map(receipt => ({
+      ...receipt,
+      items: itemsByReceipt.get(receipt.id) ?? [],
+    }));
+  }
+
   async receive(user:AuthenticatedUser,id:string,dto:ReceivePurchaseOrderDto) {
     const m=await this.companyFor(user); this.assertCompanyWideProcurement(m);
     if (!dto.items?.length) throw new BadRequestException('Select at least one purchase order line to receive.');
