@@ -16,7 +16,7 @@ export class PurchaseOrdersService {
     const year = new Date().getFullYear();
     const seq = await client.query<{ next_number: number }>(`INSERT INTO journal_entry_sequences(company_id,entry_year,next_number) VALUES($1,$2,1) ON CONFLICT(company_id,entry_year) DO UPDATE SET next_number=journal_entry_sequences.next_number+1 RETURNING next_number`, [input.companyId, year]);
     const number = `JE-${year}-${String(seq.rows[0].next_number).padStart(6, '0')}`;
-    const entry = await client.query<{ id: string }>(`INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by) VALUES($1,$2,CURRENT_DATE,$3,'purchase_order_receipt',$4,'posted',NOW(),$5) RETURNING id`, [input.companyId, number, `Goods received for ${input.orderNumber} (PO ${input.orderId}; receipt ${input.receiptId})`, input.receiptId, input.userId]);
+    const entry = await client.query<{ id: string }>(`INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,goods_receipt_id,status,posted_at,posted_by) VALUES($1,$2,CURRENT_DATE,$3,'purchase_order_receipt',$4,$4,'posted',NOW(),$5) RETURNING id`, [input.companyId, number, `Goods received for ${input.orderNumber} (PO ${input.orderId}; receipt ${input.receiptId})`, input.receiptId, input.userId]);
     const accounts = await client.query<{ id: string; system_code: string }>(`SELECT id,system_code FROM chart_of_accounts WHERE company_id=$1 AND system_code IN ('inventory','goods_received_not_invoiced') AND is_active=true`, [input.companyId]);
     const inventory = accounts.rows.find(a => a.system_code === 'inventory');
     const grni = accounts.rows.find(a => a.system_code === 'goods_received_not_invoiced');
