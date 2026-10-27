@@ -88,7 +88,7 @@ function MetricCard({
     emerald: "bg-success/10 text-success ring-success/15",
     sky: "bg-chart-2/10 text-chart-2 ring-chart-2/15 dark:text-chart-2",
     violet: "bg-chart-4/10 text-chart-4 ring-chart-4/15 dark:text-chart-4",
-    amber: "bg-warning/10 text-warning ring-amber-500/15 dark:text-warning",
+    amber: "bg-warning/10 text-warning ring-warning/15 dark:text-warning",
   }
 
   return (
