@@ -105,23 +105,23 @@ export default function LoginPage() {
     <main className="auth-shell relative flex min-h-svh items-center justify-center overflow-hidden bg-background px-4 py-10 sm:px-6">
       <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6"><ModeToggle /></div>
       <div aria-hidden="true" className="pointer-events-none absolute -left-36 -top-36 size-[26rem] rounded-full bg-primary/10 blur-3xl" />
-      <div aria-hidden="true" className="pointer-events-none absolute -bottom-44 -right-36 size-[30rem] rounded-full bg-emerald-500/10 blur-3xl" />
-      <section className="relative grid w-full max-w-6xl overflow-hidden rounded-3xl border border-border/70 bg-card shadow-2xl shadow-emerald-950/10 lg:min-h-[680px] lg:grid-cols-[1.02fr_0.98fr]">
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-44 -right-36 size-[30rem] rounded-full bg-primary/10 blur-3xl" />
+      <section className="relative grid w-full max-w-6xl overflow-hidden rounded-3xl border border-border/70 bg-card shadow-2xl shadow-primary/10 lg:min-h-[680px] lg:grid-cols-[1.02fr_0.98fr]">
         <aside className="relative hidden flex-col justify-between overflow-hidden auth-brand-panel p-10 text-white sm:p-12 lg:flex">
           <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(52,213,154,0.25),transparent_55%)]" />
           <div aria-hidden="true" className="absolute -bottom-24 -left-20 size-80 rounded-full border border-white/10" />
           <div aria-hidden="true" className="absolute -bottom-12 -left-8 size-56 rounded-full border border-white/10" />
           <div className="relative flex items-center gap-3">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-2xl font-black text-[#000000] shadow-lg shadow-emerald-950/20">Ω</div>
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-primary text-2xl font-black text-primary-foreground shadow-lg shadow-primary/20">Ω</div>
             <div><p className="text-base font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-white/55">Business management platform</p></div>
           </div>
           <div className="relative max-w-lg py-12">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#0FB96F]/25 bg-[#0FB96F]/10 px-3 py-1.5 text-xs font-medium text-[#85B7A1]"><Sparkles className="size-3.5" /> Built for the way you work</div>
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary"><Sparkles className="size-3.5" /> Built for the way you work</div>
             <h1 className="text-4xl font-semibold leading-[1.12] tracking-tight xl:text-5xl">One platform for your business.</h1>
             <p className="mt-6 max-w-md text-base leading-7 text-white/65">Your operations, finances, inventory, sales and people — connected in one place.</p>
             <div className="mt-10 grid max-w-md grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><Layers3 className="mb-4 size-5 text-[#0FB96F]" /><p className="text-sm font-medium">Connected workflows</p><p className="mt-1 text-xs leading-5 text-white/50">Less switching. Better visibility.</p></div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><ShieldCheck className="mb-4 size-5 text-[#0FB96F]" /><p className="text-sm font-medium">Secure by design</p><p className="mt-1 text-xs leading-5 text-white/50">Your workspace, your access.</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><Layers3 className="mb-4 size-5 text-primary" /><p className="text-sm font-medium">Connected workflows</p><p className="mt-1 text-xs leading-5 text-white/50">Less switching. Better visibility.</p></div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><ShieldCheck className="mb-4 size-5 text-primary" /><p className="text-sm font-medium">Secure by design</p><p className="mt-1 text-xs leading-5 text-white/50">Your workspace, your access.</p></div>
             </div>
           </div>
           <div className="relative flex items-center justify-between text-xs text-white/40"><span>© {new Date().getFullYear()} Omega Solutions</span><span>Business, in sync.</span></div>
@@ -130,7 +130,7 @@ export default function LoginPage() {
         <div className="flex items-center justify-center p-5 sm:p-10 lg:px-12">
           <div className="w-full max-w-md py-5">
             <div className="mb-9 flex items-center gap-3 lg:hidden">
-              <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-black text-[#000000]">Ω</div>
+              <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-black text-primary-foreground">Ω</div>
               <div><p className="font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-muted-foreground">One platform for your business.</p></div>
             </div>
             <div className="mb-8">
@@ -179,7 +179,7 @@ export default function LoginPage() {
                 {verificationPending && <div className="text-right"><button type="button" onClick={resendCode} disabled={submitting} className="text-xs font-semibold text-primary underline-offset-4 hover:underline disabled:opacity-50">Resend verification code</button></div>}
               </div>}
 
-              <Button type="submit" className="h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground shadow-lg shadow-emerald-950/10 transition-all hover:bg-primary/90" disabled={submitting}>
+              <Button type="submit" className="h-11 w-full rounded-xl bg-primary font-semibold text-primary-foreground shadow-lg shadow-primary/10 transition-all hover:bg-primary/90" disabled={submitting}>
                 {submitting ? <LoadingSpinner className="size-4" /> : <>{mfaChallengePending ? "Verify and sign in" : verificationPending ? "Verify email and continue" : mode === "login" ? "Sign in to Omega" : "Create Omega account"}{!submitting && <ArrowRight className="ml-2 size-4" />}</>}
               </Button>
             </form>
