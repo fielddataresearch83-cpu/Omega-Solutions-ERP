@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import { AccountingService } from '../accounting/accounting.service.js';
 import { InventoryService } from './inventory.service.js';
 
 type Mock = ReturnType<typeof vi.fn>;
@@ -37,6 +38,7 @@ describe('InventoryService tenant isolation', () => {
         { provide: DatabaseService, useValue: db },
         { provide: MembershipsService, useValue: memberships },
         { provide: AuditService, useValue: audit },
+        { provide: AccountingService, useValue: { ensureDefaults: vi.fn().mockResolvedValue(undefined) } },
       ],
     }).compile();
 
