@@ -34,7 +34,7 @@ function App() {
       className="font-sans antialiased"
       style={{ fontFamily: "var(--font-inter)" }}
     >
-      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
         <AuthProvider>
           <SidebarConfigProvider>
             <Toaster>
