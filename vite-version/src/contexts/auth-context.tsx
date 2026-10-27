@@ -1,7 +1,8 @@
 import * as React from "react";
 import type { AuthenticatedUser } from "@/lib/api-types";
 import { api, getAccessToken, getRefreshToken, setTokens, clearTokens } from "@/lib/api-client";
-import { getCurrentUser, login, exchangeNeonToken, exchangeNeonInvitationToken, completeMfaChallenge } from "@/lib/auth-api";
+import { getCurrentUser, login, exchangeNeonToken, exchangeNeonInvitationToken, completeMfaChallenge, getNeonIdentityCompanies } from "@/lib/auth-api";
+import type { LoginCompanyChoice } from "@/lib/auth-api";
 import { signInWithNeon } from "@/lib/neon-auth-api";
 import type { LoginResponse, MfaChallengeResponse } from "@/lib/auth-api";
 
@@ -12,6 +13,8 @@ interface AuthContextValue {
   mfaChallengePending: boolean;
   completeMfaCode: (code: string) => Promise<void>;
   loginEmail: (email: string, password: string) => Promise<void>;
+  companyChoices: LoginCompanyChoice[];
+  selectLoginCompany: (companyId: string) => Promise<void>;
   registerUser: (email: string, password: string, fullName: string, phone?: string, companyName?: string) => Promise<void>;
   finishNeonRegistration: (token: string, fullName: string, phone?: string, companyName?: string) => Promise<void>;
   finishNeonInvitation: (token: string, invitationToken: string) => Promise<boolean>;
@@ -27,6 +30,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [mfaChallengeToken, setMfaChallengeToken] = React.useState<string | null>(null);
+  const [companyChoices, setCompanyChoices] = React.useState<LoginCompanyChoice[]>([]);
+  const [pendingIdentityToken, setPendingIdentityToken] = React.useState<string | null>(null);
+  const [pendingIdentityEmail, setPendingIdentityEmail] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const token = getAccessToken();
@@ -62,11 +68,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginEmail = React.useCallback(async (email: string, password: string) => {
     setError(null);
+    setCompanyChoices([]);
+    setPendingIdentityToken(null);
+    setPendingIdentityEmail(null);
     let neonError: unknown;
     if (import.meta.env.VITE_NEON_AUTH_URL) {
       try {
         const token = await signInWithNeon(email, password);
-        const result = await exchangeNeonToken(token, email, undefined, undefined);
+        const companies = await getNeonIdentityCompanies(token);
+        if (companies.length > 1) {
+          setPendingIdentityToken(token);
+          setPendingIdentityEmail(email);
+          setCompanyChoices(companies);
+          return;
+        }
+        const result = await exchangeNeonToken(token, email, undefined, undefined, companies[0]?.id);
         await applyOmegaSession(result);
         return;
       } catch (err) {
@@ -81,6 +97,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw legacyError;
     }
   }, [applyOmegaSession]);
+
+  const selectLoginCompany = React.useCallback(async (companyId: string) => {
+    if (!pendingIdentityToken || !pendingIdentityEmail) throw new Error("Your sign-in has expired. Please sign in again.");
+    if (!companyChoices.some((company) => company.id === companyId)) throw new Error("Choose one of your listed active companies.");
+    const result = await exchangeNeonToken(pendingIdentityToken, pendingIdentityEmail, undefined, undefined, companyId);
+    setCompanyChoices([]);
+    setPendingIdentityToken(null);
+    setPendingIdentityEmail(null);
+    await applyOmegaSession(result);
+  }, [pendingIdentityToken, pendingIdentityEmail, companyChoices, applyOmegaSession]);
 
   const completeMfaCode = React.useCallback(async (code: string) => {
     if (!mfaChallengeToken) throw new Error("No active MFA challenge. Please sign in again.");
@@ -145,6 +171,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     error,
     mfaChallengePending: Boolean(mfaChallengeToken),
+    companyChoices,
+    selectLoginCompany,
     completeMfaCode,
     loginEmail,
     registerUser,
