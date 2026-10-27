@@ -44,3 +44,18 @@ describe('SubscriptionsService missing-plan safeguards', () => {
     await expect(service.assertBranchCapacity('company-legacy')).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
+
+describe('SubscriptionsService.getModuleCatalogue', () => {
+  it('exposes core only and reports a plan requirement for a legacy company', async () => {
+    const db = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }),
+    };
+    const service = new SubscriptionsService(db as any);
+    const result = await service.getModuleCatalogue('company-legacy');
+    expect(result.accessMode).toBe('subscription_required');
+    expect(result.modules.find((module) => module.code === 'core')?.enabled).toBe(true);
+    expect(result.modules.filter((module) => module.code !== 'core').every((module) => !module.enabled)).toBe(true);
+  });
+});
