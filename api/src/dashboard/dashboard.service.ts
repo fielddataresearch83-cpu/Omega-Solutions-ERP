@@ -59,7 +59,10 @@ export class DashboardService {
       };
     }
 
-    if (can('inventory', 'products:read')) {
+    // Product stock_quantity is a company-level aggregate, not a branch ledger.
+    // Until stock is calculated from branch-scoped movements, suppress inventory summaries
+    // for branch-bound users rather than exposing company-wide figures.
+    if (can('inventory', 'products:read') && !membership.branchId) {
       const inventory = await this.db.query<{ active_products: number; low_stock: number; cost_value: string | number }>(
         `SELECT
            COUNT(*) FILTER (WHERE is_active = TRUE)::int AS active_products,
