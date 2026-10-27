@@ -66,9 +66,11 @@ export default function LoginPage() {
         if (!import.meta.env.VITE_NEON_AUTH_URL) {
           throw new Error("Email verification is not configured on this deployment. Registration is temporarily unavailable; please contact support.")
         }
-        await registerUser(email, password, fullName, phone || undefined, companyName || undefined)
+        const verificationSent = await registerUser(email, password, fullName, phone || undefined, companyName || undefined)
         setVerificationPending(true)
-        setNotice("We sent a verification code to your email. Enter it below to verify your address and finish creating your Omega account.")
+        setNotice(verificationSent
+          ? "We sent a verification code to your email. Enter it below to verify your address and finish creating your Omega account."
+          : "Your account was created, but we couldn't send the verification code. Use “Resend verification code” below to try again. Don't submit the registration form again.")
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed")
@@ -237,7 +239,7 @@ export default function LoginPage() {
               {mode === "login" ? "New to Omega?" : "Already have an account?"}{" "}
               <button type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(null); setNotice(null); setShowPassword(false) }} className="font-semibold text-primary underline-offset-4 hover:underline">{mode === "login" ? "Create an account" : "Sign in instead"}</button>
             </p>}
-            {verificationPending && companyChoices.length === 0 && <div className="mt-7 text-center text-sm"><button type="button" onClick={() => { setVerificationPending(false); setOtp(""); setError(null); setNotice(null) }} className="font-semibold text-primary underline-offset-4 hover:underline">Back to registration</button></div>}
+
             <div className="mt-8 flex items-center justify-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="size-3.5" /> Secure access to your business workspace</div>
           </div>
         </div>
