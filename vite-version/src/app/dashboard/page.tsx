@@ -160,9 +160,9 @@ export default function Page() {
 
   const canUseModule = (moduleCode: string) => {
     if (dashboard.loading || !dashboard.data) return false
-    if (!dashboard.data.subscription) return true
-    return ["active", "trialing"].includes(dashboard.data.subscription.status) &&
-      dashboard.data.modules?.[moduleCode] === true
+    // Fail closed: optional modules require an active subscription and an explicit API entitlement.
+    if (!dashboard.data.subscription || !["active", "trialing"].includes(dashboard.data.subscription.status)) return false
+    return dashboard.data.modules?.[moduleCode] === true
   }
   const canReadSales = canUseModule("sales") && permissions.has("sales:read")
   const canReadCustomers = canUseModule("sales") && permissions.has("customers:read")
