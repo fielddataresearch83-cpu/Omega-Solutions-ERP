@@ -92,7 +92,7 @@ function MetricCard({
   }
 
   return (
-    <Card className="group min-w-0 overflow-hidden rounded-2xl border-border bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-input hover:shadow-lg hover:shadow-slate-200/50 dark:hover:border-border dark:hover:shadow-black/20">
+    <Card className="group min-w-0 overflow-hidden rounded-2xl border-border bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-input hover:shadow-lg hover:shadow-foreground/5 dark:hover:border-border dark:hover:shadow-black/20">
       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-3 pt-5">
         <div className="min-w-0 space-y-2">
           <CardDescription className="text-xs font-semibold tracking-wide text-muted-foreground">{label}</CardDescription>
@@ -102,12 +102,12 @@ function MetricCard({
           <Icon className="size-5" strokeWidth={1.9} aria-hidden="true" />
         </div>
       </CardHeader>
-      <CardContent className="flex min-h-11 items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
+      <CardContent className="flex min-h-11 items-center justify-between gap-2 border-t border-border pt-3 dark:border-border">
         <span className="min-w-0 text-xs leading-relaxed text-muted-foreground">{detail}</span>
         <Link
           to={href}
           aria-label={"View " + label.toLowerCase()}
-          className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-primary"
+          className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-muted-foreground transition hover:text-primary"
         >
           View <ArrowUpRight className="size-3.5" />
         </Link>
@@ -206,16 +206,16 @@ export default function Page() {
   return (
     <BaseLayout>
       <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-7 px-4 py-3 sm:px-6 lg:px-8">
-        <section className="relative isolate overflow-hidden rounded-2xl border border-border bg-card px-5 py-6 shadow-sm dark:border-white/[0.07] dark:bg-[#121826] sm:px-7 sm:py-8">
+        <section className="relative isolate overflow-hidden rounded-2xl border border-border bg-card px-5 py-6 shadow-sm dark:border-border dark:bg-card sm:px-7 sm:py-8">
           <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 size-72 rounded-full bg-primary/10 blur-3xl dark:bg-primary/10" />
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 right-1/4 -z-10 size-56 rounded-full bg-sky-400/[0.08] blur-3xl" />
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.07] px-3 py-1.5 text-[10px] font-bold tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-                <span className="size-1.5 rounded-full bg-emerald-500 shadow-[0_0_9px_rgba(16,185,129,0.75)]" />
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/10 px-3 py-1.5 text-[10px] font-bold tracking-[0.16em] text-success">
+                <span className="size-1.5 rounded-full bg-success shadow-[0_0_9px_rgba(16,185,129,0.75)]" />
                 BUSINESS OVERVIEW
               </div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+              <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
                 One platform for your business.
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
@@ -228,12 +228,12 @@ export default function Page() {
             </div>
             <div className="flex flex-wrap gap-2">
               {canReadSales && (
-                <Link to="/invoices" className={buttonVariants({ className: "h-10 rounded-xl bg-emerald-500 px-4 text-xs font-bold text-white shadow-md shadow-emerald-600/15 hover:bg-emerald-400" })}>
+                <Link to="/invoices" className={buttonVariants({ className: "h-10 rounded-xl bg-success px-4 text-xs font-bold text-primary-foreground shadow-md shadow-primary/15 hover:bg-success" })}>
                   <FilePlus2 className="mr-2 size-4" /> Sales invoices
                 </Link>
               )}
               {canReadProducts && (
-                <Link to="/products" className={buttonVariants({ variant: "outline", className: "h-10 rounded-xl border-border bg-card/80 text-xs dark:border-white/10 dark:bg-white/[0.03]" })}>
+                <Link to="/products" className={buttonVariants({ variant: "outline", className: "h-10 rounded-xl border-border bg-card/80 text-xs dark:border-border dark:bg-card/[0.03]" })}>
                   <Package className="mr-2 size-4" /> Products
                 </Link>
               )}
@@ -263,7 +263,7 @@ export default function Page() {
         <section aria-label="Business summary">
           <SectionHeading title="At a glance" detail="Live figures from your current company records" />
           {loading ? (
-            <div className="flex min-h-44 items-center justify-center rounded-2xl border border-border bg-card dark:border-white/[0.07] dark:bg-[#121826]">
+            <div className="flex min-h-44 items-center justify-center rounded-2xl border border-border bg-card dark:border-border dark:bg-card">
               <LoadingSpinner />
             </div>
           ) : (
@@ -281,7 +281,7 @@ export default function Page() {
                 <MetricCard label="Inventory value" value={formatCompanyCurrency(inventoryCost)} detail="Recorded stock cost value" icon={Package} href="/products" tone="amber" />
               )}
               {!canReadCustomers && !canReadProcurement && !canReadProducts && (
-                <div className="col-span-full rounded-2xl border border-border bg-card p-5 text-sm text-slate-500 dark:border-white/[0.07] dark:bg-[#121826] dark:text-slate-400">
+                <div className="col-span-full rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground dark:border-border dark:bg-card dark:text-muted-foreground">
                   Your current role or subscription does not have access to these summary metrics.
                 </div>
               )}
@@ -291,26 +291,26 @@ export default function Page() {
 
         {canReadSales && (
           <section className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.85fr)]" aria-label="Sales and invoices">
-            <Card className="min-w-0 overflow-hidden rounded-2xl border-border bg-card shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
+            <Card className="min-w-0 overflow-hidden rounded-2xl border-border bg-card shadow-sm dark:border-border dark:bg-card">
               <CardHeader className="flex flex-col gap-3 space-y-0 pb-0 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_9px_rgba(16,185,129,0.65)]" />
+                    <span className="size-2 rounded-full bg-success shadow-[0_0_9px_rgba(16,185,129,0.65)]" />
                     <CardTitle className="text-sm font-bold text-foreground">Invoice trend</CardTitle>
                   </div>
                   <CardDescription className="mt-2 text-xs leading-relaxed text-muted-foreground">
                     Monthly invoice totals · last six months · {currency}
                   </CardDescription>
                 </div>
-                <Link to="/invoices" className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 transition hover:text-emerald-600 dark:text-emerald-400">
+                <Link to="/invoices" className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 transition hover:text-success">
                   View invoices <ArrowUpRight className="size-3.5" />
                 </Link>
               </CardHeader>
               <CardContent className="pt-5">
                 {invoiceTrend.every((month) => month.total === 0) ? (
                   <div className="flex min-h-56 flex-col items-center justify-center gap-2 text-center">
-                    <div className="rounded-full bg-emerald-500/10 p-3 text-emerald-600 dark:text-emerald-400"><TrendingUp className="size-5" /></div>
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">No invoice activity in this period</p>
+                    <div className="rounded-full bg-success/10 p-3 text-success"><TrendingUp className="size-5" /></div>
+                    <p className="text-sm font-semibold text-foreground">No invoice activity in this period</p>
                     <p className="text-xs text-muted-foreground">Invoice totals will appear here when records are available.</p>
                   </div>
                 ) : (
@@ -358,14 +358,14 @@ export default function Page() {
                     </ResponsiveContainer>
                   </div>
                 )}
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4 dark:border-white/[0.06]">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4 dark:border-border">
                   <span className="text-[11px] text-muted-foreground">Based on invoice totals returned by your dashboard API</span>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"><span className="size-1.5 rounded-full bg-emerald-500" /> Live company data</span>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-success"><span className="size-1.5 rounded-full bg-success" /> Live company data</span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="min-w-0 rounded-2xl border-border bg-card shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
+            <Card className="min-w-0 rounded-2xl border-border bg-card shadow-sm dark:border-border dark:bg-card">
               <CardHeader className="space-y-1">
                 <CardTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
                   <CalendarClock className="size-4 text-amber-600 dark:text-amber-400" /> Overdue invoices
@@ -375,25 +375,25 @@ export default function Page() {
               <CardContent>
                 {overdueInvoices.length === 0 ? (
                   <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center">
-                    <CheckCircle2 className="size-6 text-emerald-500" />
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">No overdue invoices returned</p>
+                    <CheckCircle2 className="size-6 text-success" />
+                    <p className="text-sm font-semibold text-foreground">No overdue invoices returned</p>
                     <p className="text-xs leading-relaxed text-muted-foreground">There are no overdue balances in the records available to this account.</p>
                   </div>
                 ) : (
                   <div className="space-y-0">
                     {overdueInvoices.slice(0, 5).map((invoice) => (
-                      <div key={invoice.id} className="flex min-w-0 items-start justify-between gap-3 border-b border-slate-100 py-3.5 last:border-0 dark:border-white/[0.06]">
+                      <div key={invoice.id} className="flex min-w-0 items-start justify-between gap-3 border-b border-border py-3.5 last:border-0 dark:border-border">
                         <div className="min-w-0">
-                          <Link to="/invoices" className="text-xs font-bold text-slate-800 underline-offset-4 hover:text-emerald-600 hover:underline dark:text-slate-100 dark:hover:text-emerald-400">{invoice.invoice_number}</Link>
+                          <Link to="/invoices" className="text-xs font-bold text-slate-800 underline-offset-4 hover:text-success hover:underline dark:text-slate-100 dark:hover:text-emerald-400">{invoice.invoice_number}</Link>
                           <p className="mt-1 truncate text-xs text-muted-foreground">{invoice.customer_name}</p>
-                          <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">Due {invoice.due_date}</p>
+                          <p className="mt-1 text-[10px] text-muted-foreground">Due {invoice.due_date}</p>
                         </div>
                         <p className="shrink-0 text-right text-xs font-bold tabular-nums text-rose-600 dark:text-rose-300">
                           {new Intl.NumberFormat("en-KE", { style: "currency", currency: invoice.currency || currency, maximumFractionDigits: 0 }).format(invoice.balance)}
                         </p>
                       </div>
                     ))}
-                    <Link to="/invoices" className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-600 dark:text-emerald-400">
+                    <Link to="/invoices" className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-success">
                       Review all invoices <ArrowRight className="size-3.5" />
                     </Link>
                   </div>
@@ -405,23 +405,23 @@ export default function Page() {
 
         <section aria-label="Financial balances" className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
           {canReadCustomers && dashboard.data?.customers && (
-            <Card className="relative overflow-hidden rounded-2xl border border-emerald-500/15 bg-white shadow-sm dark:bg-[#121826]">
-              <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-emerald-400/[0.08] blur-3xl" />
+            <Card className="relative overflow-hidden rounded-2xl border border-emerald-500/15 bg-card shadow-sm dark:bg-card">
+              <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-success/[0.08] blur-3xl" />
               <CardHeader className="relative flex flex-row items-start justify-between gap-3 space-y-0">
                 <div className="space-y-2">
                   <CardDescription className="text-xs font-semibold text-muted-foreground">Customer receivables</CardDescription>
-                  <CardTitle className="break-words text-2xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 sm:text-3xl">{receivables === null ? "—" : formatCompanyCurrency(receivables)}</CardTitle>
+                  <CardTitle className="break-words text-2xl font-extrabold tracking-tight text-success sm:text-3xl">{receivables === null ? "—" : formatCompanyCurrency(receivables)}</CardTitle>
                 </div>
-                <div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-600 dark:text-emerald-400"><Wallet className="size-5" /></div>
+                <div className="rounded-xl bg-success/10 p-3 text-success"><Wallet className="size-5" /></div>
               </CardHeader>
-              <CardContent className="relative flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/[0.06]">
+              <CardContent className="relative flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 dark:border-border">
                 <p className="text-xs text-muted-foreground">Outstanding balances recorded against customers</p>
-                <Link to="/customers" className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-600 dark:text-emerald-400">Review customers <ChevronRight className="size-3.5" /></Link>
+                <Link to="/customers" className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-success">Review customers <ChevronRight className="size-3.5" /></Link>
               </CardContent>
             </Card>
           )}
           {canReadProcurement && dashboard.data?.suppliers && (
-            <Card className="relative overflow-hidden rounded-2xl border border-amber-500/15 bg-white shadow-sm dark:bg-[#121826]">
+            <Card className="relative overflow-hidden rounded-2xl border border-amber-500/15 bg-card shadow-sm dark:bg-card">
               <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-amber-400/[0.08] blur-3xl" />
               <CardHeader className="relative flex flex-row items-start justify-between gap-3 space-y-0">
                 <div className="space-y-2">
@@ -430,7 +430,7 @@ export default function Page() {
                 </div>
                 <div className="rounded-xl bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300"><ArrowDownRight className="size-5" /></div>
               </CardHeader>
-              <CardContent className="relative flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/[0.06]">
+              <CardContent className="relative flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 dark:border-border">
                 <p className="text-xs text-muted-foreground">Outstanding balances recorded against suppliers</p>
                 <Link to="/suppliers" className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:text-amber-600 dark:text-amber-300">Review suppliers <ChevronRight className="size-3.5" /></Link>
               </CardContent>
@@ -440,25 +440,25 @@ export default function Page() {
 
         {canReadProducts && (
           <section className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.85fr)]" aria-label="Inventory and quick actions">
-            <Card className="min-w-0 rounded-2xl border-border bg-card shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
+            <Card className="min-w-0 rounded-2xl border-border bg-card shadow-sm dark:border-border dark:bg-card">
               <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
                 <div>
-                  <CardTitle className="flex items-center gap-2 text-sm font-bold text-foreground"><Package className="size-4 text-emerald-600 dark:text-emerald-400" /> Stock requiring attention</CardTitle>
+                  <CardTitle className="flex items-center gap-2 text-sm font-bold text-foreground"><Package className="size-4 text-success" /> Stock requiring attention</CardTitle>
                   <CardDescription className="mt-1.5 text-xs text-muted-foreground">Products at or below their configured reorder level</CardDescription>
                 </div>
-                <span className={"shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold tabular-nums " + (lowStockCount > 0 ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300")}>{lowStockCount} flagged</span>
+                <span className={"shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold tabular-nums " + (lowStockCount > 0 ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-success/10 text-success")}>{lowStockCount} flagged</span>
               </CardHeader>
               <CardContent>
                 {lowStockCount === 0 ? (
-                  <div className="flex min-h-28 items-center gap-3 rounded-xl bg-emerald-500/[0.05] px-4 py-5 text-sm text-slate-600 dark:text-slate-300">
-                    <CheckCircle2 className="size-5 shrink-0 text-emerald-500" />
+                  <div className="flex min-h-28 items-center gap-3 rounded-xl bg-success/[0.05] px-4 py-5 text-sm text-slate-600 dark:text-muted-foreground">
+                    <CheckCircle2 className="size-5 shrink-0 text-success" />
                     No low-stock products in the records currently available.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[27rem] text-xs">
                       <thead>
-                        <tr className="border-b border-slate-100 text-left text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
+                        <tr className="border-b border-border text-left text-muted-foreground dark:border-border dark:text-muted-foreground">
                           <th className="py-3 pr-4 font-semibold">Product</th>
                           <th className="py-3 pr-4 font-semibold">SKU</th>
                           <th className="py-3 pr-4 text-right font-semibold">On hand</th>
@@ -467,8 +467,8 @@ export default function Page() {
                       </thead>
                       <tbody>
                         {lowStockProducts.slice(0, 6).map((product) => (
-                          <tr key={product.id} className="border-b border-slate-100 last:border-0 dark:border-white/[0.06]">
-                            <td className="max-w-52 truncate py-3 pr-4 font-semibold text-slate-800 dark:text-slate-100">{product.name}</td>
+                          <tr key={product.id} className="border-b border-border last:border-0 dark:border-border">
+                            <td className="max-w-52 truncate py-3 pr-4 font-semibold text-foreground">{product.name}</td>
                             <td className="py-3 pr-4 text-muted-foreground">{product.sku || "—"}</td>
                             <td className="py-3 pr-4 text-right font-semibold tabular-nums text-amber-700 dark:text-amber-300">{formatNumber(Number(product.stock_quantity))}</td>
                             <td className="py-3 text-right tabular-nums text-muted-foreground">{formatNumber(Number(product.reorder_level))}</td>
@@ -478,42 +478,42 @@ export default function Page() {
                     </table>
                   </div>
                 )}
-                <Link to="/products" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-600 dark:text-emerald-400">Open product catalogue <ArrowRight className="size-3.5" /></Link>
+                <Link to="/products" className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-success">Open product catalogue <ArrowRight className="size-3.5" /></Link>
               </CardContent>
             </Card>
 
-            <Card className="min-w-0 rounded-2xl border-border bg-card shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
+            <Card className="min-w-0 rounded-2xl border-border bg-card shadow-sm dark:border-border dark:bg-card">
               <CardHeader>
                 <CardTitle className="text-sm font-bold text-foreground">Quick actions</CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">Jump straight into common tasks</CardDescription>
               </CardHeader>
               <CardContent className="divide-y divide-slate-100 dark:divide-white/[0.06]">
                 {canReadSales && (
-                  <Link to="/invoices" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-white/[0.035]">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><ReceiptText className="size-[18px]" /></span>
-                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Sales invoices</span><span className="mt-1 block text-[11px] text-muted-foreground">Review and manage customer billing</span></span>
-                    <ChevronRight className="size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-emerald-500" />
+                  <Link to="/invoices" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-card/[0.035]">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-success/10 text-success"><ReceiptText className="size-[18px]" /></span>
+                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Sales invoices</span><span className="mt-1 block text-[11px] text-muted-foreground">Review and manage customer billing</span></span>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-success" />
                   </Link>
                 )}
                 {canReadCustomers && (
-                  <Link to="/customers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-white/[0.035]">
+                  <Link to="/customers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-card/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400"><Users className="size-[18px]" /></span>
-                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Manage customers</span><span className="mt-1 block text-[11px] text-muted-foreground">Open your customer directory</span></span>
-                    <ChevronRight className="size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-emerald-500" />
+                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Manage customers</span><span className="mt-1 block text-[11px] text-muted-foreground">Open your customer directory</span></span>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-success" />
                   </Link>
                 )}
                 {canReadProcurement && (
-                  <Link to="/suppliers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-white/[0.035]">
+                  <Link to="/suppliers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-card/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300"><BriefcaseBusiness className="size-[18px]" /></span>
-                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Manage suppliers</span><span className="mt-1 block text-[11px] text-muted-foreground">Review supplier records and balances</span></span>
-                    <ChevronRight className="size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-emerald-500" />
+                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Manage suppliers</span><span className="mt-1 block text-[11px] text-muted-foreground">Review supplier records and balances</span></span>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-success" />
                   </Link>
                 )}
                 {canReadProducts && (
-                  <Link to="/products" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-white/[0.035]">
+                  <Link to="/products" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-card/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400"><Boxes className="size-[18px]" /></span>
-                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Product catalogue</span><span className="mt-1 block text-[11px] text-muted-foreground">Check products and stock levels</span></span>
-                    <ChevronRight className="size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-emerald-500" />
+                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Product catalogue</span><span className="mt-1 block text-[11px] text-muted-foreground">Check products and stock levels</span></span>
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-success" />
                   </Link>
                 )}
                 {!canReadSales && !canReadCustomers && !canReadProcurement && !canReadProducts && (
@@ -530,9 +530,9 @@ export default function Page() {
           </section>
         )}
 
-        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-5 text-[11px] text-slate-500 dark:border-white/[0.06] dark:text-slate-500">
+        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-5 text-[11px] text-muted-foreground dark:border-border dark:text-muted-foreground">
           <span>Omega Solutions · One platform for your business</span>
-          <span className="inline-flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-emerald-500" /> Company-scoped dashboard</span>
+          <span className="inline-flex items-center gap-1.5"><span className="size-1.5 rounded-full bg-success" /> Company-scoped dashboard</span>
         </footer>
       </div>
     </BaseLayout>
