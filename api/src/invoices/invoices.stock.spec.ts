@@ -12,11 +12,11 @@ describe('InvoicesService POS stock reversal warehouse', () => {
         if (sql.includes('SELECT warehouse_id FROM pos_sales')) {
           return { rows: [{ warehouse_id: 'branch-warehouse-2' }] };
         }
-        if (sql.includes('SELECT quantity,reserved_quantity FROM inventory_stock_levels')) {
-          return { rows: [{ quantity: '4', reserved_quantity: '0' }] };
+        if (sql.includes('SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels')) {
+          return { rows: [{ quantity: '4', reserved_quantity: '0', average_unit_cost: '12' }] };
         }
-        if (sql.includes('SELECT COALESCE(SUM(ABS(quantity) * unit_cost)')) {
-          return { rows: [{ cost_total: '16' }] };
+        if (sql.includes('SELECT unit_cost,quantity FROM inventory_stock_movements')) {
+          return { rows: [{ unit_cost: '8', quantity: '-2' }] };
         }
         return { rows: [], rowCount: 1 };
       }),
@@ -45,7 +45,12 @@ describe('InvoicesService POS stock reversal warehouse', () => {
     )).toBe(false);
     expect(calls.some((call) =>
       call.sql.includes('INSERT INTO inventory_stock_movements') &&
-      call.params?.[2] === 'branch-warehouse-2',
+      call.params?.[2] === 'branch-warehouse-2' &&
+      call.params?.[5] === 8,
+    )).toBe(true);
+    expect(calls.some((call) =>
+      call.sql.includes('SET average_unit_cost=CASE WHEN quantity+$1>0') &&
+      call.params?.[1] === 8,
     )).toBe(true);
   });
 });
