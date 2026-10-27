@@ -85,29 +85,29 @@ function MetricCard({
   tone: MetricTone
 }) {
   const tones: Record<MetricTone, string> = {
-    emerald: "bg-emerald-500/10 text-emerald-600 ring-emerald-500/15 dark:text-emerald-400",
+    emerald: "bg-success/10 text-success ring-success/15",
     sky: "bg-sky-500/10 text-sky-600 ring-sky-500/15 dark:text-sky-400",
     violet: "bg-violet-500/10 text-violet-600 ring-violet-500/15 dark:text-violet-400",
     amber: "bg-amber-500/10 text-amber-700 ring-amber-500/15 dark:text-amber-300",
   }
 
   return (
-    <Card className="group min-w-0 overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-200/50 dark:border-white/[0.07] dark:bg-[#121826] dark:hover:border-white/[0.13] dark:hover:shadow-black/20">
+    <Card className="group min-w-0 overflow-hidden rounded-2xl border-border bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-input hover:shadow-lg hover:shadow-slate-200/50 dark:hover:border-border dark:hover:shadow-black/20">
       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-3 pt-5">
         <div className="min-w-0 space-y-2">
-          <CardDescription className="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400">{label}</CardDescription>
-          <CardTitle className="break-words text-2xl font-extrabold tracking-tight text-slate-950 dark:text-slate-50 sm:text-[28px]">{value}</CardTitle>
+          <CardDescription className="text-xs font-semibold tracking-wide text-muted-foreground">{label}</CardDescription>
+          <CardTitle className="break-words text-2xl font-extrabold tracking-tight text-card-foreground sm:text-[28px]">{value}</CardTitle>
         </div>
         <div className={"flex size-11 shrink-0 items-center justify-center rounded-full ring-1 transition duration-200 group-hover:scale-105 " + tones[tone]}>
           <Icon className="size-5" strokeWidth={1.9} aria-hidden="true" />
         </div>
       </CardHeader>
       <CardContent className="flex min-h-11 items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
-        <span className="min-w-0 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{detail}</span>
+        <span className="min-w-0 text-xs leading-relaxed text-muted-foreground">{detail}</span>
         <Link
           to={href}
           aria-label={"View " + label.toLowerCase()}
-          className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400"
+          className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-primary"
         >
           View <ArrowUpRight className="size-3.5" />
         </Link>
@@ -120,8 +120,8 @@ function SectionHeading({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
       <div>
-        <h2 className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100">{title}</h2>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{detail}</p>
+        <h2 className="text-sm font-bold tracking-tight text-foreground">{title}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
       </div>
     </div>
   )
@@ -206,8 +206,8 @@ export default function Page() {
   return (
     <BaseLayout>
       <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-7 px-4 py-3 sm:px-6 lg:px-8">
-        <section className="relative isolate overflow-hidden rounded-2xl border border-slate-200 bg-white px-5 py-6 shadow-sm dark:border-white/[0.07] dark:bg-[#121826] sm:px-7 sm:py-8">
-          <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 size-72 rounded-full bg-emerald-400/10 blur-3xl dark:bg-emerald-400/[0.12]" />
+        <section className="relative isolate overflow-hidden rounded-2xl border border-border bg-card px-5 py-6 shadow-sm dark:border-white/[0.07] dark:bg-[#121826] sm:px-7 sm:py-8">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 size-72 rounded-full bg-primary/10 blur-3xl dark:bg-primary/10" />
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 right-1/4 -z-10 size-56 rounded-full bg-sky-400/[0.08] blur-3xl" />
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
@@ -218,7 +218,7 @@ export default function Page() {
               <h1 className="text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
                 One platform for your business.
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                 {companyLoading
                   ? "Loading your business workspace…"
                   : company
@@ -233,7 +233,7 @@ export default function Page() {
                 </Link>
               )}
               {canReadProducts && (
-                <Link to="/products" className={buttonVariants({ variant: "outline", className: "h-10 rounded-xl border-slate-200 bg-white/80 text-xs dark:border-white/10 dark:bg-white/[0.03]" })}>
+                <Link to="/products" className={buttonVariants({ variant: "outline", className: "h-10 rounded-xl border-border bg-card/80 text-xs dark:border-white/10 dark:bg-white/[0.03]" })}>
                   <Package className="mr-2 size-4" /> Products
                 </Link>
               )}
@@ -246,8 +246,8 @@ export default function Page() {
             <div className="flex min-w-0 flex-1 items-start gap-3">
               <div className="rounded-xl bg-rose-500/10 p-2 text-rose-600 dark:text-rose-400"><CircleAlert className="size-5" /></div>
               <div>
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Some dashboard data could not be loaded</p>
-                <p className="mt-1 break-words text-xs leading-relaxed text-slate-500 dark:text-slate-400">{dashboard.error}</p>
+                <p className="text-sm font-semibold text-foreground">Some dashboard data could not be loaded</p>
+                <p className="mt-1 break-words text-xs leading-relaxed text-muted-foreground">{dashboard.error}</p>
               </div>
             </div>
             <button
@@ -263,7 +263,7 @@ export default function Page() {
         <section aria-label="Business summary">
           <SectionHeading title="At a glance" detail="Live figures from your current company records" />
           {loading ? (
-            <div className="flex min-h-44 items-center justify-center rounded-2xl border border-slate-200 bg-white dark:border-white/[0.07] dark:bg-[#121826]">
+            <div className="flex min-h-44 items-center justify-center rounded-2xl border border-border bg-card dark:border-white/[0.07] dark:bg-[#121826]">
               <LoadingSpinner />
             </div>
           ) : (
@@ -281,7 +281,7 @@ export default function Page() {
                 <MetricCard label="Inventory value" value={formatCompanyCurrency(inventoryCost)} detail="Recorded stock cost value" icon={Package} href="/products" tone="amber" />
               )}
               {!canReadCustomers && !canReadProcurement && !canReadProducts && (
-                <div className="col-span-full rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 dark:border-white/[0.07] dark:bg-[#121826] dark:text-slate-400">
+                <div className="col-span-full rounded-2xl border border-border bg-card p-5 text-sm text-slate-500 dark:border-white/[0.07] dark:bg-[#121826] dark:text-slate-400">
                   Your current role or subscription does not have access to these summary metrics.
                 </div>
               )}
@@ -291,14 +291,14 @@ export default function Page() {
 
         {canReadSales && (
           <section className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.85fr)]" aria-label="Sales and invoices">
-            <Card className="min-w-0 overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
+            <Card className="min-w-0 overflow-hidden rounded-2xl border-border bg-card shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
               <CardHeader className="flex flex-col gap-3 space-y-0 pb-0 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_9px_rgba(16,185,129,0.65)]" />
-                    <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100">Invoice trend</CardTitle>
+                    <CardTitle className="text-sm font-bold text-foreground">Invoice trend</CardTitle>
                   </div>
-                  <CardDescription className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                  <CardDescription className="mt-2 text-xs leading-relaxed text-muted-foreground">
                     Monthly invoice totals · last six months · {currency}
                   </CardDescription>
                 </div>
@@ -311,7 +311,7 @@ export default function Page() {
                   <div className="flex min-h-56 flex-col items-center justify-center gap-2 text-center">
                     <div className="rounded-full bg-emerald-500/10 p-3 text-emerald-600 dark:text-emerald-400"><TrendingUp className="size-5" /></div>
                     <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">No invoice activity in this period</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Invoice totals will appear here when records are available.</p>
+                    <p className="text-xs text-muted-foreground">Invoice totals will appear here when records are available.</p>
                   </div>
                 ) : (
                   <div className="h-[260px] w-full" role="img" aria-label="Monthly invoice totals chart">
@@ -359,25 +359,25 @@ export default function Page() {
                   </div>
                 )}
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-4 dark:border-white/[0.06]">
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">Based on invoice totals returned by your dashboard API</span>
+                  <span className="text-[11px] text-muted-foreground">Based on invoice totals returned by your dashboard API</span>
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"><span className="size-1.5 rounded-full bg-emerald-500" /> Live company data</span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="min-w-0 rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
+            <Card className="min-w-0 rounded-2xl border-border bg-card shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
               <CardHeader className="space-y-1">
-                <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
+                <CardTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
                   <CalendarClock className="size-4 text-amber-600 dark:text-amber-400" /> Overdue invoices
                 </CardTitle>
-                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Past-due invoices with an outstanding balance</CardDescription>
+                <CardDescription className="text-xs text-muted-foreground">Past-due invoices with an outstanding balance</CardDescription>
               </CardHeader>
               <CardContent>
                 {overdueInvoices.length === 0 ? (
                   <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center">
                     <CheckCircle2 className="size-6 text-emerald-500" />
                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">No overdue invoices returned</p>
-                    <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">There are no overdue balances in the records available to this account.</p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">There are no overdue balances in the records available to this account.</p>
                   </div>
                 ) : (
                   <div className="space-y-0">
@@ -385,7 +385,7 @@ export default function Page() {
                       <div key={invoice.id} className="flex min-w-0 items-start justify-between gap-3 border-b border-slate-100 py-3.5 last:border-0 dark:border-white/[0.06]">
                         <div className="min-w-0">
                           <Link to="/invoices" className="text-xs font-bold text-slate-800 underline-offset-4 hover:text-emerald-600 hover:underline dark:text-slate-100 dark:hover:text-emerald-400">{invoice.invoice_number}</Link>
-                          <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{invoice.customer_name}</p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">{invoice.customer_name}</p>
                           <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">Due {invoice.due_date}</p>
                         </div>
                         <p className="shrink-0 text-right text-xs font-bold tabular-nums text-rose-600 dark:text-rose-300">
@@ -409,13 +409,13 @@ export default function Page() {
               <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-emerald-400/[0.08] blur-3xl" />
               <CardHeader className="relative flex flex-row items-start justify-between gap-3 space-y-0">
                 <div className="space-y-2">
-                  <CardDescription className="text-xs font-semibold text-slate-500 dark:text-slate-400">Customer receivables</CardDescription>
+                  <CardDescription className="text-xs font-semibold text-muted-foreground">Customer receivables</CardDescription>
                   <CardTitle className="break-words text-2xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 sm:text-3xl">{receivables === null ? "—" : formatCompanyCurrency(receivables)}</CardTitle>
                 </div>
                 <div className="rounded-xl bg-emerald-500/10 p-3 text-emerald-600 dark:text-emerald-400"><Wallet className="size-5" /></div>
               </CardHeader>
               <CardContent className="relative flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/[0.06]">
-                <p className="text-xs text-slate-500 dark:text-slate-400">Outstanding balances recorded against customers</p>
+                <p className="text-xs text-muted-foreground">Outstanding balances recorded against customers</p>
                 <Link to="/customers" className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-600 dark:text-emerald-400">Review customers <ChevronRight className="size-3.5" /></Link>
               </CardContent>
             </Card>
@@ -425,13 +425,13 @@ export default function Page() {
               <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-amber-400/[0.08] blur-3xl" />
               <CardHeader className="relative flex flex-row items-start justify-between gap-3 space-y-0">
                 <div className="space-y-2">
-                  <CardDescription className="text-xs font-semibold text-slate-500 dark:text-slate-400">Supplier payables</CardDescription>
+                  <CardDescription className="text-xs font-semibold text-muted-foreground">Supplier payables</CardDescription>
                   <CardTitle className="break-words text-2xl font-extrabold tracking-tight text-amber-700 dark:text-amber-300 sm:text-3xl">{payables === null ? "—" : formatCompanyCurrency(payables)}</CardTitle>
                 </div>
                 <div className="rounded-xl bg-amber-500/10 p-3 text-amber-700 dark:text-amber-300"><ArrowDownRight className="size-5" /></div>
               </CardHeader>
               <CardContent className="relative flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-white/[0.06]">
-                <p className="text-xs text-slate-500 dark:text-slate-400">Outstanding balances recorded against suppliers</p>
+                <p className="text-xs text-muted-foreground">Outstanding balances recorded against suppliers</p>
                 <Link to="/suppliers" className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:text-amber-600 dark:text-amber-300">Review suppliers <ChevronRight className="size-3.5" /></Link>
               </CardContent>
             </Card>
@@ -440,11 +440,11 @@ export default function Page() {
 
         {canReadProducts && (
           <section className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.85fr)]" aria-label="Inventory and quick actions">
-            <Card className="min-w-0 rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
+            <Card className="min-w-0 rounded-2xl border-border bg-card shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
               <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
                 <div>
-                  <CardTitle className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100"><Package className="size-4 text-emerald-600 dark:text-emerald-400" /> Stock requiring attention</CardTitle>
-                  <CardDescription className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">Products at or below their configured reorder level</CardDescription>
+                  <CardTitle className="flex items-center gap-2 text-sm font-bold text-foreground"><Package className="size-4 text-emerald-600 dark:text-emerald-400" /> Stock requiring attention</CardTitle>
+                  <CardDescription className="mt-1.5 text-xs text-muted-foreground">Products at or below their configured reorder level</CardDescription>
                 </div>
                 <span className={"shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold tabular-nums " + (lowStockCount > 0 ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300")}>{lowStockCount} flagged</span>
               </CardHeader>
@@ -469,9 +469,9 @@ export default function Page() {
                         {lowStockProducts.slice(0, 6).map((product) => (
                           <tr key={product.id} className="border-b border-slate-100 last:border-0 dark:border-white/[0.06]">
                             <td className="max-w-52 truncate py-3 pr-4 font-semibold text-slate-800 dark:text-slate-100">{product.name}</td>
-                            <td className="py-3 pr-4 text-slate-500 dark:text-slate-400">{product.sku || "—"}</td>
+                            <td className="py-3 pr-4 text-muted-foreground">{product.sku || "—"}</td>
                             <td className="py-3 pr-4 text-right font-semibold tabular-nums text-amber-700 dark:text-amber-300">{formatNumber(Number(product.stock_quantity))}</td>
-                            <td className="py-3 text-right tabular-nums text-slate-500 dark:text-slate-400">{formatNumber(Number(product.reorder_level))}</td>
+                            <td className="py-3 text-right tabular-nums text-muted-foreground">{formatNumber(Number(product.reorder_level))}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -482,42 +482,42 @@ export default function Page() {
               </CardContent>
             </Card>
 
-            <Card className="min-w-0 rounded-2xl border-slate-200 bg-white shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
+            <Card className="min-w-0 rounded-2xl border-border bg-card shadow-sm dark:border-white/[0.07] dark:bg-[#121826]">
               <CardHeader>
-                <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100">Quick actions</CardTitle>
-                <CardDescription className="text-xs text-slate-500 dark:text-slate-400">Jump straight into common tasks</CardDescription>
+                <CardTitle className="text-sm font-bold text-foreground">Quick actions</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">Jump straight into common tasks</CardDescription>
               </CardHeader>
               <CardContent className="divide-y divide-slate-100 dark:divide-white/[0.06]">
                 {canReadSales && (
                   <Link to="/invoices" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-white/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><ReceiptText className="size-[18px]" /></span>
-                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Sales invoices</span><span className="mt-1 block text-[11px] text-slate-500 dark:text-slate-400">Review and manage customer billing</span></span>
+                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Sales invoices</span><span className="mt-1 block text-[11px] text-muted-foreground">Review and manage customer billing</span></span>
                     <ChevronRight className="size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-emerald-500" />
                   </Link>
                 )}
                 {canReadCustomers && (
                   <Link to="/customers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-white/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400"><Users className="size-[18px]" /></span>
-                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Manage customers</span><span className="mt-1 block text-[11px] text-slate-500 dark:text-slate-400">Open your customer directory</span></span>
+                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Manage customers</span><span className="mt-1 block text-[11px] text-muted-foreground">Open your customer directory</span></span>
                     <ChevronRight className="size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-emerald-500" />
                   </Link>
                 )}
                 {canReadProcurement && (
                   <Link to="/suppliers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-white/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300"><BriefcaseBusiness className="size-[18px]" /></span>
-                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Manage suppliers</span><span className="mt-1 block text-[11px] text-slate-500 dark:text-slate-400">Review supplier records and balances</span></span>
+                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Manage suppliers</span><span className="mt-1 block text-[11px] text-muted-foreground">Review supplier records and balances</span></span>
                     <ChevronRight className="size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-emerald-500" />
                   </Link>
                 )}
                 {canReadProducts && (
                   <Link to="/products" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-slate-50 dark:hover:bg-white/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400"><Boxes className="size-[18px]" /></span>
-                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Product catalogue</span><span className="mt-1 block text-[11px] text-slate-500 dark:text-slate-400">Check products and stock levels</span></span>
+                    <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-slate-800 dark:text-slate-100">Product catalogue</span><span className="mt-1 block text-[11px] text-muted-foreground">Check products and stock levels</span></span>
                     <ChevronRight className="size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-emerald-500" />
                   </Link>
                 )}
                 {!canReadSales && !canReadCustomers && !canReadProcurement && !canReadProducts && (
-                  <p className="py-4 text-xs leading-relaxed text-slate-500 dark:text-slate-400">No quick actions are available for the current role and enabled modules.</p>
+                  <p className="py-4 text-xs leading-relaxed text-muted-foreground">No quick actions are available for the current role and enabled modules.</p>
                 )}
                 {lowStockCount > 0 && (
                   <div className="flex items-center gap-2 py-3 text-xs font-medium text-amber-700 dark:text-amber-300">
