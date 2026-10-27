@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 104" role="img" aria-labelledby="title">
+  <title id="title">Omega Solutions — One platform for your business.</title>
+  <defs><linearGradient id="omegaGreen" x1="5" y1="5" x2="68" y2="68" gradientUnits="userSpaceOnUse"><stop stop-color="#10B981"/><stop offset=".52" stop-color="#34D399"/><stop offset="1" stop-color="#059669"/></linearGradient></defs>
+  <g transform="translate(4 4)"><path d="M19 8H40.5c2.5 0 4.2.9 6 2.8l6.2 6.3c3 3 3 7.5 0 10.5L34 46H27.5c-3.8 0-5.8-4.6-3.1-7.3L40 23H15v19c0 3.3 2.7 6 6 6h23c3.3 0 6-2.7 6-6v-7h9v7c0 8.3-6.7 15-15 15H21C10.5 57 4 50.5 4 40V22C4 14.3 11.3 8 19 8Z" fill="url(#omegaGreen)"/></g>
+  <text x="86" y="44" font-family="Inter,Arial,sans-serif" font-size="35" font-weight="750" letter-spacing="1.1" fill="#0D1B2A">OMEGA</text>
+  <text x="88" y="70" font-family="Inter,Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="7" fill="#10B981">SOLUTIONS</text>
+  <text x="88" y="91" font-family="Inter,Arial,sans-serif" font-size="12" font-weight="400" fill="#526173">One platform for your business.</text>
+</svg>
