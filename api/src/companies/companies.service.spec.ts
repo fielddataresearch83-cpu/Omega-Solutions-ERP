@@ -42,7 +42,7 @@ const COMPANY_A: CompanyRow = {
 
 describe('CompaniesService', () => {
   let service: CompaniesService;
-  let db: { query: Mock };
+  let db: { query: Mock; transaction: Mock };
   let memberships: {
     getMembership: Mock;
     getMembershipForCompany: Mock;
@@ -52,7 +52,8 @@ describe('CompaniesService', () => {
   let audit: { log: Mock };
 
   beforeEach(async () => {
-    db = { query: vi.fn() };
+    db = { query: vi.fn(), transaction: vi.fn() };
+    db.transaction.mockImplementation(async (callback: (client: { query: Mock }) => Promise<unknown>) => callback({ query: db.query }));
     memberships = {
       getMembership: vi.fn(),
       getMembershipForCompany: vi.fn(),
@@ -71,6 +72,27 @@ describe('CompaniesService', () => {
     }).compile();
 
     service = module.get(CompaniesService);
+  });
+
+  describe('create', () => {
+    it('creates a tenant and grants the creator owner membership atomically', async () => {
+      memberships.requireOwnerOrAdmin.mockResolvedValue({ companyId: 'comp-a', branchId: null, role: 'owner' });
+      const createdCompany = { ...COMPANY_A, id: 'comp-b', name: 'Beta Ltd' };
+      db.query
+        .mockResolvedValueOnce({ rows: [createdCompany], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      const result = await service.create(USER_A, { name: 'Beta Ltd' });
+
+      expect(result).toEqual(createdCompany);
+      expect(db.transaction).toHaveBeenCalledTimes(1);
+      expect(db.query).toHaveBeenCalledTimes(2);
+      expect(db.query.mock.calls[1][0]).toContain("INSERT INTO company_memberships (user_id, company_id, role, is_active)");
+      expect(db.query.mock.calls[1][1]).toEqual(['user-a', 'comp-b']);
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'company.create', companyId: 'comp-b', entityId: 'comp-b' }),
+      );
+    });
   });
 
   describe('getMyCompany', () => {
