@@ -50,6 +50,7 @@ import {
 import { useMyCompany } from "@/hooks/use-company"
 import { useAuth } from "@/contexts/auth-context"
 import { api } from "@/lib/api-client"
+import { Logo } from "@/components/logo"
 
 type NavItem = { title: string; url: string; icon: LucideIcon; module?: string }
 type NavGroup = { label: string; module: string; items: NavItem[] }
@@ -204,7 +205,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link to={isSalesperson ? "/sales-dashboard" : "/dashboard"} />}>
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <span className="text-sm font-bold">Ω</span>
+                <Logo size={26} />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">Omega Solutions</span>
