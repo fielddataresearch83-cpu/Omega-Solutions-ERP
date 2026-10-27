@@ -75,28 +75,43 @@ export class PaystackPaymentsService {
     if (plan.is_custom_pricing) throw new BadRequestException('Enterprise requires a custom quote. Submit an Enterprise quote request instead of using online checkout.');
     const key = this.secretKey();
 
-    const existing = await this.db.query<{ plan_code: string; status: string }>(
-      'SELECT plan_code, status FROM company_subscriptions WHERE company_id = $1',
-      [companyId],
-    );
-    if (existing.rows[0] && ['active', 'trialing'].includes(existing.rows[0].status)
-      && existing.rows[0].plan_code !== normalizedPlan) {
-      throw new BadRequestException(
-        'Your company already has an active subscription. Submit a plan-change request before paying for a different plan.',
-      );
-    }
-
     const amountKes = Number(plan.monthly_price_kes);
     if (!Number.isSafeInteger(amountKes) || amountKes <= 0) {
       throw new ServiceUnavailableException('The selected plan has an invalid price.');
     }
     const reference = `omega-sub-${cryptoRandomReference()}`;
-    await this.db.query(
-      `INSERT INTO subscription_payments
-         (company_id, requested_by, plan_code, reference, amount_kes, status)
-       VALUES ($1, $2, $3, $4, $5, 'pending')`,
-      [companyId, userId, normalizedPlan, reference, amountKes],
-    );
+
+    // Serialize checkout creation per company. Without this lock, two browser
+    // requests could create pending checkouts for different plans and whichever
+    // webhook arrived last could overwrite the subscription after both were charged.
+    await this.db.transaction(async (client: PoolClient) => {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`omega-subscription-checkout:${companyId}`]);
+      const existing = await client.query<{ plan_code: string; status: string }>(
+        'SELECT plan_code, status FROM company_subscriptions WHERE company_id = $1 FOR UPDATE',
+        [companyId],
+      );
+      if (existing.rows[0] && ['active', 'trialing'].includes(existing.rows[0].status)
+        && existing.rows[0].plan_code !== normalizedPlan) {
+        throw new BadRequestException(
+          'Your company already has an active subscription. Submit a plan-change request before paying for a different plan.',
+        );
+      }
+      const pending = await client.query<{ reference: string }>(
+        "SELECT reference FROM subscription_payments WHERE company_id=$1 AND status='pending' LIMIT 1 FOR UPDATE",
+        [companyId],
+      );
+      if (pending.rows[0]) {
+        throw new BadRequestException(
+          'Your company already has a pending subscription checkout. Complete it or contact support before starting another checkout.',
+        );
+      }
+      await client.query(
+        `INSERT INTO subscription_payments
+           (company_id, requested_by, plan_code, reference, amount_kes, status)
+         VALUES ($1, $2, $3, $4, $5, 'pending')`,
+        [companyId, userId, normalizedPlan, reference, amountKes],
+      );
+    });
 
     const callbackUrl = process.env.PAYSTACK_CALLBACK_URL?.trim();
     const payload: Record<string, unknown> = {
