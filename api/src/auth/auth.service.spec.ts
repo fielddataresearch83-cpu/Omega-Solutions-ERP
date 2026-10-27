@@ -13,6 +13,7 @@ describe('AuthService.exchangeNeonInvitation', () => {
   let client: { query: ReturnType<typeof vi.fn> };
   let jwtService: { sign: ReturnType<typeof vi.fn>; verify: ReturnType<typeof vi.fn> };
   let mfaService: { status: ReturnType<typeof vi.fn> };
+  let subscriptions: { assertUserCapacity: ReturnType<typeof vi.fn> };
   let service: AuthService;
 
   beforeEach(() => {
@@ -31,7 +32,8 @@ describe('AuthService.exchangeNeonInvitation', () => {
     };
     jwtService = { sign: vi.fn().mockReturnValue('signed-test-token'), verify: vi.fn() };
     mfaService = { status: vi.fn().mockResolvedValue({ enabled: false }) };
-    service = new AuthService(db as any, jwtService as any, mfaService as any);
+    subscriptions = { assertUserCapacity: vi.fn().mockResolvedValue(undefined) };
+    service = new AuthService(db as any, jwtService as any, mfaService as any, subscriptions as any);
   });
 
   it('creates a first-time Omega account and only the invited company membership', async () => {
@@ -66,6 +68,7 @@ describe('AuthService.exchangeNeonInvitation', () => {
       },
     });
     expect(db.transaction).toHaveBeenCalledOnce();
+    expect(subscriptions.assertUserCapacity).toHaveBeenCalledWith('company-2', client, true);
     expect(client.query.mock.calls[4][0]).toContain('INSERT INTO users');
     expect(client.query.mock.calls[4][1][1]).toBe('new.staff@example.com');
     expect(client.query.mock.calls[5][1]).toEqual(['omega-user-1', 'company-2']);
@@ -73,6 +76,32 @@ describe('AuthService.exchangeNeonInvitation', () => {
     expect(client.query.mock.calls[6][1]).toEqual(['omega-user-1', 'company-2', 'branch-2', 'staff']);
     expect(client.query.mock.calls[7][0]).toContain('SET accepted_at = NOW()');
     expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes("VALUES ($1, $2, 'owner', true)"))).toBe(false);
+  });
+
+  it('rejects invitation exchange when the reserved user quota is full', async () => {
+    client.query
+      .mockResolvedValueOnce({
+        rows: [{ id: 'invite-1', company_id: 'company-2', email: 'new.staff@example.com', role: 'staff', branch_id: 'branch-2' }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({ rows: [{ id: 'company-2' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'branch-2' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+      .mockResolvedValueOnce({
+        rows: [{ id: 'omega-user-1', email: 'new.staff@example.com', full_name: 'New Staff', is_active: true }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    subscriptions.assertUserCapacity.mockRejectedValueOnce(new Error('user capacity exceeded'));
+
+    await expect(service.exchangeNeonInvitation({
+      token: 'verified-neon-identity-token-long-enough-for-test',
+      invitationToken,
+    })).rejects.toThrow('user capacity exceeded');
+
+    expect(subscriptions.assertUserCapacity).toHaveBeenCalledWith('company-2', client, true);
+    expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes('INSERT INTO company_memberships'))).toBe(false);
+    expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes('SET accepted_at = NOW()'))).toBe(false);
   });
 
   it('does not create an Omega account when the invitation email differs from the verified Neon email', async () => {
