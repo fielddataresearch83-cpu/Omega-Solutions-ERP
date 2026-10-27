@@ -39,7 +39,8 @@ const BRANCH_A: BranchRow = {
 
 describe('BranchesService', () => {
   let service: BranchesService;
-  let db: { query: Mock };
+  let db: { query: Mock; transaction: Mock };
+  let subscriptions: { assertBranchCapacity: Mock };
   let memberships: {
     getMembershipForCompany: Mock;
     requireRole: Mock;
@@ -49,7 +50,8 @@ describe('BranchesService', () => {
   let audit: { log: Mock };
 
   beforeEach(async () => {
-    db = { query: vi.fn() };
+    db = { query: vi.fn(), transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback({ query: db.query })) };
+    subscriptions = { assertBranchCapacity: vi.fn().mockResolvedValue(undefined) };
     memberships = {
       getMembershipForCompany: vi.fn(),
       requireRole: vi.fn(),
@@ -64,7 +66,7 @@ describe('BranchesService', () => {
         { provide: DatabaseService, useValue: db },
         { provide: MembershipsService, useValue: memberships },
         { provide: AuditService, useValue: audit },
-        { provide: SubscriptionsService, useValue: { assertBranchCapacity: vi.fn().mockResolvedValue(undefined) } },
+        { provide: SubscriptionsService, useValue: subscriptions },
       ],
     }).compile();
 
@@ -146,6 +148,16 @@ describe('BranchesService', () => {
       expect(memberships.requireRole).toHaveBeenCalledWith('user-a', 'comp-b', ['owner', 'admin', 'manager']);
     });
 
+    it('does not create or audit a branch when subscription capacity is exhausted', async () => {
+      memberships.requireRole.mockResolvedValue({ companyId: 'comp-a', branchId: null, role: 'owner' });
+      subscriptions.assertBranchCapacity.mockRejectedValue(new ForbiddenException('Branch limit reached.'));
+
+      await expect(service.create(USER_A, 'comp-a', { name: 'Extra Branch' })).rejects.toThrow(ForbiddenException);
+
+      expect(db.query).not.toHaveBeenCalled();
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+
     it('creates branch in the company the user belongs to', async () => {
       memberships.requireRole.mockResolvedValue({ companyId: 'comp-a', branchId: null, role: 'owner' });
       db.query
@@ -155,6 +167,8 @@ describe('BranchesService', () => {
       const result = await service.create(USER_A, 'comp-a', { name: 'Main Branch', code: 'MAIN' });
 
       expect(result.id).toBe('br-a');
+      expect(db.transaction).toHaveBeenCalledTimes(1);
+      expect(subscriptions.assertBranchCapacity).toHaveBeenCalledWith('comp-a', expect.objectContaining({ query: db.query }));
       expect(audit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'branch.create', companyId: 'comp-a' }),
       );
