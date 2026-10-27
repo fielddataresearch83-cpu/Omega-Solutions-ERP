@@ -71,7 +71,7 @@ export default function ResetPasswordPage() {
       <div aria-hidden="true" className="pointer-events-none absolute -bottom-48 -right-32 size-[28rem] rounded-full bg-primary/10 blur-3xl" />
       <section className="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border bg-card shadow-2xl shadow-primary/10 md:grid-cols-2">
         <div className="relative hidden flex-col justify-between overflow-hidden auth-brand-panel p-10 text-white md:flex">
-          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(52,213,154,0.25),transparent_55%)]" />
+          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,color-mix(in oklch, var(--primary) 25%, transparent),transparent_55%)]" />
           <div className="relative flex items-center gap-3">
             <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-xl font-black text-primary-foreground">Ω</div>
             <div><p className="font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-white/60">Business management, connected</p></div>
