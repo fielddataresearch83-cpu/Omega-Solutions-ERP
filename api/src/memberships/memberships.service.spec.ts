@@ -68,17 +68,19 @@ describe('MembershipsService', () => {
 
       expect(result).toEqual({ companyId: 'comp-1', branchId: 'br-1', role: 'admin' });
       expect(db.query).toHaveBeenCalledWith(
-        expect.stringContaining('user_id = $1 AND company_id = $2'),
+        expect.stringContaining('cm.user_id = $1 AND cm.company_id = $2 AND cm.is_active = true'),
         ['user-1', 'comp-1'],
       );
+      expect(db.query.mock.calls[0][0]).toContain('JOIN companies c ON c.id = cm.company_id AND c.is_active = true');
     });
 
-    it('throws ForbiddenException when user does not belong to the company', async () => {
+    it('throws ForbiddenException when user does not belong to the company or the company is inactive', async () => {
       db.query.mockResolvedValue({ rows: [], rowCount: 0 });
 
       await expect(
         service.getMembershipForCompany('user-1', 'comp-other'),
       ).rejects.toThrow(ForbiddenException);
+      expect(db.query.mock.calls[0][0]).toContain('JOIN companies c ON c.id = cm.company_id AND c.is_active = true');
     });
   });
 
