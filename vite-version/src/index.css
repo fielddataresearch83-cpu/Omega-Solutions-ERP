@@ -54,87 +54,87 @@
   --font-inter: "Inter", system-ui, sans-serif;
   --radius: 0.625rem;
 
-  /* Omega Solutions brand palette: navy, emerald, soft white and cool gray. */
-  --background: #F5F7FA;
-  --foreground: #081C2D;
+  /* Omega Solutions brand palette: Doctor, Purple Veil, Ginger Milk, Indian Ocean, Green Teal and Umbra. */
+  --background: #F9F9F9;
+  --foreground: #211F1E;
   --card: #FFFFFF;
-  --card-foreground: #081C2D;
+  --card-foreground: #211F1E;
   --popover: #FFFFFF;
-  --popover-foreground: #081C2D;
-  --primary: #0F7A63;
+  --popover-foreground: #211F1E;
+  --primary: #0FB96F;
   --primary-foreground: #FFFFFF;
-  --secondary: #E2E8F0;
-  --secondary-foreground: #1E293B;
-  --muted: #E2E8F0;
-  --muted-foreground: #475569;
-  --accent: #E1F2ED;
-  --accent-foreground: #081C2D;
+  --secondary: #D5D6DF;
+  --secondary-foreground: #373433;
+  --muted: #D5D6DF;
+  --muted-foreground: #62666A;
+  --accent: #E3F1EB;
+  --accent-foreground: #211F1E;
   --destructive: #b42318;
-  --success: #0F7A63;
+  --success: #0C8E58;
   --success-foreground: #FFFFFF;
-  --warning: #8a4b08;
+  --warning: #8A4B08;
   --warning-foreground: #ffffff;
   --info: #245b8f;
   --info-foreground: #ffffff;
-  --border: #E2E8F0;
-  --input: #94A3B8;
-  --ring: #0F7A63;
-  --chart-1: #0F7A63;
-  --chart-2: #0F7A63;
-  --chart-3: #64748B;
+  --border: #D5D6DF;
+  --input: #85B7A1;
+  --ring: #0FB96F;
+  --chart-1: #0FB96F;
+  --chart-2: #0FB96F;
+  --chart-3: #85B7A1;
   --chart-4: #9AA3AB;
-  --chart-5: #0F7A63;
+  --chart-5: #0FB96F;
 
   /* The dark navigation rail anchors the brand in both appearance modes. */
-  --sidebar: #081C2D;
-  --sidebar-foreground: #f8faf9;
-  --sidebar-primary: #0F7A63;
+  --sidebar: #211F1E;
+  --sidebar-foreground: #F9F9F9;
+  --sidebar-primary: #0FB96F;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #1E293B;
-  --sidebar-accent-foreground: #f8faf9;
-  --sidebar-border: #263B4A;
-  --sidebar-ring: #0F7A63;
+  --sidebar-accent: #373433;
+  --sidebar-accent-foreground: #F9F9F9;
+  --sidebar-border: #454241;
+  --sidebar-ring: #0FB96F;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #081C2D;
+  --background: #211F1E;
   --foreground: #F8FAFC;
-  --card: #102B3D;
+  --card: #302D2B;
   --card-foreground: #F8FAFC;
-  --popover: #102B3D;
+  --popover: #302D2B;
   --popover-foreground: #F8FAFC;
-  --primary: #0F7A63;
-  --primary-foreground: #064e3b;
-  --secondary: #1E293B;
-  --secondary-foreground: #F5F7FA;
-  --muted: #1E293B;
-  --muted-foreground: #94A3B8;
+  --primary: #0FB96F;
+  --primary-foreground: #FFFFFF;
+  --secondary: #373433;
+  --secondary-foreground: #F9F9F9;
+  --muted: #373433;
+  --muted-foreground: #85B7A1;
   --accent: #1D3B32;
-  --accent-foreground: #D1FAE5;
+  --accent-foreground: #E5F4EC;
   --destructive: #ff8a80;
-  --success: #8ce4b7;
-  --success-foreground: #063b29;
+  --success: #85B7A1;
+  --success-foreground: #FFFFFF;
   --warning: #ffd18a;
   --warning-foreground: #3e2708;
   --info: #9bc9f5;
   --info-foreground: #102d49;
-  --border: #263B4A;
-  --input: #475569;
-  --ring: #0F7A63;
-  --chart-1: #0F7A63;
-  --chart-2: #0F7A63;
+  --border: #454241;
+  --input: #62666A;
+  --ring: #0FB96F;
+  --chart-1: #0FB96F;
+  --chart-2: #0FB96F;
   --chart-3: #d2ded5;
   --chart-4: #9AA3AB;
-  --chart-5: #3c9b70;
-  --sidebar: #081C2D;
-  --sidebar-foreground: #f5f7f6;
-  --sidebar-primary: #0F7A63;
+  --chart-5: #0FB96F;
+  --sidebar: #211F1E;
+  --sidebar-foreground: #F9F9F9;
+  --sidebar-primary: #0FB96F;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #1E293B;
-  --sidebar-accent-foreground: #f5f7f6;
-  --sidebar-border: #263B4A;
-  --sidebar-ring: #0F7A63;
+  --sidebar-accent: #373433;
+  --sidebar-accent-foreground: #F9F9F9;
+  --sidebar-border: #454241;
+  --sidebar-ring: #0FB96F;
 }
 
 @layer base {
@@ -153,7 +153,7 @@
   }
   ::selection {
     color: #FFFFFF;
-    background: #0F7A63;
+    background: #0FB96F;
   }
 }
 
@@ -208,45 +208,45 @@ html { scroll-behavior: smooth; }
   box-shadow: 0 1px 2px rgb(9 9 11 / 12%);
 }
 :root:not(.dark) [data-slot="button"].bg-primary:hover {
-  background-color: #0D6B57;
+  background-color: #0C9D60;
   box-shadow: 0 3px 8px rgb(9 9 11 / 16%);
 }
 :root:not(.dark) [data-slot="button"].border-border {
-  border-color: #CBD5E1;
+  border-color: #D5D6DF;
   background-color: #ffffff;
 }
 :root:not(.dark) [data-slot="button"].border-border:hover {
   border-color: #9AA3AB;
-  background-color: #F5F7FA;
+  background-color: #F9F9F9;
 }
 :root:not(.dark) [data-slot="card"] {
-  border: 1px solid #E2E8F0;
+  border: 1px solid #D5D6DF;
   box-shadow: 0 1px 2px rgb(23 28 25 / 4%), 0 5px 18px rgb(23 28 25 / 4%);
 }
 :root:not(.dark) [data-slot="input"],
 :root:not(.dark) [data-slot="textarea"],
 :root:not(.dark) [data-slot="select-trigger"] {
-  border-color: #CBD5E1;
+  border-color: #D5D6DF;
   background-color: #ffffff;
-  color: #081C2D;
+  color: #211F1E;
 }
 :root:not(.dark) [data-slot="input"]:hover,
 :root:not(.dark) [data-slot="textarea"]:hover,
 :root:not(.dark) [data-slot="select-trigger"]:hover {
-  border-color: #94A3B8;
+  border-color: #85B7A1;
 }
-:root:not(.dark) [data-slot="table-header"] { background-color: #F5F7FA; }
+:root:not(.dark) [data-slot="table-header"] { background-color: #F9F9F9; }
 :root:not(.dark) [data-slot="table-head"] {
-  color: #475569;
+  color: #62666A;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
-:root:not(.dark) [data-slot="table-row"]:hover { background-color: #F5F7FA; }
-:root:not(.dark) [data-slot="sidebar"] { box-shadow: inset -1px 0 0 #303632; }
+:root:not(.dark) [data-slot="table-row"]:hover { background-color: #F9F9F9; }
+:root:not(.dark) [data-slot="sidebar"] { box-shadow: inset -1px 0 0 #D5D6DF; }
 :root:not(.dark) header.sticky {
-  border-color: #E2E8F0;
+  border-color: #D5D6DF;
   box-shadow: 0 2px 10px rgb(23 28 25 / 4%);
 }
 
@@ -256,8 +256,8 @@ html { scroll-behavior: smooth; }
 .dark [data-slot="select-trigger"] {
   border-color: #334155;
 }
-.dark [data-slot="table-header"] { background-color: #1E293B; }
-.dark [data-slot="table-row"]:hover { background-color: #1E293B; }
+.dark [data-slot="table-header"] { background-color: #373433; }
+.dark [data-slot="table-row"]:hover { background-color: #373433; }
 
 
 /* User-selected appearance preferences (persisted by the Appearance page). */
@@ -280,19 +280,19 @@ html { scroll-behavior: smooth; }
 
 /* Shared Omega visual system: landing, authentication and every ERP module. */
 :root {
-  --omega-brand: #0F7A63;
-  --omega-canvas: #F5F7FA;
+  --omega-brand: #0FB96F;
+  --omega-canvas: #F9F9F9;
   --omega-surface: #FFFFFF;
-  --omega-border: #E2E8F0;
-  --omega-ink: #081C2D;
-  --omega-muted: #475569;
+  --omega-border: #D5D6DF;
+  --omega-ink: #211F1E;
+  --omega-muted: #62666A;
 }
 .dark {
-  --omega-canvas: #081C2D;
-  --omega-surface: #102B3D;
+  --omega-canvas: #211F1E;
+  --omega-surface: #302D2B;
   --omega-border: rgba(255,255,255,.08);
   --omega-ink: #F8FAFC;
-  --omega-muted: #94A3B8;
+  --omega-muted: #85B7A1;
 }
 .auth-shell {
   background:
@@ -301,7 +301,7 @@ html { scroll-behavior: smooth; }
     var(--background);
 }
 .auth-brand-panel {
-  background-color: #081C2D;
+  background-color: #211F1E;
   background-image:
     radial-gradient(ellipse at 82% 12%, rgb(15 122 99 / 18%), transparent 43%),
     radial-gradient(ellipse at 12% 92%, rgb(15 122 99 / 8%), transparent 45%);
