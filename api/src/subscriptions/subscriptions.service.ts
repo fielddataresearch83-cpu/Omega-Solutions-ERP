@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
+import type { PoolClient } from 'pg';
 
 const MODULE_LABELS: Record<string, string> = {
   core: 'Omega Core',
@@ -273,11 +274,13 @@ export class SubscriptionsService {
     }
   }
 
-  async assertBranchCapacity(companyId: string) {
-    const plan = await this.db.query<{ status: string; max_branches: number; plan_name: string }>(
+  async assertBranchCapacity(companyId: string, client?: PoolClient) {
+    const query = <T extends Record<string, unknown>>(sql: string, params: (string | number | boolean | Date | null)[]) =>
+      client ? client.query<T>(sql, params) : this.db.query<T>(sql, params);
+    const plan = await query<{ status: string; max_branches: number; plan_name: string }>(
       `SELECT s.status, p.max_branches, p.name AS plan_name
        FROM company_subscriptions s JOIN subscription_plans p ON p.code = s.plan_code
-       WHERE s.company_id = $1`,
+       WHERE s.company_id = $1${client ? ' FOR UPDATE OF s' : ''}`,
       [companyId],
     );
     if (!plan.rows.length) return;
@@ -285,7 +288,7 @@ export class SubscriptionsService {
     if (!['active', 'trialing'].includes(current.status)) {
       throw new ForbiddenException('An active subscription is required to add branches.');
     }
-    const count = await this.db.query<{ used: number }>(
+    const count = await query<{ used: number }>(
       'SELECT count(*)::int AS used FROM branches WHERE company_id = $1 AND is_active = true',
       [companyId],
     );
