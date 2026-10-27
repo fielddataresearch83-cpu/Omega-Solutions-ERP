@@ -303,7 +303,7 @@ export class SubscriptionsService {
     const plan = await query<{ status: string; max_users: number; plan_name: string }>(
       `SELECT s.status, p.max_users, p.name AS plan_name
        FROM company_subscriptions s JOIN subscription_plans p ON p.code = s.plan_code
-       WHERE s.company_id = $1`,
+       WHERE s.company_id = $1${client ? ' FOR UPDATE OF s' : ''}`,
       [companyId],
     );
     if (!plan.rows.length) return;
