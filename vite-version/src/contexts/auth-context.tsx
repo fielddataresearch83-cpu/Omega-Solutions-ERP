@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const finishNeonRegistration = React.useCallback(async (token: string, fullName: string, phone?: string, companyName?: string) => {
     setError(null);
-    const result = await exchangeNeonToken(token, fullName, phone, companyName);
+    const result = await exchangeNeonToken(token, fullName, phone, companyName, undefined, 'register');
     await applyOmegaSession(result);
   }, [applyOmegaSession]);
 
