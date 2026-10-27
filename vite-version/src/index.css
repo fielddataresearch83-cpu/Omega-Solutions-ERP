@@ -55,20 +55,20 @@
   --radius: 0.625rem;
 
   /* Omega Solutions: bright, calm surfaces and high-contrast green actions. */
-  --background: #f5f8f6;
-  --foreground: #171c19;
-  --card: #ffffff;
-  --card-foreground: #171c19;
-  --popover: #ffffff;
-  --popover-foreground: #171c19;
+  --background: #F1F5F9;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
   --primary: #34D59A;
   --primary-foreground: #062b1d;
-  --secondary: #e7eee9;
-  --secondary-foreground: #202923;
-  --muted: #edf2ee;
-  --muted-foreground: #4b5750;
-  --accent: #d8f7e7;
-  --accent-foreground: #123d2b;
+  --secondary: #E2E8F0;
+  --secondary-foreground: #1E293B;
+  --muted: #E2E8F0;
+  --muted-foreground: #475569;
+  --accent: #DCFCE7;
+  --accent-foreground: #14532D;
   --destructive: #b42318;
   --success: #34D59A;
   --success-foreground: #062b1d;
@@ -76,42 +76,42 @@
   --warning-foreground: #ffffff;
   --info: #245b8f;
   --info-foreground: #ffffff;
-  --border: #d1dbd4;
-  --input: #82958a;
-  --ring: #17865F;
-  --chart-1: #17865F;
+  --border: #E2E8F0;
+  --input: #94A3B8;
+  --ring: #34D59A;
+  --chart-1: #059669;
   --chart-2: #34D59A;
-  --chart-3: #37443b;
+  --chart-3: #64748B;
   --chart-4: #5FAF8D;
   --chart-5: #34D59A;
 
   /* The dark navigation rail anchors the brand in both appearance modes. */
-  --sidebar: #09090b;
+  --sidebar: #090D16;
   --sidebar-foreground: #f8faf9;
   --sidebar-primary: #34D59A;
   --sidebar-primary-foreground: #062b1d;
-  --sidebar-accent: #202923;
+  --sidebar-accent: #1E293B;
   --sidebar-accent-foreground: #f8faf9;
-  --sidebar-border: #303632;
+  --sidebar-border: #263244;
   --sidebar-ring: #34D59A;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #09090b;
-  --foreground: #f5f7f6;
-  --card: #151816;
-  --card-foreground: #f5f7f6;
-  --popover: #151816;
-  --popover-foreground: #f5f7f6;
+  --background: #090D16;
+  --foreground: #F8FAFC;
+  --card: #121826;
+  --card-foreground: #F8FAFC;
+  --popover: #121826;
+  --popover-foreground: #F8FAFC;
   --primary: #34D59A;
   --primary-foreground: #064e3b;
-  --secondary: #222824;
-  --secondary-foreground: #f1f5f2;
-  --muted: #1b211d;
-  --muted-foreground: #c0cbc3;
-  --accent: #263d31;
-  --accent-foreground: #e5fff1;
+  --secondary: #1E293B;
+  --secondary-foreground: #F1F5F9;
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+  --accent: #1D3B32;
+  --accent-foreground: #D1FAE5;
   --destructive: #ff8a80;
   --success: #8ce4b7;
   --success-foreground: #063b29;
@@ -119,21 +119,21 @@
   --warning-foreground: #3e2708;
   --info: #9bc9f5;
   --info-foreground: #102d49;
-  --border: #343d37;
-  --input: #68766d;
-  --ring: #17865F;
+  --border: #273449;
+  --input: #475569;
+  --ring: #34D59A;
   --chart-1: #34D59A;
   --chart-2: #34D59A;
   --chart-3: #d2ded5;
   --chart-4: #5FAF8D;
   --chart-5: #3c9b70;
-  --sidebar: #050506;
+  --sidebar: #070B13;
   --sidebar-foreground: #f5f7f6;
   --sidebar-primary: #34D59A;
   --sidebar-primary-foreground: #062b1d;
-  --sidebar-accent: #202923;
+  --sidebar-accent: #1E293B;
   --sidebar-accent-foreground: #f5f7f6;
-  --sidebar-border: #303632;
+  --sidebar-border: #263244;
   --sidebar-ring: #34D59A;
 }
 
@@ -152,7 +152,7 @@
     outline-offset: 2px;
   }
   ::selection {
-    color: #062b1d;
+    color: #062B1D;
     background: #34D59A;
   }
 }
@@ -212,41 +212,41 @@ html { scroll-behavior: smooth; }
   box-shadow: 0 3px 8px rgb(9 9 11 / 16%);
 }
 :root:not(.dark) [data-slot="button"].border-border {
-  border-color: #b9c8bd;
+  border-color: #CBD5E1;
   background-color: #ffffff;
 }
 :root:not(.dark) [data-slot="button"].border-border:hover {
   border-color: #84988a;
-  background-color: #edf5ef;
+  background-color: #F1F5F9;
 }
 :root:not(.dark) [data-slot="card"] {
-  border: 1px solid #dce5de;
+  border: 1px solid #E2E8F0;
   box-shadow: 0 1px 2px rgb(23 28 25 / 4%), 0 5px 18px rgb(23 28 25 / 4%);
 }
 :root:not(.dark) [data-slot="input"],
 :root:not(.dark) [data-slot="textarea"],
 :root:not(.dark) [data-slot="select-trigger"] {
-  border-color: #82958a;
+  border-color: #CBD5E1;
   background-color: #ffffff;
-  color: #171c19;
+  color: #0F172A;
 }
 :root:not(.dark) [data-slot="input"]:hover,
 :root:not(.dark) [data-slot="textarea"]:hover,
 :root:not(.dark) [data-slot="select-trigger"]:hover {
-  border-color: #64816e;
+  border-color: #94A3B8;
 }
-:root:not(.dark) [data-slot="table-header"] { background-color: #edf3ee; }
+:root:not(.dark) [data-slot="table-header"] { background-color: #F1F5F9; }
 :root:not(.dark) [data-slot="table-head"] {
-  color: #435248;
+  color: #475569;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.025em;
   text-transform: uppercase;
 }
-:root:not(.dark) [data-slot="table-row"]:hover { background-color: #f0f7f2; }
+:root:not(.dark) [data-slot="table-row"]:hover { background-color: #F1F5F9; }
 :root:not(.dark) [data-slot="sidebar"] { box-shadow: inset -1px 0 0 #303632; }
 :root:not(.dark) header.sticky {
-  border-color: #dce5de;
+  border-color: #E2E8F0;
   box-shadow: 0 2px 10px rgb(23 28 25 / 4%);
 }
 
@@ -254,10 +254,10 @@ html { scroll-behavior: smooth; }
 .dark [data-slot="input"],
 .dark [data-slot="textarea"],
 .dark [data-slot="select-trigger"] {
-  border-color: #46534a;
+  border-color: #334155;
 }
-.dark [data-slot="table-header"] { background-color: #1b211d; }
-.dark [data-slot="table-row"]:hover { background-color: #1b211d; }
+.dark [data-slot="table-header"] { background-color: #1E293B; }
+.dark [data-slot="table-row"]:hover { background-color: #1E293B; }
 
 
 /* User-selected appearance preferences (persisted by the Appearance page). */
@@ -276,3 +276,41 @@ html { scroll-behavior: smooth; }
 :root[data-content-width="fixed"] main { width: min(100%, 72rem); margin-inline: auto; }
 :root[data-content-width="container"] main { width: min(100%, 88rem); margin-inline: auto; }
 :root[data-content-width="fluid"] main { width: 100%; }
+
+
+/* Shared Omega visual system: landing, authentication and every ERP module. */
+:root {
+  --omega-brand: #34D59A;
+  --omega-canvas: #F1F5F9;
+  --omega-surface: #FFFFFF;
+  --omega-border: #E2E8F0;
+  --omega-ink: #0F172A;
+  --omega-muted: #475569;
+}
+.dark {
+  --omega-canvas: #090D16;
+  --omega-surface: #121826;
+  --omega-border: rgba(255,255,255,.08);
+  --omega-ink: #F8FAFC;
+  --omega-muted: #94A3B8;
+}
+.auth-shell {
+  background:
+    radial-gradient(ellipse at 12% 8%, rgb(52 213 154 / 10%), transparent 34%),
+    radial-gradient(ellipse at 90% 88%, rgb(16 185 129 / 8%), transparent 32%),
+    var(--background);
+}
+.auth-brand-panel {
+  background-color: #090D16;
+  background-image:
+    radial-gradient(ellipse at 82% 12%, rgb(52 213 154 / 23%), transparent 43%),
+    radial-gradient(ellipse at 12% 92%, rgb(16 185 129 / 10%), transparent 45%);
+}
+.omega-surface {
+  border: 1px solid var(--border);
+  background: var(--card);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 3%), 0 16px 42px rgb(15 23 42 / 7%);
+}
+.dark .omega-surface {
+  box-shadow: 0 18px 55px rgb(0 0 0 / 24%);
+}
