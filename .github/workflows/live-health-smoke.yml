@@ -7,6 +7,7 @@ on:
       - development
     paths:
       - "api/scripts/live-health-smoke.mjs"
+      - "api/src/dashboard/dashboard.service.ts"
       - ".github/workflows/live-health-smoke.yml"
 
 permissions:
