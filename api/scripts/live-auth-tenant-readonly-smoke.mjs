@@ -88,6 +88,10 @@ async function login(email, password, label) {
       assert(Array.isArray(companies) && companies.length > 0, `${label}: verified identity receives active company choices before session exchange`);
       const uniqueCompanyIds = new Set(companies.map(company => company?.id).filter(id => typeof id === "string"));
       assert(uniqueCompanyIds.size === companies.length, `${label}: company choices contain no duplicate memberships`);
+      if (companies.length > 1) {
+        await request("POST", "/auth/neon/exchange", { token: identityToken }, undefined, [401]);
+        checks.push(`${label}: exchange without companyId is rejected for a multi-company identity`);
+      }
       const selectedCompany = companies[0];
       result = await request("POST", "/auth/neon/exchange", { token: identityToken, companyId: selectedCompany.id }, undefined, [200, 201]);
       assert(result.user?.companyId === selectedCompany.id, `${label}: session exchange honors the explicitly selected company`);
