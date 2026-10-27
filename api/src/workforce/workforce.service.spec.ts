@@ -32,7 +32,7 @@ describe('WorkforceService validation and attendance', () => {
     expect(sql).toContain('WHERE a.company_id=$1');
     expect(sql).toContain('e.company_id=a.company_id');
     expect(sql).toContain('s.company_id=a.company_id');
-    expect(params).toEqual(['company-a']);
+    expect(params).toEqual(['company-a', null]);
   });
 
   it('scopes attendance reads to the authenticated company and uses an inclusive end date', async () => {
