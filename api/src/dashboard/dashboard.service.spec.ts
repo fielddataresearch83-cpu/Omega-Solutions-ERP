@@ -38,7 +38,7 @@ const user = {
 
 describe('DashboardService.summary', () => {
   it('returns aggregated company metrics and compact lists for company-wide users', async () => {
-    const { service } = makeService(null);
+    const { service, db } = makeService(null);
 
     const result = await service.summary(user);
 
