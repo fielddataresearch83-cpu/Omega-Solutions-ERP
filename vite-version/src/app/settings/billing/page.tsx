@@ -211,7 +211,7 @@ export default function BillingSettings() {
                 <span className="text-sm text-muted-foreground">Status: {current.subscription.status.replaceAll("_", " ")}</span>
               </div>
             ) : (
-              <p className="text-muted-foreground">No paid plan is recorded yet. Existing company access remains unchanged while billing is being configured.</p>
+              <p className="text-muted-foreground">No subscription is recorded for this company. Core account and access-control features remain available; optional modules require an active subscription. Choose a plan below to start checkout.</p>
             )}
           </CardContent>
         </Card>
