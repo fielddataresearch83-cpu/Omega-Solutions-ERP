@@ -1,4 +1,6 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://omega-solutions-api.onrender.com/api";
+// Fail safe to the development API when an environment-specific URL is not supplied.
+// Production builds must explicitly set VITE_API_BASE_URL to the production API.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://omega-solutions-api-development.onrender.com/api";
 
 const TOKEN_KEY = "omega-token";
 const REFRESH_KEY = "omega-refresh";
