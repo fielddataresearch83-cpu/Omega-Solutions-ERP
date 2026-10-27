@@ -77,8 +77,8 @@ export default function ResetPasswordPage() {
             <div><p className="font-semibold tracking-tight">Omega Solutions</p><p className="text-xs text-white/60">Business management, connected</p></div>
           </div>
           <div className="relative py-12">
-            <div className="mb-5 flex size-12 items-center justify-center rounded-2xl border border-[#34D59A]/30 bg-[#34D59A]/10 text-[#34D59A]"><ShieldCheck className="size-6" /></div>
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-[#34D59A]">Secure account recovery</p>
+            <div className="mb-5 flex size-12 items-center justify-center rounded-2xl border border-[#0FB96F]/30 bg-[#0FB96F]/10 text-[#0FB96F]"><ShieldCheck className="size-6" /></div>
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.24em] text-[#0FB96F]">Secure account recovery</p>
             <h1 className="max-w-sm text-4xl font-semibold leading-tight tracking-tight">Get back to business with confidence.</h1>
             <p className="mt-5 max-w-sm text-sm leading-6 text-white/65">We’ll help you securely restore access to your Omega workspace.</p>
           </div>
