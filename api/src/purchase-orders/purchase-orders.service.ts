@@ -6,6 +6,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { AccountingService } from '../accounting/accounting.service.js';
 import type { PoolClient } from 'pg';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
+import { readCompanyTaxPolicy, resolveTaxTreatment } from '../tax/tax-policy.js';
 import type { CreatePurchaseOrderDto, ReceivePurchaseOrderDto, UpdatePurchaseOrderStatusDto } from './dto/purchase-order.dto.js';
 
 @Injectable()
@@ -53,14 +54,25 @@ export class PurchaseOrdersService {
       const year=new Date().getFullYear();
       const seq=await client.query<{next_number:number}>(`INSERT INTO purchase_order_sequences(company_id,order_year,next_number) VALUES($1,$2,1) ON CONFLICT(company_id,order_year) DO UPDATE SET next_number=purchase_order_sequences.next_number+1 RETURNING next_number`,[companyId,year]);
       const number=`PO-${year}-${String(seq.rows[0].next_number).padStart(5,'0')}`;
+      const companySettings = await client.query<{settings:unknown}>('SELECT settings FROM companies WHERE id=$1 AND is_active=true',[companyId]);
+      if (!companySettings.rows[0]) throw new NotFoundException('Active company not found.');
+      const taxPolicy = readCompanyTaxPolicy(companySettings.rows[0].settings);
       let subtotal=0,taxAmount=0;
       const lines:Array<{productId:string;name:string;sku:string;qty:number;cost:number;rate:number;sub:number;tax:number;total:number}>=[];
       for(const item of dto.items){
-        const res=await client.query<{id:string;name:string;sku:string;is_service:boolean;is_active:boolean}>('SELECT id,name,sku,is_service,is_active FROM products WHERE id=$1 AND company_id=$2 FOR SHARE',[item.productId,companyId]);
+        const res=await client.query<{id:string;name:string;sku:string;is_service:boolean;is_active:boolean;tax_treatment:string;tax_rate:string|number}>(
+          'SELECT id,name,sku,is_service,is_active,tax_treatment,tax_rate FROM products WHERE id=$1 AND company_id=$2 FOR SHARE',[item.productId,companyId]);
         const p=res.rows[0]; if(!p||!p.is_active) throw new NotFoundException('A selected product is missing or inactive in this company.');
         if(p.is_service) throw new BadRequestException(`Service item "${p.name}" cannot be received into inventory.`);
-        const sub=Math.round(item.quantity*item.unitCost*100)/100; const tax=Math.round(sub*(item.taxRate??0))/100;
-        subtotal+=sub;taxAmount+=tax;lines.push({productId:p.id,name:p.name,sku:p.sku,qty:item.quantity,cost:item.unitCost,rate:item.taxRate??0,sub,tax,total:sub+tax});
+        const tax = resolveTaxTreatment({
+          policy: taxPolicy,
+          productTreatment: (p.tax_treatment ?? 'legacy') as 'legacy'|'standard'|'zero_rated'|'exempt'|'out_of_scope',
+          productRate: Number(p.tax_rate ?? 0),
+          requestedRate: item.taxRate,
+        });
+        const rate = tax.rate;
+        const sub=Math.round(item.quantity*item.unitCost*100)/100; const taxAmountForLine=Math.round(sub*rate)/100;
+        subtotal+=sub;taxAmount+=taxAmountForLine;lines.push({productId:p.id,name:p.name,sku:p.sku,qty:item.quantity,cost:item.unitCost,rate,sub,tax:taxAmountForLine,total:sub+taxAmountForLine});
       }
       const inserted=await client.query<{id:string}>(`INSERT INTO purchase_orders(company_id,supplier_id,order_number,expected_date,status,subtotal,tax_amount,total,notes,created_by) VALUES($1,$2,$3,$4,'draft',$5,$6,$7,$8,$9) RETURNING id`,[companyId,dto.supplierId,number,dto.expectedDate??null,subtotal,taxAmount,subtotal+taxAmount,dto.notes??null,user.userId]);
       for(const l of lines) await client.query(`INSERT INTO purchase_order_items(company_id,purchase_order_id,product_id,product_name,sku,quantity,unit_cost,tax_rate,line_subtotal,tax_amount,line_total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[companyId,inserted.rows[0].id,l.productId,l.name,l.sku,l.qty,l.cost,l.rate,l.sub,l.tax,l.total]);
