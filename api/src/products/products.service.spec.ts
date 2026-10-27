@@ -62,7 +62,7 @@ describe('ProductsService initial stock', () => {
       }),
     };
     db = {
-      query: vi.fn(),
+      query: vi.fn().mockResolvedValue({ rows: [{ settings: null }], rowCount: 1 }),
       transaction: vi.fn(async (callback: (client: unknown) => Promise<unknown>) => callback(client)),
     };
     memberships = {
@@ -150,6 +150,17 @@ describe('ProductsService initial stock', () => {
     );
     expect(client.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO warehouses'))).toBe(false);
     expect(client.query.mock.calls.some(([sql]) => String(sql).includes('inventory_stock_levels'))).toBe(false);
+  });
+
+  it('rejects an unclassified product when the company has enabled configured tax', async () => {
+    db.query.mockResolvedValue({
+      rows: [{ settings: { taxPolicy: { mode: 'configured', vatRegistered: true, standardRate: 16 } } }],
+      rowCount: 1,
+    });
+
+    await expect(service.create(user, { ...dto, stockQuantity: 0 } as any))
+      .rejects.toThrow('Configure this product tax treatment before creating transactions under the company tax policy.');
+    expect(db.transaction).not.toHaveBeenCalled();
   });
 
   it('rejects initial stock for a service before opening a transaction', async () => {
