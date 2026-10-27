@@ -111,7 +111,11 @@ export class PurchaseOrdersService {
       [id, companyId],
     );
     if (!order.rows[0]) throw new NotFoundException('Purchase order not found.');
-    const receipts = await this.db.query(
+    const receipts = await this.db.query<{
+      id: string; company_id: string; purchase_order_id: string; warehouse_id: string;
+      warehouse_name: string; receipt_reference: string | null; notes: string | null;
+      received_by: string | null; received_at: Date; receipt_value: string | number;
+    }>(
       `SELECT gr.id,gr.company_id,gr.purchase_order_id,gr.warehouse_id,w.name AS warehouse_name,
               gr.receipt_reference,gr.notes,gr.received_by,gr.received_at,gr.receipt_value
        FROM goods_receipts gr
@@ -120,7 +124,11 @@ export class PurchaseOrdersService {
        ORDER BY gr.received_at DESC,gr.id DESC`,
       [companyId, id],
     );
-    const items = await this.db.query(
+    const items = await this.db.query<{
+      id: string; goods_receipt_id: string; purchase_order_item_id: string; product_id: string;
+      product_name: string; quantity: string | number; unit_cost: string | number;
+      line_value: string | number; created_at: Date;
+    }>(
       `SELECT gri.id,gri.goods_receipt_id,gri.purchase_order_item_id,gri.product_id,
               p.name AS product_name,gri.quantity,gri.unit_cost,gri.line_value,gri.created_at
        FROM goods_receipt_items gri
