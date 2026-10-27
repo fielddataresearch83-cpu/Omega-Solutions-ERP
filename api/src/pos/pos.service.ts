@@ -283,7 +283,7 @@ export class PosService {
       if(payments.reduce((sum,p)=>sum+p.cents,0)!==totalCents) throw new BadRequestException('Payment split must equal the exact checkout total.');
       if(payments.some(p=>p.method==='mpesa'&&!p.reference?.trim())) throw new BadRequestException('An M-Pesa transaction reference is required; the payment remains pending verification.');
       // Existing idempotent requests and rejected checkouts must not create accounting defaults.
-      await this.accounting.ensureDefaults(companyId);
+      await this.accounting.ensureDefaults(companyId, client);
       const confirmedCents=payments.filter(p=>p.method==='cash').reduce((sum,p)=>sum+p.cents,0);
       const pendingCents=totalCents-confirmedCents;
       const invoiceSequence=await client.query<{next_number:number}>(
