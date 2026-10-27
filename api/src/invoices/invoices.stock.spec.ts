@@ -37,8 +37,8 @@ describe('InvoicesService POS stock reversal warehouse', () => {
     });
 
     expect(calls.some((call) =>
-      call.sql.includes('UPDATE inventory_stock_levels SET quantity=quantity+$1') &&
-      call.params?.[2] === 'branch-warehouse-2',
+      call.sql.includes('SET average_unit_cost=CASE WHEN quantity+$1>0') &&
+      call.params?.[3] === 'branch-warehouse-2',
     )).toBe(true);
     expect(calls.some((call) =>
       call.sql.includes("SELECT id FROM warehouses WHERE company_id=$1 AND code='MAIN'"),
