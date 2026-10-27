@@ -113,11 +113,9 @@ export class PurchaseOrdersService {
     if (!order.rows[0]) throw new NotFoundException('Purchase order not found.');
     const receipts = await this.db.query(
       `SELECT gr.id,gr.company_id,gr.purchase_order_id,gr.warehouse_id,w.name AS warehouse_name,
-              gr.receipt_reference,gr.notes,gr.received_by,gr.received_at,gr.receipt_value,
-              u.name AS received_by_name
+              gr.receipt_reference,gr.notes,gr.received_by,gr.received_at,gr.receipt_value
        FROM goods_receipts gr
        JOIN warehouses w ON w.id=gr.warehouse_id AND w.company_id=gr.company_id
-       LEFT JOIN users u ON u.id=gr.received_by
        WHERE gr.company_id=$1 AND gr.purchase_order_id=$2
        ORDER BY gr.received_at DESC,gr.id DESC`,
       [companyId, id],
