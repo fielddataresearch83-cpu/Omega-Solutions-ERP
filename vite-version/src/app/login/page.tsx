@@ -183,7 +183,6 @@ export default function LoginPage() {
                     <ArrowRight className="ml-3 size-4 shrink-0" />
                   </Button>
                 ))}
-                <button type="button" onClick={() => { setError(null); setCompanyChoices([]) }} className="w-full pt-2 text-sm text-muted-foreground underline-offset-4 hover:underline">Cancel selection</button>
               </div>
             ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
