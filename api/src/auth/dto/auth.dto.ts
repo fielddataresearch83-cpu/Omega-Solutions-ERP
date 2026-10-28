@@ -51,8 +51,9 @@ export class NeonIdentityCompaniesDto {
 }
 
 export class NeonExchangeDto {
+  @IsOptional()
   @IsIn(['login', 'register'])
-  intent!: 'login' | 'register';
+  intent?: 'login' | 'register';
 
   @IsString()
   @MinLength(20)
