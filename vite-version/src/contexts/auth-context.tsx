@@ -159,6 +159,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.companyId]);
 
   const logout = React.useCallback(() => {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) void api.post('/auth/logout', { refreshToken }).catch(() => undefined);
     clearTokens();
     setUser(null);
   }, []);
