@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { AuthenticatedUser } from "@/lib/api-types";
-import { api, getAccessToken, getRefreshToken, setTokens, clearTokens } from "@/lib/api-client";
+import { api, getAccessToken, setTokens, clearTokens } from "@/lib/api-client";
 import { getCurrentUser, login, exchangeNeonToken, exchangeNeonInvitationToken, completeMfaChallenge, getNeonIdentityCompanies } from "@/lib/auth-api";
 import type { LoginCompanyChoice } from "@/lib/auth-api";
 import { signInWithNeon } from "@/lib/neon-auth-api";
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setMfaChallengeToken(null);
-    setTokens(result.accessToken, result.refreshToken);
+    setTokens(result.accessToken);
     try {
       const current = await getCurrentUser(result.accessToken);
       setUser(current);
@@ -142,25 +142,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const switchCompany = React.useCallback(async (companyId: string) => {
     if (!companyId || companyId === user?.companyId) return;
     const previousAccessToken = getAccessToken();
-    const previousRefreshToken = getRefreshToken();
-    if (!previousAccessToken || !previousRefreshToken) throw new Error("Your session has expired. Please sign in again.");
+    if (!previousAccessToken) throw new Error("Your session has expired. Please sign in again.");
 
     const result = await api.post<LoginResponse>("/auth/switch-company", { companyId });
-    if (!result?.accessToken || !result.refreshToken) throw new Error("The company switch returned an invalid session.");
+    if (!result?.accessToken) throw new Error("The company switch returned an invalid session.");
 
-    setTokens(result.accessToken, result.refreshToken);
+    setTokens(result.accessToken);
     try {
       const current = await getCurrentUser(result.accessToken);
       setUser(current);
     } catch (err) {
-      setTokens(previousAccessToken, previousRefreshToken);
+      setTokens(previousAccessToken);
       throw err;
     }
   }, [user?.companyId]);
 
   const logout = React.useCallback(() => {
-    const refreshToken = getRefreshToken();
-    if (refreshToken) void api.post('/auth/logout', { refreshToken }).catch(() => undefined);
+    void api.post('/auth/logout', {}).catch(() => undefined);
     clearTokens();
     setUser(null);
   }, []);
