@@ -19,6 +19,7 @@ const LIMITS: Record<string, { limit: number; windowSeconds: number }> = {
   'POST /api/auth/neon/exchange': { limit: 20, windowSeconds: 60 },
   'POST /api/auth/neon/exchange-invitation': { limit: 10, windowSeconds: 60 },
   'POST /api/auth/refresh': { limit: 30, windowSeconds: 60 },
+  'POST /api/auth/logout': { limit: 30, windowSeconds: 60 },
 };
 
 @Injectable()
