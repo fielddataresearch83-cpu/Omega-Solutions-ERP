@@ -1,4 +1,4 @@
-import { ExecutionContext, TooManyRequestsException, ServiceUnavailableException } from '@nestjs/common';
+import { ExecutionContext, HttpStatus, ServiceUnavailableException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthRateLimitGuard } from './auth-rate-limit.guard.js';
 
@@ -30,7 +30,7 @@ describe('AuthRateLimitGuard', () => {
   it('rejects requests above the endpoint limit', async () => {
     const db = { query: vi.fn().mockResolvedValue({ rows: [{ request_count: 11 }] }) };
     const guard = new AuthRateLimitGuard(db as any);
-    await expect(guard.canActivate(context())).rejects.toBeInstanceOf(TooManyRequestsException);
+    await expect(guard.canActivate(context())).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
   });
 
   it('fails closed if shared rate-limit storage is unavailable', async () => {
