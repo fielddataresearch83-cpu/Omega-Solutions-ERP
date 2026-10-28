@@ -63,10 +63,11 @@ export class AuthController {
       ...(process.env.CORS_ORIGINS || '').split(','),
       ...(process.env.CORS_ORIGIN || '').split(','),
     ].map((value) => value.trim()).filter(Boolean);
+    const allowedOrigins = configured.length ? configured : ['http://localhost:5173'];
     const trustedVercelOrigin =
       origin === 'https://omega-solutions-nine.vercel.app' ||
       /^https:\/\/omega-solutions-[a-z0-9-]+-pestria72-2760\.vercel\.app$/.test(origin);
-    if (!configured.includes(origin) && !trustedVercelOrigin) {
+    if (!allowedOrigins.includes(origin) && !trustedVercelOrigin) {
       throw new UnauthorizedException('This request origin is not allowed.');
     }
   }
