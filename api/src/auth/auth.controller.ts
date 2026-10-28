@@ -68,6 +68,12 @@ export class AuthController {
     return { enabled: false };
   }
 
+  @Post('logout')
+  async logout(@Body() dto: RefreshDto) {
+    await this.authService.revokeRefreshToken(dto.refreshToken);
+    return { success: true };
+  }
+
   @Post('refresh')
   async refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto);
