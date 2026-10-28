@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller.js';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { MfaService } from './mfa.service.js';
+import { AuthRateLimitGuard } from './auth-rate-limit.guard.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module.js';
 
@@ -22,7 +23,7 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, MfaService, JwtStrategy, JwtAuthGuard],
+  providers: [AuthService, MfaService, JwtStrategy, JwtAuthGuard, AuthRateLimitGuard],
   exports: [AuthService, JwtAuthGuard, JwtModule],
 })
 export class AuthModule {}
