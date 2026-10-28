@@ -171,10 +171,15 @@ export class AuthController {
     @Body() dto: SwitchCompanyDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    return this.sessionResponse(
-      await this.authService.switchCompany(req.user.userId, dto.companyId, req.user.mfaVerified === true),
-      response,
+    const session = await this.authService.switchCompany(
+      req.user.userId,
+      dto.companyId,
+      req.user.mfaVerified === true,
     );
+    // The new company session is issued first; then revoke the previous family
+    // so its access tokens cannot continue working in the old company context.
+    await this.authService.revokeSessionFamily(req.user.sessionFamilyId);
+    return this.sessionResponse(session, response);
   }
 
   @Get('me')
