@@ -1,6 +1,6 @@
 import * as React from "react";
 import type { AuthenticatedUser } from "@/lib/api-types";
-import { api, getAccessToken, setTokens, clearTokens } from "@/lib/api-client";
+import { api, getAccessToken, setTokens, clearTokens, restoreSession } from "@/lib/api-client";
 import { getCurrentUser, login, exchangeNeonToken, exchangeNeonInvitationToken, completeMfaChallenge, getNeonIdentityCompanies } from "@/lib/auth-api";
 import type { LoginCompanyChoice } from "@/lib/auth-api";
 import { signInWithNeon } from "@/lib/neon-auth-api";
@@ -36,18 +36,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [pendingIdentityEmail, setPendingIdentityEmail] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    getCurrentUser(token)
-      .then((u) => setUser(u))
-      .catch(() => {
-        clearTokens();
-        setUser(null);
+    let active = true;
+    // Access tokens are intentionally memory-only. On page reload, restore the
+    // session through the server's HttpOnly refresh cookie instead of localStorage.
+    restoreSession()
+      .then((token) => {
+        if (!active || !token) return;
+        return getCurrentUser(token).then((current) => {
+          if (active) setUser(current);
+        });
       })
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (active) {
+          clearTokens();
+          setUser(null);
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const applyOmegaSession = React.useCallback(async (result: LoginResponse | MfaChallengeResponse) => {
