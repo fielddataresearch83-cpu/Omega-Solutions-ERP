@@ -73,4 +73,18 @@ describe('AuthService company-scoped identity', () => {
     await expect(service.getUserProfile('user-1', 'company-foreign')).rejects.toBeInstanceOf(UnauthorizedException);
     expect(db.query).toHaveBeenCalledTimes(2);
   });
+  it('rejects access tokens whose server-tracked session family is revoked or missing', async () => {
+    db.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    await expect(service.assertActiveSession('family-revoked', 'user-1', 'company-a'))
+      .rejects.toBeInstanceOf(UnauthorizedException);
+    expect(db.query.mock.calls[0][0]).toContain('revoked_at IS NULL');
+    expect(db.query.mock.calls[0][0]).toContain('expires_at > NOW()');
+    expect(db.query.mock.calls[0][1]).toEqual(['family-revoked', 'user-1', 'company-a']);
+  });
+
+  it('accepts an access-token family only when a live server-side session exists', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }], rowCount: 1 });
+    await expect(service.assertActiveSession('family-active', 'user-1', 'company-a')).resolves.toBeUndefined();
+  });
+
 });
