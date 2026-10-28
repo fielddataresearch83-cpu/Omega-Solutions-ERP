@@ -1,4 +1,5 @@
-import { Controller, Post, Get, Body, UseGuards, Request, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Request, BadRequestException, Res, Req, UnauthorizedException } from '@nestjs/common';
+import type { Request as ExpressRequest, Response } from 'express';
 import { AuthService } from './auth.service.js';
 import { LoginDto, RefreshDto, NeonExchangeDto, NeonIdentityCompaniesDto, NeonInvitationExchangeDto, SwitchCompanyDto } from './dto/auth.dto.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
@@ -7,10 +8,59 @@ import { MfaService } from './mfa.service.js';
 import { MfaCodeDto, MfaChallengeDto } from './dto/mfa.dto.js';
 import { AuthRateLimitGuard } from './auth-rate-limit.guard.js';
 
+const REFRESH_COOKIE = 'omega_refresh';
+const REFRESH_COOKIE_PATH = '/api/auth';
+const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
 @Controller('auth')
 @UseGuards(AuthRateLimitGuard)
 export class AuthController {
   constructor(private readonly authService: AuthService, private readonly mfaService: MfaService) {}
+
+  private setRefreshCookie(response: Response, token: string): void {
+    response.cookie(REFRESH_COOKIE, token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: REFRESH_COOKIE_PATH,
+      maxAge: REFRESH_COOKIE_MAX_AGE,
+    });
+  }
+
+  private clearRefreshCookie(response: Response): void {
+    response.clearCookie(REFRESH_COOKIE, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: REFRESH_COOKIE_PATH,
+    });
+  }
+
+  private sessionResponse<T>(result: T, response: Response): T | Omit<T, 'refreshToken'> {
+    if (!result || typeof result !== 'object' || !('refreshToken' in result)) return result;
+    const session = result as T & { refreshToken?: unknown };
+    if (typeof session.refreshToken !== 'string' || !session.refreshToken) return result;
+    this.setRefreshCookie(response, session.refreshToken);
+    const { refreshToken: _refreshToken, ...safe } = session;
+    return safe as Omit<T, 'refreshToken'>;
+  }
+
+  private assertTrustedCookieOrigin(request: ExpressRequest): void {
+    const origin = request.headers.origin;
+    // Non-browser clients may omit Origin. Browser-supplied origins must match
+    // the same explicit allow-list used by the CORS policy.
+    if (!origin) return;
+    const configured = [
+      ...(process.env.CORS_ORIGINS || '').split(','),
+      ...(process.env.CORS_ORIGIN || '').split(','),
+    ].map((value) => value.trim()).filter(Boolean);
+    const trustedVercelOrigin =
+      origin === 'https://omega-solutions-nine.vercel.app' ||
+      /^https:\/\/omega-solutions-[a-z0-9-]+-pestria72-2760\.vercel\.app$/.test(origin);
+    if (!configured.includes(origin) && !trustedVercelOrigin) {
+      throw new UnauthorizedException('This request origin is not allowed.');
+    }
+  }
 
   @Post('register')
   async register() {
@@ -23,24 +73,23 @@ export class AuthController {
   }
 
   @Post('neon/exchange')
-  async exchangeNeonIdentity(@Body() dto: NeonExchangeDto) {
-    return this.authService.exchangeNeonIdentity(dto);
+  async exchangeNeonIdentity(@Body() dto: NeonExchangeDto, @Res({ passthrough: true }) response: Response) {
+    return this.sessionResponse(await this.authService.exchangeNeonIdentity(dto), response);
   }
 
   @Post('neon/exchange-invitation')
-  async exchangeNeonInvitation(@Body() dto: NeonInvitationExchangeDto) {
-    return this.authService.exchangeNeonInvitation(dto);
+  async exchangeNeonInvitation(@Body() dto: NeonInvitationExchangeDto, @Res({ passthrough: true }) response: Response) {
+    return this.sessionResponse(await this.authService.exchangeNeonInvitation(dto), response);
   }
 
   @Post('login')
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) response: Response) {
+    return this.sessionResponse(await this.authService.login(dto), response);
   }
 
-
   @Post('mfa/challenge')
-  async completeMfaChallenge(@Body() dto: MfaChallengeDto) {
-    return this.authService.completeMfaChallenge(dto.challengeToken, dto.code);
+  async completeMfaChallenge(@Body() dto: MfaChallengeDto, @Res({ passthrough: true }) response: Response) {
+    return this.sessionResponse(await this.authService.completeMfaChallenge(dto.challengeToken, dto.code), response);
   }
 
   @Get('mfa/status')
@@ -69,16 +118,35 @@ export class AuthController {
   }
 
   @Post('logout')
-  async logout(@Body() dto: RefreshDto) {
-    await this.authService.revokeRefreshToken(dto.refreshToken);
+  async logout(
+    @Body() dto: RefreshDto | undefined,
+    @Req() request: ExpressRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    this.assertTrustedCookieOrigin(request);
+    const cookieToken = request.cookies?.[REFRESH_COOKIE] as string | undefined;
+    const token = cookieToken || dto?.refreshToken;
+    if (token) await this.authService.revokeRefreshToken(token);
+    this.clearRefreshCookie(response);
     return { success: true };
   }
 
   @Post('refresh')
-  async refresh(@Body() dto: RefreshDto) {
-    return this.authService.refresh(dto);
+  async refresh(
+    @Body() dto: RefreshDto | undefined,
+    @Req() request: ExpressRequest,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    this.assertTrustedCookieOrigin(request);
+    const cookieToken = request.cookies?.[REFRESH_COOKIE] as string | undefined;
+    const token = cookieToken || dto?.refreshToken;
+    if (!token) {
+      this.clearRefreshCookie(response);
+      throw new UnauthorizedException('Refresh session is missing. Please sign in again.');
+    }
+    const result = await this.authService.refresh({ refreshToken: token });
+    return this.sessionResponse(result, response);
   }
-
 
   @Get('companies')
   @UseGuards(JwtAuthGuard)
@@ -91,8 +159,12 @@ export class AuthController {
   async switchCompany(
     @Request() req: { user: AuthenticatedUser },
     @Body() dto: SwitchCompanyDto,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    return this.authService.switchCompany(req.user.userId, dto.companyId, req.user.mfaVerified === true);
+    return this.sessionResponse(
+      await this.authService.switchCompany(req.user.userId, dto.companyId, req.user.mfaVerified === true),
+      response,
+    );
   }
 
   @Get('me')
