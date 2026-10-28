@@ -3,24 +3,25 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://omega-solutions-api-development.onrender.com/api";
 
 const TOKEN_KEY = "omega-token";
-const REFRESH_KEY = "omega-refresh";
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
 export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_KEY);
+  // Refresh credentials are held only in the API's HttpOnly cookie.
+  return null;
 }
 
-export function setTokens(accessToken: string, refreshToken: string): void {
+export function setTokens(accessToken: string, _refreshToken?: string): void {
   localStorage.setItem(TOKEN_KEY, accessToken);
-  localStorage.setItem(REFRESH_KEY, refreshToken);
+  // Remove legacy refresh-token storage from earlier app versions.
+  localStorage.removeItem("omega-refresh");
 }
 
 export function clearTokens(): void {
   localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_KEY);
+  localStorage.removeItem("omega-refresh");
 }
 
 interface ApiError {
@@ -68,19 +69,16 @@ async function readResponseBody<T>(res: Response, path: string, method: string):
 }
 
 async function refreshAccessToken(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-
   try {
     const res = await fetch(`${BASE_URL}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
+      credentials: "include",
     });
     if (!res.ok) return false;
-    const data = await readResponseBody<{ accessToken?: string; refreshToken?: string }>(res, "/auth/refresh", "POST");
-    if (!data?.accessToken || !data.refreshToken) return false;
-    setTokens(data.accessToken, data.refreshToken);
+    const data = await readResponseBody<{ accessToken?: string }>(res, "/auth/refresh", "POST");
+    if (!data?.accessToken) return false;
+    setTokens(data.accessToken);
     return true;
   } catch {
     return false;
@@ -100,7 +98,7 @@ export async function apiRequest<T>(
   const token = getAccessToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const request = () => fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const request = () => fetch(`${BASE_URL}${path}`, { ...options, headers, credentials: "include" });
   let res = await request();
 
   if (res.status === 401) {
