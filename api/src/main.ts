@@ -8,6 +8,11 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
+  // Render terminates the public connection before forwarding to the service.
+  // Trust exactly the nearest proxy hop so req.ip resolves the client address;
+  // the rate limiter deliberately never trusts a caller-supplied header directly.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   // Support configured frontend origins and stable Vercel deployment URLs
   // for this project. Avoid a blanket *.vercel.app allowance.
   const configuredOrigins = [
