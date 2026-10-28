@@ -46,7 +46,7 @@ export class AuthRateLimitGuard implements CanActivate {
         `INSERT INTO auth_rate_limits (key_hash, window_started_at, request_count)
          VALUES (
            $1,
-           to_timestamp(floor(extract(epoch FROM NOW()) / $2) * $2),
+           to_timestamp(floor(extract(epoch FROM NOW()) / $2::double precision) * $2::double precision),
            1
          )
          ON CONFLICT (key_hash, window_started_at)
