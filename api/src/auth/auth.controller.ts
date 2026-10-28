@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, UseGuards, Request, BadRequestException, Res, Req, UnauthorizedException } from '@nestjs/common';
 import type { Request as ExpressRequest, Response } from 'express';
 import { AuthService } from './auth.service.js';
-import { LoginDto, RefreshDto, NeonExchangeDto, NeonIdentityCompaniesDto, NeonInvitationExchangeDto, SwitchCompanyDto } from './dto/auth.dto.js';
+import { LoginDto, NeonExchangeDto, NeonIdentityCompaniesDto, NeonInvitationExchangeDto, SwitchCompanyDto } from './dto/auth.dto.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import type { AuthenticatedUser } from './interfaces/authenticated-user.js';
 import { MfaService } from './mfa.service.js';
