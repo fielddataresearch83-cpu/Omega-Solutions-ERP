@@ -4,6 +4,12 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://omega-solutions-a
 
 let accessTokenInMemory: string | null = null;
 
+// Remove legacy browser-persisted credentials immediately when this module loads.
+if (typeof localStorage !== "undefined") {
+  localStorage.removeItem("omega-token");
+  localStorage.removeItem("omega-refresh");
+}
+
 export function getAccessToken(): string | null {
   return accessTokenInMemory;
 }
