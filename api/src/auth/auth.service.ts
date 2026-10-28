@@ -288,7 +288,7 @@ export class AuthService {
     };
     return {
       accessToken: this.issueToken(payload, false),
-      refreshToken: this.issueToken(payload, true),
+      refreshToken: await this.issueTrackedRefreshToken(payload),
       user: {
         userId: joined.userId, email: joined.email, fullName: joined.fullName,
         companyId: joined.companyId, branchId: joined.branchId, role: joined.role,
@@ -336,7 +336,7 @@ export class AuthService {
 
     return {
       accessToken: this.issueToken(payload, false),
-      refreshToken: this.issueToken(payload, true),
+      refreshToken: await this.issueTrackedRefreshToken(payload),
       user: {
         userId: user.id,
         email: user.email,
@@ -377,7 +377,7 @@ export class AuthService {
     };
     return {
       accessToken: this.issueToken(payload, false),
-      refreshToken: this.issueToken(payload, true),
+      refreshToken: await this.issueTrackedRefreshToken(payload),
       user: {
         userId: profile.userId, email: profile.email, fullName: profile.fullName,
         companyId: profile.companyId, branchId: profile.branchId, role: profile.role,
@@ -470,7 +470,7 @@ export class AuthService {
     };
     return {
       accessToken: this.issueToken(payload, false),
-      refreshToken: this.issueToken(payload, true),
+      refreshToken: await this.issueTrackedRefreshToken(payload),
       user: {
         userId: profile.userId,
         email: profile.email,
