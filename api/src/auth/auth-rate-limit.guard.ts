@@ -56,18 +56,12 @@ export class AuthRateLimitGuard implements CanActivate {
       );
 
       if (Number(result.rows[0]?.request_count ?? 0) > rule.limit) {
-        throw new TooManyRequestsException('Too many authentication attempts. Please wait and try again.');
+        throw new HttpException('Too many authentication attempts. Please wait and try again.', HttpStatus.TOO_MANY_REQUESTS);
       }
 
-      // Opportunistic bounded cleanup; no client-controlled values enter SQL.
-      if (Number(result.rows[0]?.request_count ?? 0) === 1 && Math.random() < 0.01) {
-        await this.db.query(
-          "DELETE FROM auth_rate_limits WHERE updated_at < NOW() - INTERVAL '2 days'",
-        );
-      }
       return true;
     } catch (error) {
-      if (error instanceof TooManyRequestsException) throw error;
+      if (error instanceof HttpException && error.getStatus() === HttpStatus.TOO_MANY_REQUESTS) throw error;
       // Fail closed: if shared throttling is unavailable, do not expose an
       // unthrottled public authentication endpoint.
       throw new ServiceUnavailableException('Authentication protection is temporarily unavailable.');
