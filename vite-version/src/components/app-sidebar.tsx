@@ -204,12 +204,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link to={isSalesperson ? "/sales-dashboard" : "/dashboard"} />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Logo size={26} />
+              <div className="flex aspect-square size-10 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white p-1.5 shadow-sm">
+                <Logo size={31} className="shrink-0" />
               </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">Omega Solutions</span>
-                <span className="truncate text-xs text-muted-foreground">
+              <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-bold tracking-tight text-sidebar-foreground">Omega Solutions</span>
+                <span className="truncate text-xs text-sidebar-foreground/75">
                   {company ? company.name : "ERP Platform"}
                 </span>
               </div>
