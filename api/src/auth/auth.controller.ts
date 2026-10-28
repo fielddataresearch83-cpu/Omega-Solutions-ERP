@@ -143,13 +143,13 @@ export class AuthController {
 
   @Post('refresh')
   async refresh(
-    @Body() dto: RefreshDto | undefined,
+    @Body() body: { refreshToken?: string } = {},
     @Req() request: ExpressRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
     this.assertTrustedCookieOrigin(request);
-    const cookieToken = request.cookies?.[REFRESH_COOKIE] as string | undefined;
-    const token = cookieToken || dto?.refreshToken;
+    const cookieToken = this.readRefreshCookie(request);
+    const token = cookieToken || body?.refreshToken;
     if (!token) {
       this.clearRefreshCookie(response);
       throw new UnauthorizedException('Refresh session is missing. Please sign in again.');
