@@ -176,7 +176,7 @@ export class AuthService {
     };
     return {
       accessToken: this.issueToken(payload, false),
-      refreshToken: this.issueToken(payload, true),
+      refreshToken: await this.issueTrackedRefreshToken(payload),
       user: {
         userId: user.id,
         email: user.email,
@@ -387,28 +387,54 @@ export class AuthService {
 
   async refresh(dto: RefreshDto): Promise<TokenPair> {
     try {
-      const payload = this.jwtService.verify<JwtPayload>(dto.refreshToken, {
+      const payload = this.jwtService.verify<JwtPayload & { jti?: string; familyId?: string }>(dto.refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET,
       });
+      if (!payload.jti || !payload.familyId) throw new UnauthorizedException('Refresh token is not registered.');
 
-      // Re-check the account and active company membership whenever a refresh token is used.
       const mfaStatus = await this.mfaService.status(payload.sub);
-      if (mfaStatus.enabled && payload.mfaVerified !== true) throw new UnauthorizedException('Sign in again and complete MFA before refreshing tokens.');
+      if (mfaStatus.enabled && payload.mfaVerified !== true) {
+        throw new UnauthorizedException('Sign in again and complete MFA before refreshing tokens.');
+      }
       const profile = await this.getUserProfile(payload.sub, payload.companyId);
-
       const newPayload: JwtPayload = {
-        sub: profile.userId,
-        email: profile.email,
-        companyId: profile.companyId,
-        branchId: profile.branchId,
-        role: profile.role,
+        sub: profile.userId, email: profile.email, companyId: profile.companyId,
+        branchId: profile.branchId, role: profile.role,
         ...(payload.mfaVerified === true ? { mfaVerified: true } : {}),
       };
+      const nextJti = uuidv4();
+      const nextToken = this.issueToken({ ...newPayload, jti: nextJti, familyId: payload.familyId } as JwtPayload, true);
+      const decoded = this.jwtService.decode(nextToken) as { exp?: number } | null;
+      if (!decoded?.exp) throw new Error('Could not determine refresh-token expiry.');
+      const oldHash = createHash('sha256').update(dto.refreshToken).digest('hex');
+      const nextHash = createHash('sha256').update(nextToken).digest('hex');
+      const nextExpiry = new Date(decoded.exp * 1000);
 
-      return {
-        accessToken: this.issueToken(newPayload, false),
-        refreshToken: this.issueToken(newPayload, true),
-      };
+      const outcome = await this.db.transaction(async (client) => {
+        const current = await client.query<{ token_family_id: string; used_at: Date | null; revoked_at: Date | null; expires_at: Date }>(
+          'SELECT token_family_id, used_at, revoked_at, expires_at FROM auth_refresh_tokens WHERE jti = $1 AND token_hash = $2 FOR UPDATE',
+          [payload.jti, oldHash],
+        );
+        const row = current.rows[0];
+        if (!row || row.token_family_id !== payload.familyId || row.revoked_at || new Date(row.expires_at).getTime() <= Date.now()) {
+          return 'invalid' as const;
+        }
+        if (row.used_at) {
+          await client.query(
+            'UPDATE auth_refresh_tokens SET revoked_at = COALESCE(revoked_at, NOW()), updated_at = NOW() WHERE token_family_id = $1',
+            [payload.familyId],
+          );
+          return 'reuse' as const;
+        }
+        await client.query('UPDATE auth_refresh_tokens SET used_at = NOW(), updated_at = NOW() WHERE jti = $1', [payload.jti]);
+        await client.query(
+          'INSERT INTO auth_refresh_tokens (jti, token_hash, token_family_id, user_id, company_id, expires_at) VALUES ($1, $2, $3, $4, $5, $6)',
+          [nextJti, nextHash, payload.familyId, profile.userId, profile.companyId, nextExpiry],
+        );
+        return 'rotated' as const;
+      });
+      if (outcome !== 'rotated') throw new UnauthorizedException(outcome === 'reuse' ? 'Refresh token reuse detected. Sign in again.' : 'Invalid refresh token');
+      return { accessToken: this.issueToken(newPayload, false), refreshToken: nextToken };
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -538,6 +564,39 @@ export class AuthService {
     return result.rows.map((r) => r.permission);
   }
 
+  private async issueTrackedRefreshToken(payload: JwtPayload): Promise<string> {
+    const jti = uuidv4();
+    const familyId = uuidv4();
+    const token = this.issueToken({ ...payload, jti, familyId } as JwtPayload, true);
+    const decoded = this.jwtService.decode(token) as { exp?: number } | null;
+    if (!decoded?.exp) throw new Error('Could not determine refresh-token expiry.');
+    const tokenHash = createHash('sha256').update(token).digest('hex');
+    await this.db.query(
+      'INSERT INTO auth_refresh_tokens (jti, token_hash, token_family_id, user_id, company_id, expires_at) VALUES ($1, $2, $3, $4, $5, $6)',
+      [jti, tokenHash, familyId, payload.sub, payload.companyId, new Date(decoded.exp * 1000)],
+    );
+    return token;
+  }
+
+  async revokeRefreshToken(refreshToken: string): Promise<void> {
+    try {
+      const payload = this.jwtService.verify<JwtPayload & { jti?: string; familyId?: string }>(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+      if (!payload.jti || !payload.familyId) return;
+      const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
+      await this.db.query(
+        'UPDATE auth_refresh_tokens SET revoked_at = COALESCE(revoked_at, NOW()), updated_at = NOW() WHERE token_family_id = $1 AND jti = $2 AND token_hash = $3',
+        [payload.familyId, payload.jti, tokenHash],
+      );
+      await this.db.query(
+        'UPDATE auth_refresh_tokens SET revoked_at = COALESCE(revoked_at, NOW()), updated_at = NOW() WHERE token_family_id = $1',
+        [payload.familyId],
+      );
+    } catch {
+      // Logout is intentionally idempotent and does not reveal token validity.
+    }
+  }
   private issueToken(payload: JwtPayload, isRefresh: boolean): string {
     const secret = isRefresh ? process.env.JWT_REFRESH_SECRET : process.env.JWT_SECRET;
     const expiresIn = isRefresh
