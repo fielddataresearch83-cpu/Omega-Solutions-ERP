@@ -3,7 +3,8 @@ import {
   ExecutionContext,
   Injectable,
   ServiceUnavailableException,
-  TooManyRequestsException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import type { Request } from 'express';
