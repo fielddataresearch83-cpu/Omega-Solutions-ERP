@@ -52,6 +52,7 @@ export async function register(email: string, password: string, fullName: string
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ email, password, fullName, phone, companyName }),
   });
   if (!res.ok) throw await readError(res, "Registration failed");
@@ -62,6 +63,7 @@ export async function getNeonIdentityCompanies(token: string): Promise<LoginComp
   const res = await fetch(`${API_BASE}/auth/neon/companies`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ token }),
   });
   if (!res.ok) throw await readError(res, "Could not load your company memberships");
@@ -73,6 +75,7 @@ export async function exchangeNeonToken(token: string, fullName: string, phone?:
   const res = await fetch(`${API_BASE}/auth/neon/exchange`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ token, fullName, phone, companyName, companyId, intent }),
   });
   if (!res.ok) throw await readError(res, "Could not finish setting up your Omega account");
@@ -83,6 +86,7 @@ export async function getCurrentUser(token: string): Promise<AuthenticatedUser> 
   const res = await fetch(`${API_BASE}/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
     credentials: "include",
+    credentials: "include",
   });
   if (!res.ok) throw new Error("Failed to fetch user profile");
   return res.json();
@@ -92,6 +96,7 @@ export async function completeMfaChallenge(challengeToken: string, code: string)
   const res = await fetch(`${API_BASE}/auth/mfa/challenge`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ challengeToken, code }),
   });
   if (!res.ok) throw await readError(res, "MFA verification failed");
@@ -102,6 +107,7 @@ export async function exchangeNeonInvitationToken(token: string, invitationToken
   const res = await fetch(`${API_BASE}/auth/neon/exchange-invitation`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ token, invitationToken }),
   });
   if (!res.ok) throw await readError(res, "Could not accept this company invitation");
