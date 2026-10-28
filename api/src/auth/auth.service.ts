@@ -175,8 +175,7 @@ export class AuthService {
       role: membership.role,
     };
     return {
-      accessToken: this.issueToken(payload, false),
-      refreshToken: await this.issueTrackedRefreshToken(payload),
+      ...(await this.issueSessionTokens(payload)),
       user: {
         userId: user.id,
         email: user.email,
@@ -287,8 +286,7 @@ export class AuthService {
       branchId: joined.branchId, role: joined.role,
     };
     return {
-      accessToken: this.issueToken(payload, false),
-      refreshToken: await this.issueTrackedRefreshToken(payload),
+      ...(await this.issueSessionTokens(payload)),
       user: {
         userId: joined.userId, email: joined.email, fullName: joined.fullName,
         companyId: joined.companyId, branchId: joined.branchId, role: joined.role,
@@ -335,8 +333,7 @@ export class AuthService {
     };
 
     return {
-      accessToken: this.issueToken(payload, false),
-      refreshToken: await this.issueTrackedRefreshToken(payload),
+      ...(await this.issueSessionTokens(payload)),
       user: {
         userId: user.id,
         email: user.email,
@@ -376,8 +373,7 @@ export class AuthService {
       branchId: profile.branchId, role: profile.role, mfaVerified: true,
     };
     return {
-      accessToken: this.issueToken(payload, false),
-      refreshToken: await this.issueTrackedRefreshToken(payload),
+      ...(await this.issueSessionTokens(payload)),
       user: {
         userId: profile.userId, email: profile.email, fullName: profile.fullName,
         companyId: profile.companyId, branchId: profile.branchId, role: profile.role,
@@ -389,6 +385,7 @@ export class AuthService {
     try {
       const payload = this.jwtService.verify<JwtPayload & { jti?: string; familyId?: string }>(dto.refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET,
+        algorithms: ['HS256'],
       });
       if (!payload.jti || !payload.familyId) throw new UnauthorizedException('Refresh token is not registered.');
 
@@ -434,7 +431,7 @@ export class AuthService {
         return 'rotated' as const;
       });
       if (outcome !== 'rotated') throw new UnauthorizedException(outcome === 'reuse' ? 'Refresh token reuse detected. Sign in again.' : 'Invalid refresh token');
-      return { accessToken: this.issueToken(newPayload, false), refreshToken: nextToken };
+      return { accessToken: this.issueToken({ ...newPayload, familyId: payload.familyId } as JwtPayload, false), refreshToken: nextToken };
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -469,8 +466,7 @@ export class AuthService {
       ...(mfaVerified ? { mfaVerified: true } : {}),
     };
     return {
-      accessToken: this.issueToken(payload, false),
-      refreshToken: await this.issueTrackedRefreshToken(payload),
+      ...(await this.issueSessionTokens(payload)),
       user: {
         userId: profile.userId,
         email: profile.email,
@@ -564,9 +560,15 @@ export class AuthService {
     return result.rows.map((r) => r.permission);
   }
 
-  private async issueTrackedRefreshToken(payload: JwtPayload): Promise<string> {
-    const jti = uuidv4();
+  private async issueSessionTokens(payload: JwtPayload): Promise<TokenPair> {
     const familyId = uuidv4();
+    const refreshToken = await this.issueTrackedRefreshToken(payload, familyId);
+    const accessToken = this.issueToken({ ...payload, familyId } as JwtPayload, false);
+    return { accessToken, refreshToken };
+  }
+
+  private async issueTrackedRefreshToken(payload: JwtPayload, familyId = uuidv4()): Promise<string> {
+    const jti = uuidv4();
     const token = this.issueToken({ ...payload, jti, familyId } as JwtPayload, true);
     const decoded = this.jwtService.decode(token) as { exp?: number } | null;
     if (!decoded?.exp) throw new Error('Could not determine refresh-token expiry.');
@@ -578,10 +580,32 @@ export class AuthService {
     return token;
   }
 
+  async assertActiveSession(familyId: string, userId: string, companyId: string | null): Promise<void> {
+    if (!familyId || !userId) throw new UnauthorizedException('Session is missing or invalid.');
+    const result = await this.db.query(
+      `SELECT 1 FROM auth_refresh_tokens
+       WHERE token_family_id = $1 AND user_id = $2
+         AND company_id IS NOT DISTINCT FROM $3::uuid
+         AND revoked_at IS NULL AND expires_at > NOW()
+       LIMIT 1`,
+      [familyId, userId, companyId],
+    );
+    if (!result.rows.length) throw new UnauthorizedException('Session has expired or been revoked. Please sign in again.');
+  }
+
+  async revokeSessionFamily(familyId?: string): Promise<void> {
+    if (!familyId) return;
+    await this.db.query(
+      'UPDATE auth_refresh_tokens SET revoked_at = COALESCE(revoked_at, NOW()), updated_at = NOW() WHERE token_family_id = $1',
+      [familyId],
+    );
+  }
+
   async revokeRefreshToken(refreshToken: string): Promise<void> {
     try {
       const payload = this.jwtService.verify<JwtPayload & { jti?: string; familyId?: string }>(refreshToken, {
         secret: process.env.JWT_REFRESH_SECRET,
+        algorithms: ['HS256'],
       });
       if (!payload.jti || !payload.familyId) return;
       const tokenHash = createHash('sha256').update(refreshToken).digest('hex');
@@ -605,6 +629,7 @@ export class AuthService {
 
     return this.jwtService.sign(payload as unknown as object, {
       secret,
+      algorithm: 'HS256',
       expiresIn: expiresIn as unknown as number,
     });
   }
