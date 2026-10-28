@@ -2,7 +2,7 @@ import type { AuthenticatedUser } from "./api-types";
 
 export interface LoginResponse {
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
   user: {
     userId: string;
     email: string;
@@ -41,6 +41,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ email, password }),
   });
   if (!res.ok) throw await readError(res, "Invalid credentials");
@@ -81,6 +82,7 @@ export async function exchangeNeonToken(token: string, fullName: string, phone?:
 export async function getCurrentUser(token: string): Promise<AuthenticatedUser> {
   const res = await fetch(`${API_BASE}/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
   });
   if (!res.ok) throw new Error("Failed to fetch user profile");
   return res.json();
