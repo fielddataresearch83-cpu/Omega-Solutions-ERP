@@ -17,6 +17,15 @@ const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 export class AuthController {
   constructor(private readonly authService: AuthService, private readonly mfaService: MfaService) {}
 
+  private readRefreshCookie(request: ExpressRequest): string | undefined {
+    const cookieHeader = request.headers.cookie;
+    if (!cookieHeader) return undefined;
+    const entry = cookieHeader.split(';').map((part) => part.trim()).find((part) => part.startsWith(REFRESH_COOKIE + '='));
+    if (!entry) return undefined;
+    const value = entry.slice(REFRESH_COOKIE.length + 1);
+    try { return decodeURIComponent(value); } catch { return undefined; }
+  }
+
   private setRefreshCookie(response: Response, token: string): void {
     response.cookie(REFRESH_COOKIE, token, {
       httpOnly: true,
@@ -119,13 +128,13 @@ export class AuthController {
 
   @Post('logout')
   async logout(
-    @Body() dto: RefreshDto | undefined,
+    @Body() body: { refreshToken?: string } = {},
     @Req() request: ExpressRequest,
     @Res({ passthrough: true }) response: Response,
   ) {
     this.assertTrustedCookieOrigin(request);
-    const cookieToken = request.cookies?.[REFRESH_COOKIE] as string | undefined;
-    const token = cookieToken || dto?.refreshToken;
+    const cookieToken = this.readRefreshCookie(request);
+    const token = cookieToken || body?.refreshToken;
     if (token) await this.authService.revokeRefreshToken(token);
     this.clearRefreshCookie(response);
     return { success: true };
