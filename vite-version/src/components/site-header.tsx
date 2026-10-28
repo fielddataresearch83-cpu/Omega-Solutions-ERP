@@ -210,7 +210,9 @@ export function SiteHeader() {
                 }
               />
               <DropdownMenuContent align="end" className="w-72 rounded-lg">
-                <DropdownMenuLabel>Switch company</DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Switch company</DropdownMenuLabel>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 {companyError && <div role="alert" className="px-2 py-2 text-xs text-destructive">{companyError}</div>}
                 {companyLoading && <div className="px-2 py-2 text-sm text-muted-foreground">Loading companies…</div>}
