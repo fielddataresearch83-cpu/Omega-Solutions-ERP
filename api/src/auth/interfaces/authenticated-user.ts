@@ -7,6 +7,8 @@ export interface AuthenticatedUser {
   role: string;
   permissions: string[];
   mfaVerified?: boolean;
+  /** Server-tracked refresh-token family associated with this authenticated request. */
+  sessionFamilyId?: string;
 }
 
 export interface JwtPayload {
