@@ -86,7 +86,6 @@ export async function getCurrentUser(token: string): Promise<AuthenticatedUser> 
   const res = await fetch(`${API_BASE}/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
     credentials: "include",
-    credentials: "include",
   });
   if (!res.ok) throw new Error("Failed to fetch user profile");
   return res.json();
