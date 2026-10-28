@@ -25,7 +25,7 @@ describe('AuthService Neon identity exchange intent', () => {
     };
     service = new AuthService(
       db as any,
-      { sign: vi.fn().mockReturnValue('signed-token'), decode: vi.fn().mockReturnValue({ exp: Math.floor(Date.now() / 1000) + 3600 }) } as any,
+      { sign: vi.fn().mockReturnValue('signed-token'), decode: vi.fn().mockReturnValue({ exp: Math.floor(Date.now() / 1000) + 3600 }), verify: vi.fn() } as any,
       { status: vi.fn().mockResolvedValue({ enabled: false }) } as any,
       {} as any,
     );
