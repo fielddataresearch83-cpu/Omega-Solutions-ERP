@@ -30,7 +30,7 @@ describe('AuthService.exchangeNeonInvitation', () => {
       }),
       transaction: vi.fn((callback: (client: typeof client) => Promise<unknown>) => callback(client)),
     };
-    jwtService = { sign: vi.fn().mockReturnValue('signed-test-token'), verify: vi.fn() };
+    jwtService = { sign: vi.fn().mockReturnValue('signed-test-token'), verify: vi.fn(), decode: vi.fn().mockReturnValue({ exp: Math.floor(Date.now() / 1000) + 3600 }) };
     mfaService = { status: vi.fn().mockResolvedValue({ enabled: false }) };
     subscriptions = { assertUserCapacity: vi.fn().mockResolvedValue(undefined) };
     service = new AuthService(db as any, jwtService as any, mfaService as any, subscriptions as any);
