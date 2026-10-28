@@ -5,8 +5,10 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import type { AuthenticatedUser } from './interfaces/authenticated-user.js';
 import { MfaService } from './mfa.service.js';
 import { MfaCodeDto, MfaChallengeDto } from './dto/mfa.dto.js';
+import { AuthRateLimitGuard } from './auth-rate-limit.guard.js';
 
 @Controller('auth')
+@UseGuards(AuthRateLimitGuard)
 export class AuthController {
   constructor(private readonly authService: AuthService, private readonly mfaService: MfaService) {}
 
