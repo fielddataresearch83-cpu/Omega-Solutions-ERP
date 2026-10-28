@@ -2,10 +2,10 @@
 // Production builds must explicitly set VITE_API_BASE_URL to the production API.
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://omega-solutions-api-development.onrender.com/api";
 
-const TOKEN_KEY = "omega-token";
+let accessTokenInMemory: string | null = null;
 
 export function getAccessToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return accessTokenInMemory;
 }
 
 export function getRefreshToken(): string | null {
@@ -14,14 +14,21 @@ export function getRefreshToken(): string | null {
 }
 
 export function setTokens(accessToken: string, _refreshToken?: string): void {
-  localStorage.setItem(TOKEN_KEY, accessToken);
-  // Remove legacy refresh-token storage from earlier app versions.
-  localStorage.removeItem("omega-refresh");
+  accessTokenInMemory = accessToken;
+  // Clean up credentials persisted by older versions; access and refresh tokens
+  // must not be stored in browser-readable persistent storage.
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem("omega-token");
+    localStorage.removeItem("omega-refresh");
+  }
 }
 
 export function clearTokens(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem("omega-refresh");
+  accessTokenInMemory = null;
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem("omega-token");
+    localStorage.removeItem("omega-refresh");
+  }
 }
 
 interface ApiError {
@@ -66,6 +73,11 @@ async function readResponseBody<T>(res: Response, path: string, method: string):
       path,
     } as ApiError;
   }
+}
+
+export async function restoreSession(): Promise<string | null> {
+  const refreshed = await refreshAccessToken();
+  return refreshed ? getAccessToken() : null;
 }
 
 async function refreshAccessToken(): Promise<boolean> {
