@@ -64,6 +64,7 @@ export class CrmService {
   }
 
   async createLead(user: AuthenticatedUser, dto: CreateLeadDto) {
+    if (!dto.contactName.trim()) throw new BadRequestException('Lead contact name cannot be blank.');
     const membership = await this.membershipFor(user);
     const result = await this.db.query(
       `INSERT INTO crm_leads (company_id, owner_user_id, contact_name, organization_name, email, phone, source, estimated_value, currency, notes)
@@ -80,6 +81,9 @@ export class CrmService {
   }
 
   async updateLead(user: AuthenticatedUser, leadId: string, dto: UpdateLeadDto) {
+    if (dto.contactName !== undefined && !dto.contactName.trim()) {
+      throw new BadRequestException('Lead contact name cannot be blank.');
+    }
     const companyId = await this.companyId(user);
     const columns: Record<keyof UpdateLeadDto, string> = {
       contactName: 'contact_name', organizationName: 'organization_name', email: 'email',
