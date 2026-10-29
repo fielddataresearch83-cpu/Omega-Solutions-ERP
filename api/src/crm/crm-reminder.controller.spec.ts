@@ -28,10 +28,10 @@ describe('CrmReminderController', () => {
     expect(crm.dispatchActivityReminders).not.toHaveBeenCalled();
   });
 
-  it('dispatches reminders only with the configured scheduler secret', () => {
+  it('dispatches reminders only with the configured scheduler secret', async () => {
     const secret = 'safe-development-scheduler-secret-123456';
     vi.stubEnv('CRM_REMINDER_CRON_SECRET', secret);
-    expect(controller.dispatch(secret)).toEqual({ delivered: 2 });
+    expect(await controller.dispatch(secret)).toEqual({ delivered: 2 });
     expect(crm.dispatchActivityReminders).toHaveBeenCalledOnce();
   });
 });
