@@ -15,7 +15,8 @@ describe('AuditService', () => {
     db.query.mockResolvedValue({ rows: [], rowCount: 0 });
     await service.list('company-a', 500);
     expect(db.query.mock.calls[0][0]).toContain('WHERE al.company_id = $1');
-    expect(db.query.mock.calls[0][1]).toEqual(['company-a', 200]);
+    expect(db.query.mock.calls[0][0]).toContain('al.branch_id = $3::uuid');
+    expect(db.query.mock.calls[0][1]).toEqual(['company-a', 200, null]);
   });
 
   it('surfaces audit persistence failures instead of silently swallowing them', async () => {
