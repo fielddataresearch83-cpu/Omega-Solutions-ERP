@@ -450,7 +450,7 @@ export class CrmService {
       const assigned = await this.db.query('SELECT user_id FROM company_memberships WHERE user_id=$1 AND company_id=$2 AND is_active=TRUE',[dto.assignedUserId,companyId]);
       if (!assigned.rows.length) throw new BadRequestException('The assigned user must be an active member of this company.');
     }
-    const result = await this.db.query("UPDATE crm_support_tickets SET status=COALESCE($3,status), priority=COALESCE($4,priority), assigned_user_id=COALESCE($5,assigned_user_id), due_at=COALESCE($6,due_at), description=COALESCE($7,description), resolved_at=CASE WHEN COALESCE($3,status) IN ('resolved','closed') THEN COALESCE(resolved_at,NOW()) ELSE NULL END, updated_at=NOW() WHERE id=$1 AND company_id=$2 RETURNING *", [id,companyId,dto.status ?? null,dto.priority ?? null,dto.assignedUserId ?? null,dto.dueAt ?? null,dto.description ?? null]);
+    const result = await this.db.query("UPDATE crm_support_tickets SET status=COALESCE($3,status), priority=COALESCE($4,priority), assigned_user_id=CASE WHEN $8::boolean THEN $5::uuid ELSE assigned_user_id END, due_at=CASE WHEN $9::boolean THEN $6::timestamptz ELSE due_at END, description=COALESCE($7,description), resolved_at=CASE WHEN COALESCE($3,status) IN ('resolved','closed') THEN COALESCE(resolved_at,NOW()) ELSE NULL END, updated_at=NOW() WHERE id=$1 AND company_id=$2 RETURNING *", [id,companyId,dto.status ?? null,dto.priority ?? null,dto.assignedUserId ?? null,dto.dueAt ?? null,dto.description ?? null,dto.assignedUserId !== undefined,dto.dueAt !== undefined]);
     if (!result.rows.length) throw new NotFoundException('CRM support ticket not found.');
     await this.auditChange(user,'crm.ticket.update','crm_support_ticket',id,{...dto});
     return result.rows[0];
