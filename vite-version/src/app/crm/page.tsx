@@ -76,8 +76,10 @@ export default function CrmPage() {
   if(!leadForm.contactName.trim()){setError("Contact name is required.");return}
   setSaving(true);setError(null)
   try {
-   await api.post<Lead>("/crm/leads",{contactName:leadForm.contactName.trim(),organizationName:leadForm.organizationName.trim()||undefined,email:leadForm.email.trim()||undefined,phone:leadForm.phone.trim()||undefined,source:leadForm.source.trim()||undefined,estimatedValue:Math.max(0,Number(leadForm.estimatedValue)||0),currency:"KES",notes:leadForm.notes.trim()||undefined})
-   setLeadDialog(false);setLeadForm(blankLead);await load()
+   const payload={contactName:leadForm.contactName.trim(),organizationName:leadForm.organizationName.trim()||undefined,email:leadForm.email.trim()||undefined,phone:leadForm.phone.trim()||undefined,source:leadForm.source.trim()||undefined,estimatedValue:Math.max(0,Number(leadForm.estimatedValue)||0),currency:"KES",notes:leadForm.notes.trim()||undefined}
+   if(editingLeadId) await api.patch<Lead>("/crm/leads/"+editingLeadId,payload)
+   else await api.post<Lead>("/crm/leads",payload)
+   setLeadDialog(false);setEditingLeadId(null);setLeadForm(blankLead);await load()
   } catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not save lead.")} finally{setSaving(false)}
  }
  async function saveOpportunity(){
