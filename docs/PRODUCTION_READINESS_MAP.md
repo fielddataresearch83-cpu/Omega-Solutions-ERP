@@ -320,6 +320,9 @@ Do not mark these as fixed without fresh inspection and test evidence.
 | FIND-09 | P1 | Project-management UI may be template/static rather than a complete backend-backed module | Inspect route, API, schema, permissions, and workflows | Open |
 | FIND-10 | P1 | First-run company onboarding completeness not yet verified | Run a clean, no-demo-data onboarding journey in isolated test environment | Open |
 | FIND-11 | P1 | Production recovery and file-storage restore need evidence | Perform isolated restore drill and record results | Open |
+| FIND-12 | P0 | `.github/workflows/configure-neon-auth-verification.yml` runs on manual dispatch and on a push affecting the workflow file; it PATCHes a hard-coded Neon project/branch Auth configuration using `NEON_API_KEY` | Confirm the referenced Neon project/branch is strictly development and assess whether config mutation should be manual-only with explicit approval; do not trigger during this audit | Confirmed / Open |
+| FIND-13 | P0 | Several live smoke workflows target the shared development API; purchasing/payment/manufacturing workflows explicitly create financial, POS, HRM, inventory, or accounting records. Purchasing cleanup can run against the shared development DB when its secret is configured | Do not trigger these workflows under the no-business-data-mutation rule; review scripts and redesign fixtures for isolated/disposable test data before execution | Confirmed / Open |
+| FIND-14 | P1 | `.github/workflows/validate-development.yml` performs a live development API health smoke as part of CI; other live smoke workflows use differing path filters and trigger policies | Document side effects and consistent gating so routine commits cannot unexpectedly mutate external state; verify health check remains read-only | Open |
 
 ## 18. Final release gates — all required
 
