@@ -39,10 +39,10 @@
 - [ ] Design and test a least-privilege tenant-isolation approach on an isolated/disposable database before any shared-database changes.
 - [ ] Address branch protection / required checks; current `development` branch remains unprotected.
 
-**Last completed task:** Verified isolated MFA concurrency integration tests in CI and reviewed the first controller/service groups for tenant, role, branch, and module enforcement.  
-**Next task:** Finish SEC-01 controller/service inventory and isolated negative tests; verify runtime PostgreSQL role without secrets; design least-privilege tenant isolation on a disposable database; branch protection requires owner/admin repository settings.  
+**Last completed task:** Fixed a branch-access lifecycle gap: JWT profile and membership lookups now reject memberships assigned to inactive/missing branches; added service and auth regression tests. Await CI evidence.  
+**Next task:** Verify branch-access regression CI, continue SEC-01 controller/service inventory and isolated negative tests; verify runtime PostgreSQL role without secrets; design least-privilege tenant isolation on a disposable database; branch protection requires owner/admin repository settings.  
 **Current branch:** `development` (existing branch only).  
-**Reviewed source HEAD before this map update:** `d48ae25f95386789c0acb8278075ab682bedc399`; audit tracker changes are committed on the existing `development` branch only.  
+**Reviewed source HEAD before this map update:** `59010872fc50e49e7c263136a8edb548b5b16af5`; audit tracker changes are committed on the existing `development` branch only.  
 **Production status:** NOT APPROVED; P0 tenant-isolation and governance blockers remain.
 
 ## Status legend
@@ -330,6 +330,7 @@ Do not mark these as fixed without fresh inspection and test evidence.
 | FIND-16 | P1 | `vite-version/` contains both `package-lock.json` and `pnpm-lock.yaml`; `nextjs-version/` also has a pnpm lockfile while root/API use npm | Confirm the canonical package manager per deployed frontend and remove or document unused lockfiles only after validating hosting configuration | Open |
 | FIND-17 | P1 | Root `License.md` attributes the MIT copyright to ShadcnStore (2025); repository contains template-derived frontend assets | Verify upstream license and attribution obligations before changing notices or claiming Omega-owned licensing | Open |
 | FIND-18 | P1 | MFA recovery-code consumption could race when concurrent requests used different codes | Atomic conditional SQL `array_remove` fix and regression assertions are present. `api/src/auth/mfa.service.postgres.spec.ts` deterministically forces concurrent reads and verifies distinct codes cannot restore each other; duplicate-code single-use is also tested. `.github/workflows/validate-development.yml` provisions ephemeral PostgreSQL 16 and sets `MFA_TEST_DATABASE_URL`. [CI run 40882243954](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40882243954) executed the PostgreSQL test file (2 tests); all 57 test files / 419 tests passed. | Closed for this finding; keep broader MFA lifecycle and abuse checks open under AUTH-09/AUTH-10 |
+| FIND-19 | P1 | Branch-bound members could retain valid sessions after their assigned branch was deactivated because session profile/membership queries checked company and membership status but not branch status | Updated `AuthService.getUserMembership()` and `MembershipsService` lookups to join the assigned branch within the same company and require it to be active when `branch_id` is set. Added auth and membership regression tests. No database or runtime deployment changes made. | Fixed in development code; awaiting CI confirmation |
 
 ## 18. Final release gates — all required
 
@@ -359,10 +360,10 @@ Append a row after each completed task. Link commits, CI runs, test reports, and
 At the end of each work session, update this block:
 
 - **Reviewed source HEAD:** `development` — `d48ae25f95386789c0acb8278075ab682bedc399` (2026-10-29), plus the audit-map update commit that follows.
-- **Checklist IDs completed this session:** MFA recovery-code concurrency race fix and isolated PostgreSQL integration acceptance verified in CI run `40882243954` (2 PostgreSQL integration tests, 57 test files / 419 tests passed). RC/SEC release gates remain open.
+- **Checklist IDs completed this session:** MFA recovery-code concurrency verified in CI run `40882243954` (2 PostgreSQL integration tests, 57 test files / 419 tests passed). Identified and fixed inactive-branch session access in development code; CI pending. RC/SEC release gates remain open.
 - **Evidence recorded:** [validation run 40882243954](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40882243954) completed successfully. Its logs show `mfa.service.postgres.spec.ts (2 tests)`, 57 test files passed, and 419 tests passed against ephemeral PostgreSQL 16. Additional code-level controller review confirms guards and permissions are present on the inspected modules; this is not a substitute for isolated authorization-negative tests. Render metadata confirms development API auto-deploy is off and healthCheckPath is unset. Read-only live Neon catalog check found zero public policies, 55 RLS-enabled tables, `neondb_owner` with BYPASSRLS, and RLS disabled on notification_preferences. Notification endpoints are JWT-protected and company/recipient scoped at code level. Branch remains unprotected with required checks off.
-- **Findings opened/closed:** FIND-03 remains a P0 release blocker. FIND-18 closed after isolated PostgreSQL concurrency integration tests passed in CI. Confirm Render runtime DB role and design/test least-privilege tenant isolation in a disposable DB.
-- **Tests/CI run and result:** Run `40882243954` passed on commit `e9b58b23b07f2881921291de2b21448c16b3292d`; 57 test files / 419 tests passed and PostgreSQL MFA concurrency tests executed in isolated CI.
+- **Findings opened/closed:** FIND-03 remains a P0 release blocker. FIND-18 closed after isolated PostgreSQL concurrency integration tests passed. FIND-19 added and code fix committed; awaiting CI. Confirm Render runtime DB role and design/test least-privilege tenant isolation in a disposable DB.
+- **Tests/CI run and result:** Run `40882243954` passed on commit `e9b58b23b07f2881921291de2b21448c16b3292d`; 57 test files / 419 tests passed and PostgreSQL MFA concurrency tests executed in isolated CI. Branch-inactive authorization tests are newly added and not yet verified.
 - **Next exact checklist ID:** SEC-01 / SEC-04 / SEC-05 — complete controller-to-service authorization map; verify runtime DB role safely; design least-privilege tenant isolation in a disposable database; add isolated cross-company/branch/role/plan negative tests.
 - **Files or areas not to re-audit unless changed:** Product image ownership/signing, global search permission/module gates, payroll export query scoping and CSV formula neutralization already reviewed at code level; re-open only if files change or tests expose gaps.
 - **Production/data mutation:** None.
