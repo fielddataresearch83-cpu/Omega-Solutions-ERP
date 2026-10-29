@@ -67,7 +67,14 @@ describe('CrmService', () => {
   });
 
   it('requires an opportunity to be linked to a lead or customer', async () => {
-    await expect(service.createOpportunity(user, { title: 'Unlinked deal' })).rejects.toThrow(BadRequestException);
+    await expect(service.createOpportunity(user, { title: 'Unlinked deal' })).rejects.toThrow('An opportunity must be linked to exactly one lead or customer.');
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects opportunities linked to both a lead and a customer', async () => {
+    await expect(service.createOpportunity(user, {
+      title: 'Ambiguous deal', leadId: 'lead-1', customerId: 'customer-1',
+    })).rejects.toThrow('An opportunity must be linked to exactly one lead or customer.');
     expect(db.query).not.toHaveBeenCalled();
   });
 
