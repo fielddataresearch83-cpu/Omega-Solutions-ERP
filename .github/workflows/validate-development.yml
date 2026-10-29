@@ -177,3 +177,53 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_migration_test
         run: npm run migrate
+      - name: Simulate an old missing migration entry in the disposable database
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_migration_test
+        run: |
+          node --input-type=module <<'NODE'
+          import pg from 'pg';
+          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+          await client.connect();
+          try {
+            await client.query("DELETE FROM omega_schema_migrations WHERE filename = '013_inventory_warehousing.sql'");
+          } finally {
+            await client.end();
+          }
+          NODE
+      - name: Ensure migration runner refuses unsafe ledger-gap catch-up
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_migration_test
+        run: |
+          set +e
+          npm run migrate > /tmp/omega-migration-gap.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            cat /tmp/omega-migration-gap.log
+            echo "Expected the migration runner to refuse a ledger gap."
+            exit 1
+          fi
+          grep -F "Refusing automatic migration" /tmp/omega-migration-gap.log
+          grep -F "013_inventory_warehousing.sql" /tmp/omega-migration-gap.log
+      - name: Confirm the guard did not repair or mutate the migration ledger
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_migration_test
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import pg from 'pg';
+          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+          await client.connect();
+          try {
+            const missing = await client.query("SELECT 1 FROM omega_schema_migrations WHERE filename = '013_inventory_warehousing.sql'");
+            const later = await client.query("SELECT 1 FROM omega_schema_migrations WHERE filename = '014_purchase_orders.sql'");
+            assert.equal(missing.rowCount, 0, 'gap guard must not silently repair missing migration entries');
+            assert.equal(later.rowCount, 1, 'later migration ledger entry must remain untouched');
+          } finally {
+            await client.end();
+          }
+          NODE
