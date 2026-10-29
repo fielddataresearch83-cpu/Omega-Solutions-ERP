@@ -85,4 +85,24 @@ describe('CrmService', () => {
       ['company-1', '%Acme%'],
     );
   });
+
+  it('rejects a campaign whose end date is before its start date before querying the database', async () => {
+    await expect(service.createCampaign(user, {
+      name: 'Invalid date range',
+      startDate: '2026-11-10',
+      endDate: '2026-11-09',
+    })).rejects.toThrow('Campaign end date cannot be before its start date.');
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects an update that makes a campaign end before its existing start date', async () => {
+    db.query.mockResolvedValue({ rows: [{ start_date: '2026-11-10', end_date: '2026-11-20' }], rowCount: 1 });
+    await expect(service.updateCampaign(user, 'campaign-1', { endDate: '2026-11-09' }))
+      .rejects.toThrow('Campaign end date cannot be before its start date.');
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query).toHaveBeenCalledWith(
+      'SELECT start_date, end_date FROM crm_campaigns WHERE id=$1 AND company_id=$2',
+      ['campaign-1', 'company-1'],
+    );
+  });
 });
