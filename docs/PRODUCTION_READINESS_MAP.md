@@ -58,7 +58,7 @@
 ## 1. Release controls and repository governance — P0
 
 - [x] **RC-01** Confirm current `development` HEAD and ensure all work targets this existing branch only. Evidence: GitHub branch API checked 2026-10-29; HEAD `5362ebc96cfb36c119c0a2ba86257edffecd9202`.
-- [ ] **RC-02** Inventory every GitHub Actions workflow, reusable workflow, deployment script, package script, and hosting integration.
+- [x] **RC-02** Inventory every GitHub Actions workflow, reusable workflow, deployment script, package script, and hosting integration. Evidence: enumerated all 14 `.github/workflows/*.yml` files, root/API/Vite/Next.js package scripts, `vite-version/vercel.json`, and deployment guidance/config references in `docs/`; no root `render.yaml`, `Dockerfile`, `netlify.toml`, or `railway.json` appeared in the recursive repository tree.
 - [ ] **RC-03** For every workflow, document trigger, permissions, secrets, target environment, and whether it can deploy or mutate data.
 - [ ] **RC-04** Identify and quarantine/disable only with approval any workflow that targets unrelated projects or production; never trigger the ShadcnStore deployment workflow.
 - [ ] **RC-05** Review branch protection/rulesets and required checks. Baseline observation: GitHub reported `development` unprotected with no required status checks at the recorded commit; recheck current state.
