@@ -324,6 +324,10 @@ Do not mark these as fixed without fresh inspection and test evidence.
 | FIND-13 | P0 | Several live smoke workflows target the shared development API; purchasing/payment/manufacturing workflows explicitly create financial, POS, HRM, inventory, or accounting records. Purchasing cleanup can run against the shared development DB when its secret is configured | Do not trigger these workflows under the no-business-data-mutation rule; review scripts and redesign fixtures for isolated/disposable test data before execution | Confirmed / Open |
 | FIND-14 | P1 | `.github/workflows/validate-development.yml` performs a live development API health smoke as part of CI; other live smoke workflows use differing path filters and trigger policies | Document side effects and consistent gating so routine commits cannot unexpectedly mutate external state; verify health check remains read-only | Open |
 
+| FIND-15 | P1 | Runtime mismatch: repository `.nvmrc` specifies Node 22.22.3 while the main validation workflow installs Node 24 | Confirm deployed runtime and package compatibility; align local, CI, and hosting runtime intentionally | Open |
+| FIND-16 | P1 | `vite-version/` contains both `package-lock.json` and `pnpm-lock.yaml`; `nextjs-version/` also has a pnpm lockfile while root/API use npm | Confirm the canonical package manager per deployed frontend and remove or document unused lockfiles only after validating hosting configuration | Open |
+| FIND-17 | P1 | Root `License.md` attributes the MIT copyright to ShadcnStore (2025); repository contains template-derived frontend assets | Verify upstream license and attribution obligations before changing notices or claiming Omega-owned licensing | Open |
+
 ## 18. Final release gates — all required
 
 - [ ] **REL-01** No unresolved critical/high security or tenant-isolation findings.
