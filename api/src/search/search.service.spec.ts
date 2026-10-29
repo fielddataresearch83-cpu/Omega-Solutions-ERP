@@ -43,9 +43,9 @@ describe('SearchService', () => {
     const results = await service.search(user(), 'Acme');
 
     expect(results).toHaveLength(1);
-    expect(db.query).toHaveBeenCalledTimes(2);
-    expect(db.query.mock.calls[1][0]).toContain('WHERE company_id=$1');
-    expect(db.query.mock.calls[1][1]).toEqual(['company-a', '%Acme%']);
+    expect(db.query).toHaveBeenCalledTimes(3);
+    expect(db.query.mock.calls[2][0]).toContain('WHERE company_id=$1');
+    expect(db.query.mock.calls[2][1]).toEqual(['company-a', '%Acme%']);
   });
 
   it('fails closed when a company has no subscription entitlement record', async () => {
@@ -62,17 +62,17 @@ describe('SearchService', () => {
   it('searches invoice records only for users with sales:read and scopes them to company', async () => {
     db.query.mockResolvedValueOnce(activeSubscription(['core', 'sales'])).mockResolvedValueOnce(noOverrides).mockResolvedValueOnce({ rows: [], rowCount: 0 });
     await service.search(user({ permissions: ['sales:read'] }), 'INV-1');
-    expect(db.query).toHaveBeenCalledTimes(2);
-    expect(db.query.mock.calls[1][0]).toContain('i.company_id=$1');
-    expect(db.query.mock.calls[1][1]?.[0]).toBe('company-a');
+    expect(db.query).toHaveBeenCalledTimes(3);
+    expect(db.query.mock.calls[2][0]).toContain('i.company_id=$1');
+    expect(db.query.mock.calls[2][1]?.[0]).toBe('company-a');
   });
 
   it('restricts employee search to the active branch when membership is branch-bound', async () => {
     db.query.mockResolvedValueOnce(activeSubscription(['core', 'hr_workforce'])).mockResolvedValueOnce(noOverrides).mockResolvedValueOnce({ rows: [], rowCount: 0 });
     await service.search(user({ branchId: 'branch-a', permissions: ['employees:read'] }), 'Amina');
-    expect(db.query).toHaveBeenCalledTimes(2);
-    expect(db.query.mock.calls[1][0]).toContain('($3::uuid IS NULL OR branch_id=$3)');
-    expect(db.query.mock.calls[1][1]).toEqual(['company-a', '%Amina%', 'branch-a']);
+    expect(db.query).toHaveBeenCalledTimes(3);
+    expect(db.query.mock.calls[2][0]).toContain('($3::uuid IS NULL OR branch_id=$3)');
+    expect(db.query.mock.calls[2][1]).toEqual(['company-a', '%Amina%', 'branch-a']);
   });
 
   it('ranks exact title matches before partial matches across permitted modules', async () => {
@@ -84,8 +84,8 @@ describe('SearchService', () => {
     const results = await service.search(user({ permissions: ['customers:read', 'products:read'] }), 'Acme');
 
     expect(results.map(row => row.id)).toEqual(['product-1', 'customer-1']);
-    expect(db.query).toHaveBeenCalledTimes(3);
-    for (const call of db.query.mock.calls.slice(1)) {
+    expect(db.query).toHaveBeenCalledTimes(4);
+    for (const call of db.query.mock.calls.slice(2)) {
       expect(call[1]?.[0]).toBe('company-a');
     }
   });
