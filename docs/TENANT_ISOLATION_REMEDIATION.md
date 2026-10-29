@@ -32,3 +32,18 @@
 ## Evidence
 
 The production-readiness tracker records the current RLS catalog findings and the still-unverified Render runtime role. This design does not authorize a shared database change.
+
+
+## Current RLS catalog inventory
+
+The read-only catalog query returned these 55 public tables with RLS enabled and no policy:
+
+- **CRM:** crm_activities, crm_campaign_leads, crm_campaign_segments, crm_campaigns, crm_leads, crm_opportunities, crm_segment_members, crm_segments, crm_support_tickets
+- **Sales and credit:** credit_note_items, credit_notes, customer_credit_balances, customer_credit_refunds, customers, quotation_items, quotations, sales_order_items, sales_orders
+- **Inventory and procurement:** goods_receipt_items, goods_receipts, inventory_stock_levels, inventory_stock_movements, purchase_order_items, purchase_orders, salesperson_stock_assignments, supplier_bill_items, supplier_bill_payments, supplier_bills, suppliers, warehouses
+- **Accounting and expenses:** chart_of_accounts, expense_sequences, expenses, journal_entries, journal_entry_lines
+- **HR and payroll:** attendance_records, client_sites, employee_assignments, employee_leave_requests, employee_pay_settings, employees, monthly_attendance_import_items, monthly_attendance_imports, payroll_items, payroll_journal_sequences, payroll_runs
+- **Manufacturing:** manufacturing_bom_lines, manufacturing_boms, manufacturing_order_costs, manufacturing_order_materials, manufacturing_production_orders
+- **POS and notifications:** notifications, pos_registers, pos_sales, pos_shifts
+
+This is an inventory of policy absence, not a recommendation to apply a blanket policy. Each table needs a reviewed tenant key, parent/child relationship, branch behavior, and allowed service role before a policy is written.
