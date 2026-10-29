@@ -21,6 +21,20 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: omega_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d omega_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,6 +54,8 @@ jobs:
         run: npm run build
       - name: Run API tests
         working-directory: api
+        env:
+          MFA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_test
         run: npm test
       - name: Smoke-test deployed API health and database
         run: |
