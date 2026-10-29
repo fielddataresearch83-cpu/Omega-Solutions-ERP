@@ -39,10 +39,10 @@
 - [ ] Design and test a least-privilege tenant-isolation approach on an isolated/disposable database before any shared-database changes.
 - [ ] Address branch protection / required checks; current `development` branch remains unprotected.
 
-**Last completed task:** Verified the deterministic MFA recovery-code PostgreSQL concurrency integration test in CI: run `40882243954` passed with both integration tests executed and 419 total API tests passed.  
-**Next task:** Continue SEC-01/SEC-04/SEC-05 route-to-service authorization inventory, safe runtime-role verification, and tenant isolation design/testing on a disposable database; branch protection still requires repository owner/admin settings.  
+**Last completed task:** Verified isolated MFA concurrency integration tests in CI and reviewed the first controller/service groups for tenant, role, branch, and module enforcement.  
+**Next task:** Finish SEC-01 controller/service inventory and isolated negative tests; verify runtime PostgreSQL role without secrets; design least-privilege tenant isolation on a disposable database; branch protection requires owner/admin repository settings.  
 **Current branch:** `development` (existing branch only).  
-**Reviewed branch HEAD before this map update:** `d48ae25f95386789c0acb8278075ab682bedc399`; subsequent audit-map update will be a commit on the existing `development` branch.  
+**Reviewed source HEAD before this map update:** `d48ae25f95386789c0acb8278075ab682bedc399`; audit tracker changes are committed on the existing `development` branch only.  
 **Production status:** NOT APPROVED; P0 tenant-isolation and governance blockers remain.
 
 ## Status legend
@@ -68,7 +68,7 @@
 - [ ] **RC-07** Replace template-like root documentation with accurate setup, architecture, test, deployment, and recovery guidance.
 - [ ] **RC-08** Confirm dependency lockfiles, supported Node/runtime versions, license notices, and no accidental generated artifacts.
 - [ ] **RC-09** Scan repository history and tracked files for committed secrets; rotate any exposed credentials through the provider if found.
-- [ ] **RC-10** Verify frontend and API deployment projects, root directories, build commands, environment scopes, domains, and deployment targets without deploying.
+- [ ] **RC-10** Verify frontend and API deployment projects, root directories, build commands, environment scopes, domains, and deployment targets without deploying. Partial evidence (2026-10-29): Render metadata confirms `omega-solutions-api-development` points at the existing `development` branch, auto-deploy is off, root directory is repository root, build `npm ci && npm run build`, start `npm run start:prod`, free plan, and healthCheckPath is unset. Runtime DB role and full env scopes still unverified.
 - [ ] **RC-11** Verify the release process requires explicit human approval and never deploys production automatically from this audit.
 
 **Acceptance:** All workflows and targets are known; no accidental production path; required CI and review gates are documented and enforced.
@@ -360,7 +360,7 @@ At the end of each work session, update this block:
 
 - **Reviewed source HEAD:** `development` — `d48ae25f95386789c0acb8278075ab682bedc399` (2026-10-29), plus the audit-map update commit that follows.
 - **Checklist IDs completed this session:** MFA recovery-code concurrency race fix and isolated PostgreSQL integration acceptance verified in CI run `40882243954` (2 PostgreSQL integration tests, 57 test files / 419 tests passed). RC/SEC release gates remain open.
-- **Evidence recorded:** [validation run 40882243954](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40882243954) completed successfully. Its logs show `mfa.service.postgres.spec.ts (2 tests)`, 57 test files passed, and 419 tests passed against ephemeral PostgreSQL 16. Read-only live Neon catalog check found zero public policies, 55 RLS-enabled tables, `neondb_owner` with BYPASSRLS, and RLS disabled on notification_preferences. Notification endpoints are JWT-protected and company/recipient scoped at code level. Branch remains unprotected with required checks off.
+- **Evidence recorded:** [validation run 40882243954](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40882243954) completed successfully. Its logs show `mfa.service.postgres.spec.ts (2 tests)`, 57 test files passed, and 419 tests passed against ephemeral PostgreSQL 16. Additional code-level controller review confirms guards and permissions are present on the inspected modules; this is not a substitute for isolated authorization-negative tests. Render metadata confirms development API auto-deploy is off and healthCheckPath is unset. Read-only live Neon catalog check found zero public policies, 55 RLS-enabled tables, `neondb_owner` with BYPASSRLS, and RLS disabled on notification_preferences. Notification endpoints are JWT-protected and company/recipient scoped at code level. Branch remains unprotected with required checks off.
 - **Findings opened/closed:** FIND-03 remains a P0 release blocker. FIND-18 closed after isolated PostgreSQL concurrency integration tests passed in CI. Confirm Render runtime DB role and design/test least-privilege tenant isolation in a disposable DB.
 - **Tests/CI run and result:** Run `40882243954` passed on commit `e9b58b23b07f2881921291de2b21448c16b3292d`; 57 test files / 419 tests passed and PostgreSQL MFA concurrency tests executed in isolated CI.
 - **Next exact checklist ID:** SEC-01 / SEC-04 / SEC-05 — complete controller-to-service authorization map; verify runtime DB role safely; design least-privilege tenant isolation in a disposable database; add isolated cross-company/branch/role/plan negative tests.
