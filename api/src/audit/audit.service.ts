@@ -19,7 +19,7 @@ export class AuditService {
 
   constructor(private readonly db: DatabaseService) {}
 
-  async list(companyId: string, limit = 100) {
+  async list(companyId: string, limit = 100, branchId: string | null = null) {
     const safeLimit = Math.max(1, Math.min(Number.isFinite(limit) ? Math.trunc(limit) : 100, 200));
     const result = await this.db.query(
       `SELECT al.id, al.user_id, u.full_name AS user_name, al.company_id, al.branch_id,
@@ -28,9 +28,10 @@ export class AuditService {
        FROM audit_logs al
        LEFT JOIN users u ON u.id = al.user_id
        WHERE al.company_id = $1
+         AND ($3::uuid IS NULL OR al.branch_id = $3::uuid)
        ORDER BY al.created_at DESC
        LIMIT $2`,
-      [companyId, safeLimit],
+      [companyId, safeLimit, branchId],
     );
     return result.rows;
   }
