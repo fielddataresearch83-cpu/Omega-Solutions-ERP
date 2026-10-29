@@ -354,7 +354,36 @@ export class CrmService {
       throw new BadRequestException('Invalid campaign status.');
     }
     const companyId = await this.companyId(user);
-    const result = await this.db.query("SELECT c.*, COUNT(DISTINCT cl.lead_id)::int AS leads_count, COUNT(DISTINCT cl.lead_id) FILTER (WHERE cl.response_status IN ('responded','converted'))::int AS responses_count, COUNT(DISTINCT cs.segment_id)::int AS segments_count FROM crm_campaigns c LEFT JOIN crm_campaign_leads cl ON cl.campaign_id=c.id AND cl.company_id=c.company_id LEFT JOIN crm_campaign_segments cs ON cs.campaign_id=c.id AND cs.company_id=c.company_id WHERE c.company_id=$1 AND ($2::text IS NULL OR c.status=$2) GROUP BY c.id ORDER BY c.created_at DESC LIMIT $3 OFFSET $4", [companyId, status && status !== 'all' ? status : null, page.limit, page.offset]);
+    const result = await this.db.query(
+      `SELECT c.*,
+              COUNT(DISTINCT audience.lead_id)::int AS leads_count,
+              COUNT(DISTINCT audience.lead_id) FILTER (WHERE audience.response_status IN ('responded','converted'))::int AS responses_count,
+              COUNT(DISTINCT cs.segment_id)::int AS segments_count
+       FROM crm_campaigns c
+       LEFT JOIN LATERAL (
+         SELECT cl.lead_id, cl.response_status
+         FROM crm_campaign_leads cl
+         WHERE cl.company_id=c.company_id AND cl.campaign_id=c.id
+         UNION
+         SELECT sm.lead_id, 'targeted'::varchar AS response_status
+         FROM crm_campaign_segments linked
+         JOIN crm_segments s ON s.id=linked.segment_id AND s.company_id=linked.company_id
+         JOIN crm_segment_members sm ON sm.segment_id=s.id AND sm.company_id=s.company_id
+         WHERE linked.company_id=c.company_id AND linked.campaign_id=c.id AND sm.lead_id IS NOT NULL
+         UNION
+         SELECT l.id AS lead_id, 'targeted'::varchar AS response_status
+         FROM crm_campaign_segments linked
+         JOIN crm_segments s ON s.id=linked.segment_id AND s.company_id=linked.company_id AND s.is_dynamic=TRUE
+         JOIN crm_leads l ON l.company_id=s.company_id
+           AND (s.criteria->>'leadStatus' IS NULL OR l.status=s.criteria->>'leadStatus')
+           AND (s.criteria->>'source' IS NULL OR l.source=s.criteria->>'source')
+         WHERE linked.company_id=c.company_id AND linked.campaign_id=c.id
+       ) audience ON TRUE
+       LEFT JOIN crm_campaign_segments cs ON cs.campaign_id=c.id AND cs.company_id=c.company_id
+       WHERE c.company_id=$1 AND ($2::text IS NULL OR c.status=$2)
+       GROUP BY c.id ORDER BY c.created_at DESC LIMIT $3 OFFSET $4`,
+      [companyId, status && status !== 'all' ? status : null, page.limit, page.offset],
+    );
     return result.rows;
   }
 
