@@ -78,6 +78,14 @@ export class SupplierBillsService {
       const supplier=await client.query<{id:string}>("SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true AND status='active'",[dto.supplierId,companyId]);
       if(!supplier.rows[0])throw new NotFoundException('Active supplier not found in this company.');
       if(dto.supplierInvoiceNumber?.trim()){
+        const normalizedInvoiceNumber = dto.supplierInvoiceNumber.trim().toLowerCase();
+        // A row lock cannot lock a missing duplicate row. Serialize attempts for
+        // the normalized company/supplier/reference key as defense in depth while
+        // the database unique index is reconciled in the development schema.
+        await client.query(
+          'SELECT pg_advisory_xact_lock(hashtext($1))',
+          [`supplier-bill-invoice:${companyId}:${dto.supplierId}:${normalizedInvoiceNumber}`],
+        );
         const duplicate=await client.query<{id:string;bill_number:string}>(
           `SELECT id,bill_number FROM supplier_bills
            WHERE company_id=$1 AND supplier_id=$2
