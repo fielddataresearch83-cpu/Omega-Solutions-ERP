@@ -174,6 +174,13 @@ jobs:
             `);
             assert.equal(taxConstraints.rowCount, 4, 'tax treatment constraints must exist on transaction lines');
 
+            const supplierInvoiceIndex = await client.query(`
+              SELECT indexdef FROM pg_indexes
+              WHERE schemaname='public' AND indexname='supplier_bills_supplier_invoice_number_unique'
+            `);
+            assert.equal(supplierInvoiceIndex.rowCount, 1, 'supplier invoice uniqueness index must exist');
+            assert.match(supplierInvoiceIndex.rows[0].indexdef, /LOWER\\(BTRIM\\(supplier_invoice_number\\)\\)/i);
+
             const fks = await client.query(`
               SELECT tc.table_name, tc.constraint_name, rc.delete_rule
               FROM information_schema.table_constraints tc
