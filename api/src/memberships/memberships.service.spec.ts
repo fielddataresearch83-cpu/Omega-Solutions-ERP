@@ -82,6 +82,16 @@ describe('MembershipsService', () => {
       ).rejects.toThrow(ForbiddenException);
       expect(db.query.mock.calls[0][0]).toContain('JOIN companies c ON c.id = cm.company_id AND c.is_active = true');
     });
+
+    it('rejects a membership whose assigned branch is inactive or missing', async () => {
+      db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+
+      await expect(
+        service.getMembershipForCompany('user-1', 'comp-1'),
+      ).rejects.toThrow(ForbiddenException);
+      expect(db.query.mock.calls[0][0]).toContain('LEFT JOIN branches b ON b.id = cm.branch_id AND b.company_id = cm.company_id');
+      expect(db.query.mock.calls[0][0]).toContain('(cm.branch_id IS NULL OR b.is_active = true)');
+    });
   });
 
   describe('requireRole', () => {
