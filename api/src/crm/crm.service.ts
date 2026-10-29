@@ -225,6 +225,50 @@ export class CrmService {
     return result.rows;
   }
 
+  async dispatchActivityReminders() {
+    const result = await this.db.query<{ delivered_count: number }>(
+      `WITH due AS (
+         SELECT a.id AS activity_id, a.company_id, a.assigned_user_id AS user_id,
+                a.due_at,
+                CASE WHEN a.due_at <= NOW() THEN 'overdue' ELSE 'due_soon' END AS reminder_type
+         FROM crm_activities a
+         JOIN company_memberships m
+           ON m.company_id = a.company_id AND m.user_id = a.assigned_user_id AND m.is_active = TRUE
+         JOIN users u ON u.id = m.user_id AND u.is_active = TRUE
+         WHERE a.completed_at IS NULL
+           AND a.due_at IS NOT NULL
+           AND a.due_at <= NOW() + INTERVAL '24 hours'
+         ORDER BY a.due_at ASC
+         LIMIT 500
+         FOR UPDATE OF a SKIP LOCKED
+       ),
+       claimed AS (
+         INSERT INTO crm_activity_reminder_deliveries
+           (activity_id, company_id, user_id, reminder_type, due_at)
+         SELECT activity_id, company_id, user_id, reminder_type, due_at
+         FROM due
+         ON CONFLICT (activity_id, reminder_type, due_at) DO NOTHING
+         RETURNING activity_id, company_id, user_id, reminder_type, due_at
+       ),
+       created AS (
+         INSERT INTO notifications (company_id, user_id, title, message, href, notification_type)
+         SELECT claimed.company_id, claimed.user_id,
+                CASE WHEN claimed.reminder_type = 'overdue' THEN 'CRM activity overdue' ELSE 'CRM activity due soon' END,
+                CASE WHEN claimed.reminder_type = 'overdue'
+                  THEN format('%s is overdue.', activity.subject)
+                  ELSE format('%s is due within 24 hours.', activity.subject)
+                END,
+                '/crm?tab=activities', 'crm_activity_reminder'
+         FROM claimed
+         JOIN crm_activities activity
+           ON activity.id = claimed.activity_id AND activity.company_id = claimed.company_id
+         RETURNING id
+       )
+       SELECT COUNT(*)::int AS delivered_count FROM created`,
+    );
+    return { delivered: Number(result.rows[0]?.delivered_count ?? 0) };
+  }
+
   async createActivity(user: AuthenticatedUser, dto: CreateActivityDto) {
     const membership = await this.membershipFor(user);
     const activityLinkCount = [dto.leadId, dto.opportunityId, dto.customerId].filter(Boolean).length;
