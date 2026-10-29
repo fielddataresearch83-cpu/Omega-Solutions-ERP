@@ -176,7 +176,7 @@ describe('CrmService', () => {
     expect(rows).toEqual([{ id: 'ticket-1' }]);
     expect(db.query).toHaveBeenCalledWith(
       expect.stringContaining('WHERE t.company_id=$1'),
-      ['company-1', 'open', 'urgent', '%printer%'],
+      ['company-1', 'open', 'urgent', '%printer%', 250, 0],
     );
   });
   it('only exposes ticket assignee names through an active membership in the same company', async () => {
@@ -185,7 +185,7 @@ describe('CrmService', () => {
     expect(rows).toEqual([{ id: 'ticket-1', assignee_name: 'Company Staff' }]);
     expect(db.query).toHaveBeenCalledWith(
       expect.stringContaining('assigned_membership.company_id=t.company_id AND assigned_membership.is_active=TRUE'),
-      ['company-1', null, null, null],
+      ['company-1', null, null, null, 250, 0],
     );
   });
 
@@ -195,7 +195,7 @@ describe('CrmService', () => {
     expect(rows).toEqual([{ id: 'activity-1', customer_name: 'Acme Ltd' }]);
     expect(db.query).toHaveBeenCalledWith(
       expect.stringContaining('LEFT JOIN customers c ON c.id=a.customer_id AND c.company_id=a.company_id'),
-      ['company-1', null, null, true],
+      ['company-1', null, null, true, 250, 0],
     );
   });
 
@@ -214,6 +214,23 @@ describe('CrmService', () => {
       ['ticket-1', 'company-1', null, null, null, null, null, true, true],
     );
     expect(audit.log).toHaveBeenCalled();
+  });
+
+
+  it('applies bounded pagination to CRM activities', async () => {
+    db.query.mockResolvedValue({ rows: [{ id: 'activity-2' }], rowCount: 1 });
+    const rows = await service.listActivities(user, { pending: true, limit: 25, offset: 50 });
+    expect(rows).toEqual([{ id: 'activity-2' }]);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('LIMIT $5 OFFSET $6'),
+      ['company-1', null, null, true, 25, 50],
+    );
+  });
+
+  it('rejects an invalid CRM ticket page size before querying records', async () => {
+    await expect(service.listTickets(user, undefined, undefined, undefined, 251, 0))
+      .rejects.toThrow('List limit must be an integer between 1 and 250.');
+    expect(db.query).not.toHaveBeenCalled();
   });
 
 });
