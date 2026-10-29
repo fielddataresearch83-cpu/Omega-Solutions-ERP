@@ -14,7 +14,11 @@ const user = (overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser => 
   ...overrides,
 });
 
-const legacySubscription = { rows: [], rowCount: 0 };
+const activeSubscription = (modules: string[]) => ({
+  rows: [{ status: 'active', modules }],
+  rowCount: 1,
+});
+const noOverrides = { rows: [], rowCount: 0 };
 
 describe('SearchService', () => {
   const db = { query: vi.fn() };
@@ -33,7 +37,8 @@ describe('SearchService', () => {
 
   it('searches only modules the user can read and scopes SQL to the active company', async () => {
     db.query
-      .mockResolvedValueOnce(legacySubscription)
+      .mockResolvedValueOnce(activeSubscription(['core', 'sales']))
+      .mockResolvedValueOnce(noOverrides)
       .mockResolvedValueOnce({ rows: [{ id: 'customer-a', title: 'Acme', type: 'Customer' }], rowCount: 1 });
     const results = await service.search(user(), 'Acme');
 
@@ -43,13 +48,19 @@ describe('SearchService', () => {
     expect(db.query.mock.calls[1][1]).toEqual(['company-a', '%Acme%']);
   });
 
+  it('fails closed when a company has no subscription entitlement record', async () => {
+    db.query.mockResolvedValueOnce(noOverrides);
+    expect(await service.search(user(), 'Acme')).toEqual([]);
+    expect(db.query).toHaveBeenCalledTimes(1);
+  });
+
   it('returns no records for a user without read permissions', async () => {
     expect(await service.search(user({ permissions: [] }), 'Acme')).toEqual([]);
     expect(db.query).not.toHaveBeenCalled();
   });
 
   it('searches invoice records only for users with sales:read and scopes them to company', async () => {
-    db.query.mockResolvedValueOnce(legacySubscription).mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    db.query.mockResolvedValueOnce(activeSubscription(['core', 'sales'])).mockResolvedValueOnce(noOverrides).mockResolvedValueOnce({ rows: [], rowCount: 0 });
     await service.search(user({ permissions: ['sales:read'] }), 'INV-1');
     expect(db.query).toHaveBeenCalledTimes(2);
     expect(db.query.mock.calls[1][0]).toContain('i.company_id=$1');
@@ -57,7 +68,7 @@ describe('SearchService', () => {
   });
 
   it('restricts employee search to the active branch when membership is branch-bound', async () => {
-    db.query.mockResolvedValueOnce(legacySubscription).mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    db.query.mockResolvedValueOnce(activeSubscription(['core', 'hr_workforce'])).mockResolvedValueOnce(noOverrides).mockResolvedValueOnce({ rows: [], rowCount: 0 });
     await service.search(user({ branchId: 'branch-a', permissions: ['employees:read'] }), 'Amina');
     expect(db.query).toHaveBeenCalledTimes(2);
     expect(db.query.mock.calls[1][0]).toContain('($3::uuid IS NULL OR branch_id=$3)');
@@ -66,7 +77,8 @@ describe('SearchService', () => {
 
   it('ranks exact title matches before partial matches across permitted modules', async () => {
     db.query
-      .mockResolvedValueOnce(legacySubscription)
+      .mockResolvedValueOnce(activeSubscription(['core', 'sales', 'inventory']))
+      .mockResolvedValueOnce(noOverrides)
       .mockResolvedValueOnce({ rows: [{ id: 'customer-1', title: 'Acme Holdings', type: 'Customer', subtitle: 'hello@example.test' }], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [{ id: 'product-1', title: 'Acme', type: 'Product', subtitle: 'AC-01' }], rowCount: 1 });
     const results = await service.search(user({ permissions: ['customers:read', 'products:read'] }), 'Acme');
