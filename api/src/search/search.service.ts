@@ -37,9 +37,9 @@ export class SearchService {
       [user.companyId],
     );
 
-    // Preserve legacy tenants, but never let global search bypass subscription
-    // status, module entitlements, or disabled dependencies.
-    let moduleEnabled: (code: string) => boolean = () => true;
+    // Fail closed when no subscription entitlement can be resolved. Search is
+    // a data-access path and must not grant modules implicitly to legacy tenants.
+    let moduleEnabled: (code: string) => boolean = () => false;
     if (subscription.rows.length) {
       const current = subscription.rows[0];
       if (!['active', 'trialing'].includes(current.status)) return [];
