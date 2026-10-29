@@ -282,6 +282,9 @@ export class CrmService {
   }
 
   async createCampaign(user: AuthenticatedUser, dto: CreateCampaignDto) {
+    if (dto.startDate && dto.endDate && dto.endDate < dto.startDate) {
+      throw new BadRequestException('Campaign end date cannot be before its start date.');
+    }
     const membership = await this.membershipFor(user);
     const result = await this.db.query("INSERT INTO crm_campaigns (company_id,name,campaign_type,status,start_date,end_date,budget,actual_cost,target_leads,notes,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *", [membership.companyId,dto.name.trim(),dto.campaignType ?? 'other',dto.status ?? 'planned',dto.startDate ?? null,dto.endDate ?? null,dto.budget ?? 0,dto.actualCost ?? 0,dto.targetLeads ?? 0,dto.notes ?? null,user.userId]);
     const campaign = result.rows[0];
@@ -291,6 +294,16 @@ export class CrmService {
 
   async updateCampaign(user: AuthenticatedUser, id: string, dto: UpdateCampaignDto) {
     const companyId = await this.companyId(user);
+    const current = await this.db.query<{ start_date: string | null; end_date: string | null }>(
+      'SELECT start_date, end_date FROM crm_campaigns WHERE id=$1 AND company_id=$2',
+      [id, companyId],
+    );
+    if (!current.rows.length) throw new NotFoundException('CRM campaign not found.');
+    const startDate = dto.startDate ?? current.rows[0].start_date;
+    const endDate = dto.endDate ?? current.rows[0].end_date;
+    if (startDate && endDate && String(endDate).slice(0, 10) < String(startDate).slice(0, 10)) {
+      throw new BadRequestException('Campaign end date cannot be before its start date.');
+    }
     const result = await this.db.query("UPDATE crm_campaigns SET name=COALESCE($3,name), campaign_type=COALESCE($4,campaign_type), status=COALESCE($5,status), start_date=COALESCE($6,start_date), end_date=COALESCE($7,end_date), budget=COALESCE($8,budget), actual_cost=COALESCE($9,actual_cost), target_leads=COALESCE($10,target_leads), notes=COALESCE($11,notes), updated_at=NOW() WHERE id=$1 AND company_id=$2 RETURNING *", [id,companyId,dto.name ?? null,dto.campaignType ?? null,dto.status ?? null,dto.startDate ?? null,dto.endDate ?? null,dto.budget ?? null,dto.actualCost ?? null,dto.targetLeads ?? null,dto.notes ?? null]);
     if (!result.rows.length) throw new NotFoundException('CRM campaign not found.');
     await this.auditChange(user,'crm.campaign.update','crm_campaign',id,{...dto});
