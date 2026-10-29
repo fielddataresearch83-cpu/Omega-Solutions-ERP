@@ -102,6 +102,12 @@ jobs:
       - name: Install API dependencies
         working-directory: api
         run: npm ci
+      - name: Verify weighted-average cost backfill in an isolated schema
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_migration_test
+          ALLOW_ISOLATED_MIGRATION_FIXTURE: "true"
+        run: node scripts/test-weighted-average-cost-migration.mjs
       - name: Verify mixed migration naming sorts by intended version
         working-directory: api
         run: |
