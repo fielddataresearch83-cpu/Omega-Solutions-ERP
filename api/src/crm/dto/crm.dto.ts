@@ -103,8 +103,8 @@ export class CreateTicketDto {
 export class UpdateTicketDto {
   @IsOptional() @IsIn(['open','in_progress','waiting_customer','resolved','closed']) status?: 'open'|'in_progress'|'waiting_customer'|'resolved'|'closed';
   @IsOptional() @IsIn(['low','normal','high','urgent']) priority?: 'low'|'normal'|'high'|'urgent';
-  @IsOptional() @IsUUID() assignedUserId?: string;
-  @IsOptional() @IsDateString() dueAt?: string;
+  @IsOptional() @IsUUID() assignedUserId?: string | null;
+  @IsOptional() @IsDateString() dueAt?: string | null;
   @IsOptional() @IsString() description?: string;
 }
 
