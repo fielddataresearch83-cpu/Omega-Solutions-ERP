@@ -121,6 +121,10 @@ export class CrmService {
   }
 
   async listOpportunities(user: AuthenticatedUser, stage?: string, search?: string) {
+    const allowedStages = ['qualification', 'needs_analysis', 'proposal', 'negotiation', 'won', 'lost'];
+    if (stage && stage !== 'all' && !allowedStages.includes(stage)) {
+      throw new BadRequestException('Invalid opportunity stage.');
+    }
     const companyId = await this.companyId(user);
     const result = await this.db.query(
       `SELECT o.*, l.contact_name AS lead_contact_name, c.name AS customer_name,
@@ -276,6 +280,10 @@ export class CrmService {
   }
 
   async listCampaigns(user: AuthenticatedUser, status?: string) {
+    const allowedStatuses = ['planned', 'active', 'paused', 'completed', 'cancelled'];
+    if (status && status !== 'all' && !allowedStatuses.includes(status)) {
+      throw new BadRequestException('Invalid campaign status.');
+    }
     const companyId = await this.companyId(user);
     const result = await this.db.query("SELECT c.*, COUNT(DISTINCT cl.lead_id)::int AS leads_count, COUNT(DISTINCT cl.lead_id) FILTER (WHERE cl.response_status IN ('responded','converted'))::int AS responses_count, COUNT(DISTINCT cs.segment_id)::int AS segments_count FROM crm_campaigns c LEFT JOIN crm_campaign_leads cl ON cl.campaign_id=c.id AND cl.company_id=c.company_id LEFT JOIN crm_campaign_segments cs ON cs.campaign_id=c.id AND cs.company_id=c.company_id WHERE c.company_id=$1 AND ($2::text IS NULL OR c.status=$2) GROUP BY c.id ORDER BY c.created_at DESC LIMIT 200", [companyId, status ?? null]);
     return result.rows;
@@ -381,6 +389,14 @@ export class CrmService {
   }
 
   async listTickets(user: AuthenticatedUser, status?: string, priority?: string, search?: string) {
+    const allowedStatuses = ['open', 'in_progress', 'waiting_customer', 'resolved', 'closed'];
+    const allowedPriorities = ['low', 'normal', 'high', 'urgent'];
+    if (status && status !== 'all' && !allowedStatuses.includes(status)) {
+      throw new BadRequestException('Invalid support ticket status.');
+    }
+    if (priority && priority !== 'all' && !allowedPriorities.includes(priority)) {
+      throw new BadRequestException('Invalid support ticket priority.');
+    }
     const companyId = await this.companyId(user);
     const result = await this.db.query("SELECT t.*,c.name AS customer_name,l.contact_name AS lead_contact_name,u.full_name AS assignee_name FROM crm_support_tickets t LEFT JOIN customers c ON c.id=t.customer_id AND c.company_id=t.company_id LEFT JOIN crm_leads l ON l.id=t.lead_id AND l.company_id=t.company_id LEFT JOIN users u ON u.id=t.assigned_user_id WHERE t.company_id=$1 AND ($2::text IS NULL OR t.status=$2) AND ($3::text IS NULL OR t.priority=$3) AND ($4::text IS NULL OR t.subject ILIKE $4 OR t.description ILIKE $4 OR c.name ILIKE $4 OR l.contact_name ILIKE $4) ORDER BY CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,t.created_at DESC LIMIT 250", [companyId,status ?? null,priority ?? null,search ? '%' + search + '%' : null]);
     return result.rows;
