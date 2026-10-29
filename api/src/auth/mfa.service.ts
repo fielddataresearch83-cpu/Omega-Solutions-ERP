@@ -184,11 +184,21 @@ export class MfaService {
       return a.length === b.length && timingSafeEqual(a, b);
     });
     if (index < 0) return false;
-    const remaining = [...row.recovery_code_hashes];
-    remaining.splice(index, 1);
+    // Consume the code atomically against the current row. PostgreSQL serializes
+    // concurrent UPDATEs on this row; array_remove is evaluated against the
+    // latest row version, so concurrent use of different codes cannot restore
+    // a previously consumed code from a stale application-side array.
     const updated = await this.db.query(
-      'UPDATE user_mfa SET recovery_code_hashes=ARRAY(SELECT jsonb_array_elements_text($2::jsonb)), failed_attempts=0, locked_until=NULL, updated_at=NOW() WHERE user_id=$1 AND $3 = ANY(recovery_code_hashes)',
-      [userId, JSON.stringify(remaining), target],
+      `UPDATE user_mfa
+       SET recovery_code_hashes = array_remove(recovery_code_hashes, $2::text),
+           failed_attempts = 0,
+           locked_until = NULL,
+           updated_at = NOW()
+       WHERE user_id = $1
+         AND enabled_at IS NOT NULL
+         AND $2::text = ANY(recovery_code_hashes)
+         AND (locked_until IS NULL OR locked_until <= NOW())`,
+      [userId, target],
     );
     return (updated.rowCount ?? 0) > 0;
   }
