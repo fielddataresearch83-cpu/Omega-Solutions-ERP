@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { CrmReminderController } from './crm-reminder.controller.js';
 import type { CrmService } from './crm.service.js';
