@@ -42,7 +42,7 @@
 **Last completed task:** Verified supplier-invoice advisory lock, MFA route throttles, and clean migration/schema checks. [Validation run 40892821358 passed](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40892821358); [read-only tenant-isolation smoke 40892552889 passed](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40892552889). Shared DB review still shows 18 missing migration ledger entries, absent tax/credit-note columns, and a missing supplier-invoice uniqueness index.  
 **Next task:** Continue P0 work: reconcile migration-ledger/schema drift and missing tax/credit-note/supplier-invoice safeguards through a reviewed, non-destructive plan; complete tenant/branch negative tests; verify the Render runtime DB role and least-privilege policy approach; branch protection still requires repository owner/admin settings. Keep shared Neon unchanged pending explicit authorization.  
 **Current branch:** `development` (existing branch only).  
-**Reviewed source HEAD before this map update:** `62fb61257a6d2a2e2d6b95dce7dfb3c7d6a3d2f0`; audit tracker changes are committed on the existing `development` branch only.  
+**Reviewed source HEAD before this map update:** `62fb61257a8c3f902681ac55fb4539b278298811`; audit tracker changes are committed on the existing `development` branch only.  
 **Production status:** NOT APPROVED; P0 tenant-isolation and governance blockers remain.
 
 ## Status legend
