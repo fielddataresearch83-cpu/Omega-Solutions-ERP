@@ -13,8 +13,9 @@ export class CrmReminderController {
     if (!expectedSecret || expectedSecret.length < 32) {
       throw new ServiceUnavailableException('CRM reminder scheduler is not configured.');
     }
-    if (!suppliedSecret || suppliedSecret.length !== expectedSecret.length ||
-        !timingSafeEqual(Buffer.from(suppliedSecret), Buffer.from(expectedSecret))) {
+    const supplied = Buffer.from(suppliedSecret ?? '');
+    const expected = Buffer.from(expectedSecret);
+    if (!suppliedSecret || supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
       throw new UnauthorizedException('Invalid scheduler credentials.');
     }
     return this.crm.dispatchActivityReminders();
