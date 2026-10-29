@@ -199,4 +199,21 @@ describe('CrmService', () => {
     );
   });
 
+
+  it('allows explicitly clearing a ticket assignee and due date without changing omitted fields', async () => {
+    db.query.mockResolvedValue({ rows: [{ id: 'ticket-1', assigned_user_id: null, due_at: null }], rowCount: 1 });
+
+    const result = await service.updateTicket(user, 'ticket-1', {
+      assignedUserId: null,
+      dueAt: null,
+    });
+
+    expect(result).toEqual({ id: 'ticket-1', assigned_user_id: null, due_at: null });
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('assigned_user_id=CASE WHEN $8::boolean THEN $5::uuid ELSE assigned_user_id END'),
+      ['ticket-1', 'company-1', null, null, null, null, null, true, true],
+    );
+    expect(audit.log).toHaveBeenCalled();
+  });
+
 });
