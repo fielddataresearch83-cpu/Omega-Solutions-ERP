@@ -47,6 +47,23 @@ export default function QuotationsPage() {
     finally { setLoading(false); }
   }, []);
   React.useEffect(() => { void refresh(); }, [refresh]);
+  React.useEffect(() => {
+    if (customersLoading || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const requestedCustomerId = params.get("customerId");
+    if (!requestedCustomerId) return;
+    const customer = customers.find((item) => item.id === requestedCustomerId && item.is_active);
+    if (!customer) {
+      setFormError("The customer linked to this opportunity is unavailable or inactive. Choose an active customer instead.");
+      setFormOpen(true);
+      return;
+    }
+    setCustomerId(customer.id);
+    const opportunity = params.get("opportunity")?.trim();
+    if (opportunity) setNotes((current) => current || `Opportunity: ${opportunity}`);
+    setFormOpen(true);
+  }, [customers, customersLoading]);
+
 
   const filtered = quotations.filter((q) => {
     const query = search.trim().toLowerCase();
