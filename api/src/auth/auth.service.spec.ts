@@ -151,4 +151,15 @@ describe('AuthService account and invitation authorization', () => {
     expect(db.query.mock.calls[1][0]).toContain('(cm.branch_id IS NULL OR b.is_active = true)');
   });
 
+  it('omits inactive branch memberships from the company selector', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [{ id: 'company-1', name: 'Example Co', role: 'staff', branch_id: 'branch-1' }],
+      rowCount: 1,
+    });
+    const companies = await service.getActiveCompanies('user-1');
+    expect(companies).toEqual([{ id: 'company-1', name: 'Example Co', role: 'staff', branchId: 'branch-1' }]);
+    expect(db.query.mock.calls[0][0]).toContain('LEFT JOIN branches b ON b.id = cm.branch_id AND b.company_id = cm.company_id');
+    expect(db.query.mock.calls[0][0]).toContain('(cm.branch_id IS NULL OR b.is_active = true)');
+  });
+
 });
