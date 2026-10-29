@@ -30,4 +30,23 @@ describe('CrmController', () => {
     expect(crm.updateTicket).toHaveBeenCalledWith(user, 'ticket-1', { status: 'resolved' });
     expect(crm.updateOpportunity).not.toHaveBeenCalled();
   });
+
+  it('keeps opportunity updates routed to updateOpportunity', async () => {
+    const crm = {
+      updateTicket: vi.fn(),
+      updateOpportunity: vi.fn().mockResolvedValue({ id: 'opportunity-1', stage: 'won' }),
+    } as unknown as CrmService;
+    const controller = new CrmController(crm);
+
+    const result = await controller.updateOpportunity(
+      { user },
+      'opportunity-1',
+      { stage: 'won' },
+    );
+
+    expect(result).toEqual({ id: 'opportunity-1', stage: 'won' });
+    expect(crm.updateOpportunity).toHaveBeenCalledWith(user, 'opportunity-1', { stage: 'won' });
+    expect(crm.updateTicket).not.toHaveBeenCalled();
+  });
+
 });
