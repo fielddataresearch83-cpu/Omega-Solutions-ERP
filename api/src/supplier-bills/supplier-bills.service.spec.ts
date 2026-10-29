@@ -87,9 +87,18 @@ describe('SupplierBillsService duplicate supplier invoice protection', () => {
     const client = {
       query: vi.fn(async (sql: string) => {
         const normalizedSql = sql.toLowerCase().replace(/\s+/g, ' ');
-        if (normalizedSql.includes('from suppliers')) return { rows: [{ id: 'supplier-1' }], rowCount: 1 };
-        if (normalizedSql.includes('pg_advisory_xact_lock')) return { rows: [], rowCount: 1 };
-        if (normalizedSql.includes('from supplier_bills') && normalizedSql.includes('supplier_invoice_number')) {
+        const callIndex = client.query.mock.calls.length - 1;
+        if (callIndex === 0) {
+          expect(normalizedSql).toContain('from suppliers');
+          return { rows: [{ id: 'supplier-1' }], rowCount: 1 };
+        }
+        if (callIndex === 1) {
+          expect(normalizedSql).toContain('pg_advisory_xact_lock');
+          return { rows: [], rowCount: 1 };
+        }
+        if (callIndex === 2) {
+          expect(normalizedSql).toContain('from supplier_bills');
+          expect(normalizedSql).toContain('supplier_invoice_number');
           return { rows: [{ id: 'existing-bill', bill_number: 'BILL-2026-00001' }], rowCount: 1 };
         }
         throw new Error('Unexpected query before duplicate is rejected: ' + sql);
