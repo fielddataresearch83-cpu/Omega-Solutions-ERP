@@ -171,7 +171,7 @@ async function main() {
     { path: "/supplier-bills", detail: id => `/supplier-bills/${id}`, label: "supplier bills" },
     { path: "/credit-notes", detail: id => `/credit-notes/${id}`, label: "credit notes" },
     { path: "/sales-orders", detail: id => `/sales-orders/${id}`, label: "sales orders" },
-    { path: "/pos/sales", detail: id => `/pos/sales/${id}`, label: "POS sales" },
+    { path: "/pos/sales", detail: null, label: "POS sales" },
     { path: "/inventory/stock", detail: null, label: "inventory stock" },
     { path: "/crm/leads", detail: id => `/crm/leads/${id}`, label: "CRM leads" },
     { path: "/crm/opportunities", detail: id => `/crm/opportunities/${id}`, label: "CRM opportunities" },
