@@ -37,9 +37,11 @@
 - [ ] Establish baseline test commands and record current pass/fail results.
 - [ ] Audit remaining sections below in priority order.
 
-**Last completed task:** Created the production-readiness map.  
-**Next task:** P0-1 — release controls and deployment workflow audit.  
-**Last reviewed commit:** `ecef9cebde0a65e2882dab1ca7421de4090d2c26`. Reconfirm before relying on this baseline.
+**Last completed task:** RC-01 — confirmed branch and HEAD.  
+**Next task:** RC-02 — complete workflow/script/hosting target inventory; RC-03 — document triggers, permissions, secrets, and effects.  
+**Current branch:** `development` (existing branch only).  
+**Current HEAD:** `5362ebc96cfb36c119c0a2ba86257edffecd9202` (map creation commit).  
+**Prior code baseline:** `ecef9cebde0a65e2882dab1ca7421de4090d2c26`.
 
 ## Status legend
 
@@ -55,7 +57,7 @@
 
 ## 1. Release controls and repository governance — P0
 
-- [ ] **RC-01** Confirm current `development` HEAD and ensure all work targets this existing branch only.
+- [x] **RC-01** Confirm current `development` HEAD and ensure all work targets this existing branch only. Evidence: GitHub branch API checked 2026-10-29; HEAD `5362ebc96cfb36c119c0a2ba86257edffecd9202`.
 - [ ] **RC-02** Inventory every GitHub Actions workflow, reusable workflow, deployment script, package script, and hosting integration.
 - [ ] **RC-03** For every workflow, document trigger, permissions, secrets, target environment, and whether it can deploy or mutate data.
 - [ ] **RC-04** Identify and quarantine/disable only with approval any workflow that targets unrelated projects or production; never trigger the ShadcnStore deployment workflow.
@@ -307,8 +309,8 @@ Do not mark these as fixed without fresh inspection and test evidence.
 
 | ID | Priority | Finding / lead | Required next action | Status |
 |---|---|---|---|---|
-| FIND-01 | P0 | Development branch was observed unprotected with no required checks at baseline | Recheck GitHub settings; agree/implement safe branch governance | Open |
-| FIND-02 | P0 | A workflow named “Deploy Template to ShadcnStore” was previously observed | Inspect workflow and target; never trigger it during this audit | Open |
+| FIND-01 | P0 | GitHub branch API rechecked 2026-10-29: `development` is currently unprotected; required status checks are off/empty | Enable safe branch protection/ruleset and required CI checks if available; verify settings afterward | Open |
+| FIND-02 | P0 | `.github/workflows/deploy.yml` is named “Deploy Template to ShadcnStore” and its manual workflow deploys to `shadcnstore.com` via SSH to `46.202.179.245`, under `/var/www/shadcnstore/templates/...`; unrelated production target confirmed by read-only inspection | Never trigger it. Determine safe disposition with owner; ensure it cannot be mistaken for Omega deployment | Confirmed / Open |
 | FIND-03 | P0 | Cross-tenant isolation must be proven across every route and async/file/report path | Build route-level authorization matrix and negative tests | Open |
 | FIND-04 | P0 | Contract status transition race was previously identified | Reinspect current implementation; make validation/update atomic and add concurrency test if still present | Open |
 | FIND-05 | P0 | Tax/credit-note correctness requires end-to-end server-side verification | Recheck current code and regression tests; confirm original-invoice tax and credit limits | Open |
@@ -340,7 +342,7 @@ Append a row after each completed task. Link commits, CI runs, test reports, and
 
 | Date (UTC) | Checklist ID | Result | Evidence (commit/test/CI/file) | Notes / follow-up |
 |---|---|---|---|---|
-| 2026-10-29 | MAP-INIT | Created map | Initial baseline `ecef9cebde0a65e2882dab1ca7421de4090d2c26` | All substantive audit checks remain unchecked pending fresh verification |
+| 2026-10-29 | MAP-INIT | Created map | Commit `5362ebc96cfb36c119c0a2ba86257edffecd9202` | Audit map established |\n| 2026-10-29 | RC-01 | Verified | [development branch HEAD](https://github.com/pestria72-code/Omega-Solutions/commit/5362ebc96cfb36c119c0a2ba86257edffecd9202) | Existing `development` branch confirmed; no branch created |\n| 2026-10-29 | RC-02 / RC-03 / RC-04 / RC-05 | Partial / findings opened | [workflow directory](https://github.com/pestria72-code/Omega-Solutions/tree/development/.github/workflows); [deploy.yml](https://github.com/pestria72-code/Omega-Solutions/blob/development/.github/workflows/deploy.yml); [branch status](https://github.com/pestria72-code/Omega-Solutions/tree/development) | Listed 14 workflow files. Confirmed unrelated manual ShadcnStore production deployment workflow; current branch protection is off. Full workflow/script/hosting review remains open.
 
 ## Session handoff template
 
