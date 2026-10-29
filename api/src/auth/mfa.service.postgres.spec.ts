@@ -80,6 +80,7 @@ suite('MfaService recovery-code PostgreSQL concurrency', () => {
   });
 
   it('allows a recovery code to be consumed only once when submitted concurrently', async () => {
+    await pool.query('DELETE FROM public.user_mfa WHERE user_id = $1', [userId]);
     const code = '11223344';
     const hash = createHash('sha256').update(code).digest('hex');
     await pool.query(
