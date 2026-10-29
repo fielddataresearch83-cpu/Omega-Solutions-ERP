@@ -111,7 +111,11 @@ describe('SupplierBillsService duplicate supplier invoice protection', () => {
       items: [{ description: 'Cleaning materials', quantity: 1, unitCost: 100 }],
     } as any)).rejects.toBeInstanceOf(ConflictException);
 
-    expect(client.query).toHaveBeenCalledTimes(2);
+    expect(client.query).toHaveBeenCalledTimes(3);
+    expect(client.query.mock.calls[1]).toEqual([
+      'SELECT pg_advisory_xact_lock(hashtext($1))',
+      ['supplier-bill-invoice:company-1:supplier-1:inv-123'],
+    ]);
     expect(audit.log).not.toHaveBeenCalled();
   });
 });
