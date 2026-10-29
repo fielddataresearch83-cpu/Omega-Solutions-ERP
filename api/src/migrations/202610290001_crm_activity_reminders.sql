@@ -1,4 +1,4 @@
--- 042_crm_activity_reminders.sql
+-- 202610290001_crm_activity_reminders.sql
 -- Idempotency ledger for scheduled in-app CRM activity reminders.
 CREATE TABLE IF NOT EXISTS crm_activity_reminder_deliveries (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
