@@ -3,7 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
-import { compareMigrationNames } from './migration-order.mjs';
+import { compareMigrationNames, findMigrationLedgerGaps } from './migration-order.mjs';
 
 const { Client } = pg;
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -32,6 +32,19 @@ try {
   const files = (await readdir(migrationsDir))
     .filter((name) => /^\d+_[a-z0-9_]+\.sql$/i.test(name))
     .sort(compareMigrationNames);
+
+  // Refuse unsafe automatic catch-up when older migration files are absent
+  // from the ledger but later files are recorded. Some historical migrations
+  // contain data-changing UPDATEs; schema presence alone is not proof that
+  // re-running them is safe. Reconcile such databases with a reviewed plan.
+  const appliedResult = await client.query('SELECT filename FROM omega_schema_migrations');
+  const appliedFilenames = appliedResult.rows.map((row) => row.filename);
+  const ledgerGaps = findMigrationLedgerGaps(files, appliedFilenames);
+  if (ledgerGaps.length > 0) {
+    throw new Error(
+      `Refusing automatic migration: the ledger has ${ledgerGaps.length} unapplied migration(s) before later applied migrations: ${ledgerGaps.slice(0, 12).join(', ')}${ledgerGaps.length > 12 ? ', …' : ''}. Reconcile the existing schema and migration ledger before retrying.`,
+    );
+  }
 
   for (const filename of files) {
     const sql = await readFile(path.join(migrationsDir, filename), 'utf8');
