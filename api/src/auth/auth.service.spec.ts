@@ -7,7 +7,7 @@ vi.mock('./neon-token-verifier.js', () => ({
   verifyNeonIdentityToken: vi.fn(),
 }));
 
-describe('AuthService.exchangeNeonInvitation', () => {
+describe('AuthService account and invitation authorization', () => {
   const invitationToken = 'one-time-invitation-token-long-enough-for-test';
   let db: { query: ReturnType<typeof vi.fn>; transaction: ReturnType<typeof vi.fn> };
   let client: { query: ReturnType<typeof vi.fn> };
@@ -138,4 +138,17 @@ describe('AuthService.exchangeNeonInvitation', () => {
 
     expect(db.transaction).not.toHaveBeenCalled();
   });
+  it('rejects an account session when its assigned branch is inactive or missing', async () => {
+    db.query
+      .mockResolvedValueOnce({
+        rows: [{ id: 'user-1', email: 'staff@example.com', full_name: 'Staff', is_active: true }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    await expect(service.getUserProfile('user-1', 'company-1')).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(db.query.mock.calls[1][0]).toContain('LEFT JOIN branches b ON b.id = cm.branch_id AND b.company_id = cm.company_id');
+    expect(db.query.mock.calls[1][0]).toContain('(cm.branch_id IS NULL OR b.is_active = true)');
+  });
+
 });
