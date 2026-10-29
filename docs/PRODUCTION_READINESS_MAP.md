@@ -355,11 +355,11 @@ Append a row after each completed task. Link commits, CI runs, test reports, and
 
 At the end of each work session, update this block:
 
-- **Current branch / HEAD:** `development` — `a8558ff5113a9b7a18a1086cc808feb16591b94d` (confirmed 2026-10-29).
+- **Current branch / review source HEAD:** `development` — `a8558ff5113a9b7a18a1086cc808feb16591b94d`; audit-map update commit: `b54e6e8b236f865dffa785839ca83b293f359610` (2026-10-29).
 - **Checklist IDs completed this session:** None; continued read-only review. RC/SEC gates remain open.
 - **Evidence recorded:** Latest Development validation run `40877650481` succeeded; payroll export controller/service checks; notification migration inventory and RLS caveat; branch remains unprotected with required checks off.
 - **Findings opened/closed:** No findings closed. Notification RLS policy/runtime-role verification and notification-preferences access/grants remain open follow-ups under SEC-04/SEC-05 and FIND-03.
-- **Tests/CI run and result:** Read-only GitHub review; existing validation run succeeded. No business-data tests executed.
+- **Tests/CI run and result:** Validation run `40877650481` passed for review source HEAD; validation for the audit-map update commit was in progress at handoff. No business-data tests executed.
 - **Next exact checklist ID:** SEC-04 / SEC-05 — inspect DB roles/grants and route-to-service authorization matrix, then plan isolated negative tests.
 - **Files or areas not to re-audit unless changed:** Product image ownership/signing, global search permission/module gates, payroll export query scoping and CSV formula neutralization already reviewed at code level; re-open only if files change or tests expose gaps.
 - **Production/data mutation:** None.
