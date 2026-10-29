@@ -452,7 +452,7 @@ export class CrmService {
     }
     if (dto.leadId) await this.getLead(user,dto.leadId);
     const assignedUserId = dto.assignedUserId ?? user.userId;
-    const assigned = await this.db.query('SELECT user_id FROM company_memberships WHERE user_id=$1 AND company_id=$2 AND is_active=TRUE',[assignedUserId,membership.companyId]);
+    const assigned = await this.db.query('SELECT m.user_id FROM company_memberships m JOIN users u ON u.id=m.user_id WHERE m.user_id=$1 AND m.company_id=$2 AND m.is_active=TRUE AND u.is_active=TRUE',[assignedUserId,membership.companyId]);
     if (!assigned.rows.length) throw new BadRequestException('The assigned user must be an active member of this company.');
     const result = await this.db.query("INSERT INTO crm_support_tickets(company_id,customer_id,lead_id,subject,description,status,priority,assigned_user_id,created_by,due_at,resolved_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,CASE WHEN $6::varchar IN ('resolved','closed') THEN NOW() ELSE NULL END) RETURNING *", [membership.companyId,dto.customerId ?? null,dto.leadId ?? null,dto.subject.trim(),dto.description ?? null,dto.status ?? 'open',dto.priority ?? 'normal',assignedUserId,user.userId,dto.dueAt ?? null]);
     const ticket = result.rows[0];
@@ -463,7 +463,7 @@ export class CrmService {
   async updateTicket(user: AuthenticatedUser, id: string, dto: UpdateTicketDto) {
     const companyId = await this.companyId(user);
     if (dto.assignedUserId) {
-      const assigned = await this.db.query('SELECT user_id FROM company_memberships WHERE user_id=$1 AND company_id=$2 AND is_active=TRUE',[dto.assignedUserId,companyId]);
+      const assigned = await this.db.query('SELECT m.user_id FROM company_memberships m JOIN users u ON u.id=m.user_id WHERE m.user_id=$1 AND m.company_id=$2 AND m.is_active=TRUE AND u.is_active=TRUE',[dto.assignedUserId,companyId]);
       if (!assigned.rows.length) throw new BadRequestException('The assigned user must be an active member of this company.');
     }
     const result = await this.db.query("UPDATE crm_support_tickets SET status=COALESCE($3,status), priority=COALESCE($4,priority), assigned_user_id=CASE WHEN $8::boolean THEN $5::uuid ELSE assigned_user_id END, due_at=CASE WHEN $9::boolean THEN $6::timestamptz ELSE due_at END, description=COALESCE($7,description), resolved_at=CASE WHEN COALESCE($3,status) IN ('resolved','closed') THEN COALESCE(resolved_at,NOW()) ELSE NULL END, updated_at=NOW() WHERE id=$1 AND company_id=$2 RETURNING *", [id,companyId,dto.status ?? null,dto.priority ?? null,dto.assignedUserId ?? null,dto.dueAt ?? null,dto.description ?? null,dto.assignedUserId !== undefined,dto.dueAt !== undefined]);
