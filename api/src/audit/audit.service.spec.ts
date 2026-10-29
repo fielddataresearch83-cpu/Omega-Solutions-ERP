@@ -19,6 +19,13 @@ describe('AuditService', () => {
     expect(db.query.mock.calls[0][1]).toEqual(['company-a', 200, null]);
   });
 
+  it('passes the assigned branch when listing audit history', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    await service.list('company-a', 100, 'branch-a');
+    expect(db.query.mock.calls[0][0]).toContain('al.branch_id = $3::uuid');
+    expect(db.query.mock.calls[0][1]).toEqual(['company-a', 100, 'branch-a']);
+  });
+
   it('surfaces audit persistence failures instead of silently swallowing them', async () => {
     const failure = new Error('database unavailable');
     db.query.mockRejectedValue(failure);
