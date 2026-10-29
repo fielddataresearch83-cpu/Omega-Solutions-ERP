@@ -442,7 +442,9 @@ export class AuthService {
       `SELECT c.id, c.name, cm.role, cm.branch_id
        FROM company_memberships cm
        JOIN companies c ON c.id = cm.company_id AND c.is_active = true
+       LEFT JOIN branches b ON b.id = cm.branch_id AND b.company_id = cm.company_id
        WHERE cm.user_id = $1 AND cm.is_active = true
+         AND (cm.branch_id IS NULL OR b.is_active = true)
        ORDER BY c.name, c.id`,
       [userId],
     );
