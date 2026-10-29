@@ -310,3 +310,53 @@ jobs:
             await client.end();
           }
           NODE
+
+      - name: Simulate a missing migration ledger over an existing schema
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_migration_test
+        run: |
+          node --input-type=module <<'NODE'
+          import pg from 'pg';
+          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+          await client.connect();
+          try {
+            await client.query('DROP TABLE omega_schema_migrations');
+          } finally {
+            await client.end();
+          }
+          NODE
+      - name: Ensure migration runner refuses a missing ledger before creating one
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_migration_test
+        run: |
+          set +e
+          npm run migrate > /tmp/omega-missing-ledger.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            cat /tmp/omega-missing-ledger.log
+            echo "Expected the migration runner to refuse a missing ledger over existing tables."
+            exit 1
+          fi
+          grep -F "application tables exist but omega_schema_migrations is missing" /tmp/omega-missing-ledger.log
+      - name: Confirm missing-ledger guard created no ledger and left schema intact
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_migration_test
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import pg from 'pg';
+          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+          await client.connect();
+          try {
+            const ledger = await client.query("SELECT to_regclass('public.omega_schema_migrations') AS ledger");
+            const tables = await client.query("SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='products'");
+            assert.equal(ledger.rows[0].ledger, null, 'missing-ledger guard must not create migration history');
+            assert.equal(tables.rowCount, 1, 'existing application tables must remain untouched');
+          } finally {
+            await client.end();
+          }
+          NODE
