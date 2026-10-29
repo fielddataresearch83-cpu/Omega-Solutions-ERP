@@ -87,6 +87,7 @@ describe('SupplierBillsService duplicate supplier invoice protection', () => {
     const client = {
       query: vi.fn(async (sql: string) => {
         if (sql.includes('FROM suppliers')) return { rows: [{ id: 'supplier-1' }], rowCount: 1 };
+        if (sql.includes('pg_advisory_xact_lock')) return { rows: [], rowCount: 1 };
         if (sql.includes('FROM supplier_bills') && sql.includes('LOWER(BTRIM(supplier_invoice_number))')) {
           return { rows: [{ id: 'existing-bill', bill_number: 'BILL-2026-00001' }], rowCount: 1 };
         }
