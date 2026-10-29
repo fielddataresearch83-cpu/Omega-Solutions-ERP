@@ -39,6 +39,20 @@ try {
   // re-running them is safe. Reconcile such databases with a reviewed plan.
   const appliedResult = await client.query('SELECT filename FROM omega_schema_migrations');
   const appliedFilenames = appliedResult.rows.map((row) => row.filename);
+  if (appliedFilenames.length === 0) {
+    const existingTables = await client.query(
+      `SELECT COUNT(*)::int AS count
+       FROM information_schema.tables
+       WHERE table_schema = 'public'
+         AND table_type = 'BASE TABLE'
+         AND table_name <> 'omega_schema_migrations'`,
+    );
+    if (Number(existingTables.rows[0]?.count ?? 0) > 0) {
+      throw new Error(
+        'Refusing automatic migration: application tables exist but the migration ledger is empty. Reconcile the existing schema and ledger before retrying.',
+      );
+    }
+  }
   const ledgerGaps = findMigrationLedgerGaps(files, appliedFilenames);
   if (ledgerGaps.length > 0) {
     throw new Error(
