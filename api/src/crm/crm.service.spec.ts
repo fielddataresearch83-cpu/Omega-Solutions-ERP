@@ -272,7 +272,7 @@ describe('CrmService', () => {
     expect(sql).toContain('ON CONFLICT (activity_id, reminder_type, due_at) DO NOTHING');
     expect(sql).toContain("a.due_at <= NOW() + INTERVAL '24 hours'");
     expect(sql).toContain('m.company_id = a.company_id AND m.user_id = a.assigned_user_id AND m.is_active = TRUE');
-    expect(sql).toContain("activity.completed_at");
+    expect(sql).toContain("a.completed_at IS NULL");
     expect(sql).toContain("'/crm?tab=activities'");
     expect(params).toBeUndefined();
   });
