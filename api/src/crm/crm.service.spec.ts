@@ -153,4 +153,14 @@ describe('CrmService', () => {
       ['company-1', 'open', 'urgent', '%printer%'],
     );
   });
+  it('includes company-scoped customer names for customer-linked activities', async () => {
+    db.query.mockResolvedValue({ rows: [{ id: 'activity-1', customer_name: 'Acme Ltd' }], rowCount: 1 });
+    const rows = await service.listActivities(user, { pending: true });
+    expect(rows).toEqual([{ id: 'activity-1', customer_name: 'Acme Ltd' }]);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('LEFT JOIN customers c ON c.id=a.customer_id AND c.company_id=a.company_id'),
+      ['company-1', null, null, true],
+    );
+  });
+
 });
