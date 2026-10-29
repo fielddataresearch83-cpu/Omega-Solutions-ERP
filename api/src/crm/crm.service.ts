@@ -193,10 +193,12 @@ export class CrmService {
   async listActivities(user: AuthenticatedUser, options: { leadId?: string; opportunityId?: string; pending?: boolean } = {}) {
     const companyId = await this.companyId(user);
     const result = await this.db.query(
-      `SELECT a.*, l.contact_name AS lead_contact_name, o.title AS opportunity_title
+      `SELECT a.*, l.contact_name AS lead_contact_name, o.title AS opportunity_title,
+              c.name AS customer_name
        FROM crm_activities a
        LEFT JOIN crm_leads l ON l.id=a.lead_id AND l.company_id=a.company_id
        LEFT JOIN crm_opportunities o ON o.id=a.opportunity_id AND o.company_id=a.company_id
+       LEFT JOIN customers c ON c.id=a.customer_id AND c.company_id=a.company_id
        WHERE a.company_id=$1 AND ($2::uuid IS NULL OR a.lead_id=$2)
          AND ($3::uuid IS NULL OR a.opportunity_id=$3)
          AND ($4::boolean IS FALSE OR a.completed_at IS NULL)
