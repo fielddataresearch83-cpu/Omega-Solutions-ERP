@@ -31,17 +31,18 @@
 
 ## Current checkpoint
 
-- [x] Created this audit map on `development`.
-- [x] Confirm latest branch HEAD and CI status before each new audit session. Evidence (2026-10-29): `development` HEAD `e320c450ba1dd9fe64c5616a60b6fd68b3834fef`; Development validation run [40875774674](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40875774674) completed successfully.
-- [ ] Build a file/route/controller/service/schema/test inventory from the current repository; do not rely on prior summaries alone.
-- [ ] Establish baseline test commands and record current pass/fail results.
-- [ ] Audit remaining sections below in priority order.
+- [x] Confirm current `development` HEAD and latest validation result. Evidence (2026-10-29): HEAD `478dd0184db0735a4c373cff49aa75d955d6e3c8`; [validation run 40879113766](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40879113766) completed successfully (API build/tests/lint, purchase-order approval regression tests, frontend build, dependency-audit reporting).
+- [x] Continue read-only route and authentication review against the current branch; no production deploy or shared business-data mutation.
+- [ ] Complete route-to-service authorization inventory and isolated negative tests.
+- [ ] Confirm the Render runtime PostgreSQL role without exposing credentials; current live Neon inspection shows no public RLS policies and the inspected owner role bypasses RLS.
+- [ ] Design and test a least-privilege tenant-isolation approach on an isolated/disposable database before any shared-database changes.
+- [ ] Address branch protection / required checks; current `development` branch remains unprotected.
 
-**Last completed task:** RC-01 — confirmed branch and HEAD.  
-**Next task:** RC-02 — complete workflow/script/hosting target inventory; RC-03 — document triggers, permissions, secrets, and effects.  
+**Last completed task:** Validation confirmation for `478dd0184db0735a4c373cff49aa75d955d6e3c8`; read-only authentication review continued.  
+**Next task:** SEC-04 / SEC-05 / AUTH-04 — verify runtime database identity safely, continue tenant authorization matrix, and test MFA recovery-code concurrency.  
 **Current branch:** `development` (existing branch only).  
-**Current HEAD:** `5362ebc96cfb36c119c0a2ba86257edffecd9202` (map creation commit).  
-**Prior code baseline:** `ecef9cebde0a65e2882dab1ca7421de4090d2c26`.
+**Current HEAD:** `478dd0184db0735a4c373cff49aa75d955d6e3c8`.  
+**Production status:** NOT APPROVED; P0 tenant-isolation and governance blockers remain.
 
 ## Status legend
 
@@ -327,6 +328,7 @@ Do not mark these as fixed without fresh inspection and test evidence.
 | FIND-15 | P1 | Runtime mismatch: repository `.nvmrc` specifies Node 22.22.3 while the main validation workflow installs Node 24 | Confirm deployed runtime and package compatibility; align local, CI, and hosting runtime intentionally | Open |
 | FIND-16 | P1 | `vite-version/` contains both `package-lock.json` and `pnpm-lock.yaml`; `nextjs-version/` also has a pnpm lockfile while root/API use npm | Confirm the canonical package manager per deployed frontend and remove or document unused lockfiles only after validating hosting configuration | Open |
 | FIND-17 | P1 | Root `License.md` attributes the MIT copyright to ShadcnStore (2025); repository contains template-derived frontend assets | Verify upstream license and attribution obligations before changing notices or claiming Omega-owned licensing | Open |
+| FIND-18 | P1 | MFA recovery-code consumption may race: `useRecoveryCode()` reads the full hash array, computes a remainder in application memory, then writes that stale remainder if the target code is still present. Two concurrent requests using different codes can each pass the predicate and the later write can restore the first consumed code | Change consumption to a single atomic SQL array-removal operation against the current row (or lock the row in a transaction); add a concurrency regression test proving both codes are consumed exactly once. Do not test against shared business data | Open — code-review finding; no runtime exploit test performed |
 
 ## 18. Final release gates — all required
 
@@ -355,12 +357,12 @@ Append a row after each completed task. Link commits, CI runs, test reports, and
 
 At the end of each work session, update this block:
 
-- **Reviewed source HEAD:** `development` — `ccf7376bf93c48f78cebf7c6c461bfa3095d1810` (2026-10-29); this map update will be the next commit on the same branch.
-- **Checklist IDs completed this session:** None; continued read-only review. RC/SEC gates remain open.
-- **Evidence recorded:** Development validation passed for HEAD `ccf7376bf93c48f78cebf7c6c461bfa3095d1810` in [run 40878825911](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40878825911); read-only live Neon catalog check found zero public policies, 55 RLS-enabled tables, `neondb_owner` with BYPASSRLS, and RLS disabled on notification_preferences; service review confirmed notification endpoints are JWT-protected and queries are scoped by company and recipient; branch remains unprotected with required checks off.
-- **Findings opened/closed:** FIND-03 strengthened to record live RLS evidence as a P0 release blocker. No findings closed. Confirm Render runtime DB role, design/test policies or an equivalent defensible isolation model, and review notification-preferences service access/grants under SEC-04/SEC-05.
-- **Tests/CI run and result:** Validation run `40877650481` passed for review source HEAD; validation for the audit-map update commit was in progress at handoff. No business-data tests executed.
-- **Next exact checklist ID:** SEC-04 / SEC-05 — verify Render runtime role without disclosing secrets; design a least-privilege role and tenant policies in an isolated/disposable DB; continue route-to-service authorization matrix and negative tests.
+- **Reviewed source HEAD:** `development` — `478dd0184db0735a4c373cff49aa75d955d6e3c8` (2026-10-29).
+- **Checklist IDs completed this session:** Validation confirmation for the current map commit; no release gates closed. RC/SEC gates remain open.
+- **Evidence recorded:** Current development HEAD `478dd0184db0735a4c373cff49aa75d955d6e3c8` passed [validation run 40879113766](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40879113766). Read-only live Neon catalog check found zero public policies, 55 RLS-enabled tables, `neondb_owner` with BYPASSRLS, and RLS disabled on notification_preferences. Notification endpoints are JWT-protected and company/recipient scoped at code level. Read-only auth review found a possible concurrent MFA recovery-code consumption race; test coverage currently lacks this concurrency case. Branch remains unprotected with required checks off.
+- **Findings opened/closed:** FIND-03 remains a P0 release blocker; FIND-18 opened for MFA recovery-code concurrency. No findings closed. Confirm Render runtime DB role, design/test least-privilege tenant isolation in a disposable DB, and add a concurrency regression test before fixing FIND-18.
+- **Tests/CI run and result:** Validation run `40879113766` passed for HEAD `478dd0184db0735a4c373cff49aa75d955d6e3c8`. Existing MFA unit tests reviewed; no concurrency test found for recovery-code consumption. No business-data tests executed.
+- **Next exact checklist ID:** SEC-04 / SEC-05 / AUTH-04 — verify Render runtime role without disclosing secrets; design a least-privilege tenant-isolation model in a disposable DB; continue route-to-service authorization matrix and isolated negative tests; fix and concurrency-test MFA recovery-code consumption.
 - **Files or areas not to re-audit unless changed:** Product image ownership/signing, global search permission/module gates, payroll export query scoping and CSV formula neutralization already reviewed at code level; re-open only if files change or tests expose gaps.
 - **Production/data mutation:** None.
 
