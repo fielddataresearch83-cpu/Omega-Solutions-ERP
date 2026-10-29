@@ -413,6 +413,19 @@ export class CrmService {
     return result.rows[0] ?? {success:true,alreadyMember:true};
   }
 
+  async listAssignees(user: AuthenticatedUser) {
+    const companyId = await this.companyId(user);
+    const result = await this.db.query(
+      `SELECT m.user_id, u.full_name, u.email
+       FROM company_memberships m
+       JOIN users u ON u.id=m.user_id
+       WHERE m.company_id=$1 AND m.is_active=TRUE
+       ORDER BY u.full_name ASC, u.email ASC`,
+      [companyId],
+    );
+    return result.rows;
+  }
+
   async listTickets(user: AuthenticatedUser, status?: string, priority?: string, search?: string, limit = 250, offset = 0) {
     const page = this.listPage(limit, offset);
     const allowedStatuses = ['open', 'in_progress', 'waiting_customer', 'resolved', 'closed'];
