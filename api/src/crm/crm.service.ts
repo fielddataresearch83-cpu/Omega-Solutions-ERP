@@ -430,14 +430,67 @@ export class CrmService {
     const companyId = await this.companyId(user);
     const campaign = await this.db.query('SELECT id FROM crm_campaigns WHERE id=$1 AND company_id=$2',[campaignId,companyId]);
     if (!campaign.rows.length) throw new NotFoundException('CRM campaign not found.');
-    const result = await this.db.query('SELECT cl.lead_id,cl.response_status,cl.added_at,l.contact_name,l.organization_name,l.email,l.phone FROM crm_campaign_leads cl JOIN crm_leads l ON l.id=cl.lead_id AND l.company_id=cl.company_id WHERE cl.company_id=$1 AND cl.campaign_id=$2 ORDER BY l.contact_name',[companyId,campaignId]);
+    const result = await this.db.query(
+      `WITH audience AS (
+         SELECT cl.lead_id, cl.response_status, cl.added_at, 0 AS priority
+         FROM crm_campaign_leads cl
+         WHERE cl.company_id=$1 AND cl.campaign_id=$2
+         UNION ALL
+         SELECT sm.lead_id, 'targeted'::varchar AS response_status, sm.created_at AS added_at, 1 AS priority
+         FROM crm_campaign_segments linked
+         JOIN crm_segments s ON s.id=linked.segment_id AND s.company_id=linked.company_id AND s.is_dynamic=FALSE
+         JOIN crm_segment_members sm ON sm.segment_id=s.id AND sm.company_id=s.company_id
+         WHERE linked.company_id=$1 AND linked.campaign_id=$2 AND sm.lead_id IS NOT NULL
+         UNION ALL
+         SELECT l.id AS lead_id, 'targeted'::varchar AS response_status, s.created_at AS added_at, 2 AS priority
+         FROM crm_campaign_segments linked
+         JOIN crm_segments s ON s.id=linked.segment_id AND s.company_id=linked.company_id AND s.is_dynamic=TRUE
+         JOIN crm_leads l ON l.company_id=s.company_id
+           AND (s.criteria->>'leadStatus' IS NULL OR l.status=s.criteria->>'leadStatus')
+           AND (s.criteria->>'source' IS NULL OR l.source=s.criteria->>'source')
+         WHERE linked.company_id=$1 AND linked.campaign_id=$2
+       ), selected AS (
+         SELECT DISTINCT ON (lead_id) lead_id, response_status, added_at
+         FROM audience ORDER BY lead_id, priority
+       )
+       SELECT selected.lead_id, selected.response_status, selected.added_at,
+              l.contact_name, l.organization_name, l.email, l.phone
+       FROM selected
+       JOIN crm_leads l ON l.id=selected.lead_id AND l.company_id=$1
+       ORDER BY l.contact_name`,
+      [companyId,campaignId],
+    );
     return result.rows;
   }
 
   async updateCampaignLead(user: AuthenticatedUser, campaignId: string, leadId: string, dto: UpdateCampaignLeadDto) {
     const companyId = await this.companyId(user);
-    const result = await this.db.query('UPDATE crm_campaign_leads SET response_status=COALESCE($4,response_status) WHERE company_id=$1 AND campaign_id=$2 AND lead_id=$3 RETURNING *',[companyId,campaignId,leadId,dto.responseStatus ?? null]);
-    if (!result.rows.length) throw new NotFoundException('Lead is not part of this campaign.');
+    const member = await this.db.query(
+      `SELECT l.id
+       FROM crm_leads l
+       WHERE l.id=$3 AND l.company_id=$1 AND (
+         EXISTS (SELECT 1 FROM crm_campaign_leads cl WHERE cl.company_id=$1 AND cl.campaign_id=$2 AND cl.lead_id=l.id)
+         OR EXISTS (
+           SELECT 1 FROM crm_campaign_segments linked
+           JOIN crm_segments s ON s.id=linked.segment_id AND s.company_id=linked.company_id
+           WHERE linked.company_id=$1 AND linked.campaign_id=$2 AND (
+             EXISTS (SELECT 1 FROM crm_segment_members sm WHERE sm.company_id=$1 AND sm.segment_id=s.id AND sm.lead_id=l.id)
+             OR (s.is_dynamic=TRUE
+               AND (s.criteria->>'leadStatus' IS NULL OR l.status=s.criteria->>'leadStatus')
+               AND (s.criteria->>'source' IS NULL OR l.source=s.criteria->>'source'))
+           )
+         )
+       ) LIMIT 1`,
+      [companyId,campaignId,leadId],
+    );
+    if (!member.rows.length) throw new NotFoundException('Lead is not part of this campaign.');
+    const result = await this.db.query(
+      `INSERT INTO crm_campaign_leads(company_id,campaign_id,lead_id,response_status)
+       VALUES($1,$2,$3,$4)
+       ON CONFLICT(campaign_id,lead_id) DO UPDATE SET response_status=EXCLUDED.response_status
+       RETURNING *`,
+      [companyId,campaignId,leadId,dto.responseStatus ?? 'targeted'],
+    );
     await this.auditChange(user,'crm.campaign.update_response','crm_campaign',campaignId,{leadId,responseStatus:result.rows[0].response_status});
     return result.rows[0];
   }
