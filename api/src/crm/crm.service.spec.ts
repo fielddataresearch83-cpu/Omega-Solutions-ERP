@@ -36,8 +36,24 @@ describe('CrmService', () => {
     expect(rows).toEqual([{ id: 'lead-1' }]);
     expect(db.query).toHaveBeenCalledWith(
       expect.stringContaining('WHERE company_id = $1'),
-      ['company-1', 'qualified', '%Acme%'],
+      ['company-1', 'qualified', '%Acme%', 250, 0],
     );
+  });
+
+  it('passes bounded pagination values to the lead query', async () => {
+    db.query.mockResolvedValue({ rows: [{ id: 'lead-101' }], rowCount: 1 });
+    const rows = await service.listLeads(user, undefined, undefined, 100, 100);
+    expect(rows).toEqual([{ id: 'lead-101' }]);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('ORDER BY created_at DESC LIMIT $4 OFFSET $5'),
+      ['company-1', null, null, 100, 100],
+    );
+  });
+
+  it('rejects invalid pagination limits before querying the database', async () => {
+    await expect(service.listLeads(user, undefined, undefined, 251, 0)).rejects.toThrow(BadRequestException);
+    await expect(service.listLeads(user, undefined, undefined, 10, -1)).rejects.toThrow(BadRequestException);
+    expect(db.query).not.toHaveBeenCalled();
   });
 
   it('rejects a blank lead contact name before creating a record', async () => {
