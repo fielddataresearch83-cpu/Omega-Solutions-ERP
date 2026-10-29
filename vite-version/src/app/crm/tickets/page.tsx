@@ -23,6 +23,8 @@ const priorityClass=(s:string)=>s==="urgent"?"text-red-700 dark:text-red-300":s=
 
 export default function CrmTicketsPage(){
  const [tickets,setTickets]=React.useState<Ticket[]>([])
+ const [hasMore,setHasMore]=React.useState(false)
+ const [loadingMore,setLoadingMore]=React.useState(false)
  const [customers,setCustomers]=React.useState<Customer[]>([])
  const [leads,setLeads]=React.useState<Lead[]>([])
  const [search,setSearch]=React.useState("")
@@ -37,12 +39,27 @@ export default function CrmTicketsPage(){
   setLoading(true);setError(null)
   try{
    const p=new URLSearchParams();if(status!=="all")p.set("status",status);if(priority!=="all")p.set("priority",priority);if(search.trim())p.set("search",search.trim())
-   const r=await Promise.all([api.get<Ticket[]>("/crm/tickets"+(p.size?"?"+p.toString():"")),api.get<Customer[]>("/crm/customers"),api.get<Lead[]>("/crm/leads")])
-   setTickets(r[0]);setCustomers(r[1]);setLeads(r[2])
+    p.set("limit","100");p.set("offset","0")
+   const r=await Promise.all([api.get<Ticket[]>("/crm/tickets?"+p.toString()),api.get<Customer[]>("/crm/customers"),api.get<Lead[]>("/crm/leads")])
+   setTickets(r[0]);setHasMore(r[0].length===100);setCustomers(r[1]);setLeads(r[2])
   }catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load support tickets.")}
   finally{setLoading(false)}
  },[search,status,priority])
  React.useEffect(()=>{void load()},[load])
+
+ async function loadMore(){
+  if(loadingMore||!hasMore)return
+  setLoadingMore(true);setError(null)
+  try{
+   const p=new URLSearchParams({limit:"100",offset:String(tickets.length)})
+   if(status!=="all")p.set("status",status)
+   if(priority!=="all")p.set("priority",priority)
+   if(search.trim())p.set("search",search.trim())
+   const next=await api.get<Ticket[]>("/crm/tickets?"+p.toString())
+   setTickets(current=>[...current,...next]);setHasMore(next.length===100)
+  }catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load more tickets.")}
+  finally{setLoadingMore(false)}
+ }
  async function save(){
   if(!form.subject.trim()||(!form.customerId&&!form.leadId)){setError("Ticket subject and a linked customer or lead are required.");return}
   setSaving(true);setError(null)
@@ -62,7 +79,7 @@ export default function CrmTicketsPage(){
   {error&&<div role="alert" className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"><AlertCircle className="size-4"/><span className="flex-1">{error}</span><Button size="sm" variant="ghost" onClick={()=>void load()}><RefreshCw className="size-4"/> Retry</Button></div>}
   <div className="grid gap-3 sm:grid-cols-4">{[{label:"All tickets",value:tickets.length},{label:"Open",value:tickets.filter(t=>t.status==="open"||t.status==="in_progress").length},{label:"Urgent",value:tickets.filter(t=>t.priority==="urgent"&&t.status!=="resolved"&&t.status!=="closed").length},{label:"Resolved",value:tickets.filter(t=>t.status==="resolved"||t.status==="closed").length}].map(m=><Card key={m.label}><CardContent className="p-4"><p className="text-sm text-muted-foreground">{m.label}</p><p className="mt-2 text-2xl font-semibold">{m.value}</p></CardContent></Card>)}</div>
   <Card><CardContent className="flex flex-col gap-4 p-4"><div className="flex flex-col gap-3 sm:flex-row"><div className="relative flex-1"><Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><Input className="pl-8" placeholder="Search ticket, customer or issue…" value={search} onChange={e=>setSearch(e.target.value)} aria-label="Search tickets"/></div><select aria-label="Filter tickets by status" value={status} onChange={e=>setStatus(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm"><option value="all">All statuses</option>{statuses.map(s=><option key={s} value={s}>{label(s)}</option>)}</select><select aria-label="Filter tickets by priority" value={priority} onChange={e=>setPriority(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm"><option value="all">All priorities</option>{priorities.map(p=><option key={p} value={p}>{label(p)}</option>)}</select></div>
-  {loading?<div className="flex justify-center py-12"><LoadingSpinner/></div>:tickets.length===0?<div className="flex flex-col items-center gap-2 py-12 text-center"><Headset className="size-8 text-muted-foreground"/><p className="font-medium">No support tickets found</p><p className="text-sm text-muted-foreground">Create a ticket linked to a customer or lead to track resolution.</p><Button variant="outline" onClick={()=>setOpen(true)}><Plus className="size-4"/> Create ticket</Button></div>:<Table><TableHeader><TableRow><TableHead>Ticket</TableHead><TableHead className="hidden md:table-cell">Customer / lead</TableHead><TableHead>Priority</TableHead><TableHead>Status</TableHead><TableHead className="hidden lg:table-cell">Assigned to</TableHead><TableHead className="hidden sm:table-cell">Due</TableHead></TableRow></TableHeader><TableBody>{tickets.map(t=><TableRow key={t.id}><TableCell><div className="font-medium">#{t.ticket_number} · {t.subject}</div><div className="max-w-sm text-xs text-muted-foreground">{t.description||"No additional details"}</div></TableCell><TableCell className="hidden md:table-cell">{t.customer_name||t.lead_contact_name||"—"}</TableCell><TableCell><select aria-label={"Priority for ticket "+t.ticket_number} value={t.priority} onChange={e=>void update(t,{priority:e.target.value})} className={"rounded-md border border-input bg-background px-2 py-1.5 text-xs "+priorityClass(t.priority)}>{priorities.map(p=><option key={p} value={p}>{label(p)}</option>)}</select></TableCell><TableCell><select aria-label={"Status for ticket "+t.ticket_number} value={t.status} onChange={e=>void update(t,{status:e.target.value})} className="max-w-44 rounded-md border border-input bg-background px-2 py-1.5 text-xs">{statuses.map(s=><option key={s} value={s}>{label(s)}</option>)}</select></TableCell><TableCell className="hidden lg:table-cell">{t.assignee_name||"Unassigned"}</TableCell><TableCell className="hidden sm:table-cell">{t.due_at?formatDate(t.due_at):"—"}</TableCell></TableRow>)}</TableBody></Table>}
+  {loading?<div className="flex justify-center py-12"><LoadingSpinner/></div>:tickets.length===0?<div className="flex flex-col items-center gap-2 py-12 text-center"><Headset className="size-8 text-muted-foreground"/><p className="font-medium">No support tickets found</p><p className="text-sm text-muted-foreground">Create a ticket linked to a customer or lead to track resolution.</p><Button variant="outline" onClick={()=>setOpen(true)}><Plus className="size-4"/> Create ticket</Button></div>:<Table><TableHeader><TableRow><TableHead>Ticket</TableHead><TableHead className="hidden md:table-cell">Customer / lead</TableHead><TableHead>Priority</TableHead><TableHead>Status</TableHead><TableHead className="hidden lg:table-cell">Assigned to</TableHead><TableHead className="hidden sm:table-cell">Due</TableHead></TableRow></TableHeader><TableBody>{tickets.map(t=><TableRow key={t.id}><TableCell><div className="font-medium">#{t.ticket_number} · {t.subject}</div><div className="max-w-sm text-xs text-muted-foreground">{t.description||"No additional details"}</div></TableCell><TableCell className="hidden md:table-cell">{t.customer_name||t.lead_contact_name||"—"}</TableCell><TableCell><select aria-label={"Priority for ticket "+t.ticket_number} value={t.priority} onChange={e=>void update(t,{priority:e.target.value})} className={"rounded-md border border-input bg-background px-2 py-1.5 text-xs "+priorityClass(t.priority)}>{priorities.map(p=><option key={p} value={p}>{label(p)}</option>)}</select></TableCell><TableCell><select aria-label={"Status for ticket "+t.ticket_number} value={t.status} onChange={e=>void update(t,{status:e.target.value})} className="max-w-44 rounded-md border border-input bg-background px-2 py-1.5 text-xs">{statuses.map(s=><option key={s} value={s}>{label(s)}</option>)}</select></TableCell><TableCell className="hidden lg:table-cell">{t.assignee_name||"Unassigned"}</TableCell><TableCell className="hidden sm:table-cell">{t.due_at?formatDate(t.due_at):"—"}</TableCell></TableRow>)}</TableBody></Table>}{!loading&&hasMore&&<div className="flex justify-center border-t p-4"><Button variant="outline" onClick={()=>void loadMore()} disabled={loadingMore}>{loadingMore?"Loading…":"Load more tickets"}</Button></div>}
   </CardContent></Card>
  </div>
  <Dialog open={open} onOpenChange={setOpen}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>New support ticket</DialogTitle><DialogDescription>Record a customer issue and set priority and a target due date.</DialogDescription></DialogHeader><div className="grid gap-4 sm:grid-cols-2">
