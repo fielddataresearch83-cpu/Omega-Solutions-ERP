@@ -44,7 +44,7 @@ describe('AuthRateLimitGuard', () => {
     ['/api/auth/mfa/enroll', 6],
     ['/api/auth/mfa/confirm', 11],
     ['/api/auth/mfa/disable', 6],
-  ])('throttles repeated MFA security action %s', async (path, requestCount) => {
+  ] as const)('throttles repeated MFA security action %s', async (path, requestCount) => {
     const db = { query: vi.fn().mockResolvedValue({ rows: [{ request_count: requestCount }] }) };
     const guard = new AuthRateLimitGuard(db as any);
     await expect(guard.canActivate(context(path))).rejects.toMatchObject({
