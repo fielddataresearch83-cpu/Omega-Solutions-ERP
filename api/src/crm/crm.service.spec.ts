@@ -277,4 +277,41 @@ describe('CrmService', () => {
     expect(params).toBeUndefined();
   });
 
+
+  it('counts explicit, static-segment and dynamic-segment leads in campaign audiences', async () => {
+    db.query.mockResolvedValue({ rows: [{ id: 'campaign-1', leads_count: 4 }], rowCount: 1 });
+    const rows = await service.listCampaigns(user, undefined, 100, 0);
+    expect(rows[0].leads_count).toBe(4);
+    const sql = db.query.mock.calls[0][0] as string;
+    expect(sql).toContain('LEFT JOIN LATERAL');
+    expect(sql).toContain('crm_segment_members');
+    expect(sql).toContain("s.criteria->>'leadStatus'");
+    expect(sql).toContain("s.criteria->>'source'");
+  });
+
+  it('returns segment-derived leads in the campaign audience with stable response defaults', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'campaign-1' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ lead_id: 'lead-2', response_status: 'targeted', contact_name: 'Segment Lead' }], rowCount: 1 });
+    const rows = await service.listCampaignLeads(user, 'campaign-1');
+    expect(rows).toEqual([{ lead_id: 'lead-2', response_status: 'targeted', contact_name: 'Segment Lead' }]);
+    const sql = db.query.mock.calls[1][0] as string;
+    expect(sql).toContain('DISTINCT ON (lead_id)');
+    expect(sql).toContain('sm.added_at AS added_at');
+    expect(sql).toContain("s.is_dynamic=TRUE");
+    expect(db.query.mock.calls[1][1]).toEqual(['company-1', 'campaign-1']);
+  });
+
+  it('allows response tracking for a lead included through a campaign segment', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'lead-2' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ campaign_id: 'campaign-1', lead_id: 'lead-2', response_status: 'responded' }], rowCount: 1 });
+    const row = await service.updateCampaignLead(user, 'campaign-1', 'lead-2', { responseStatus: 'responded' });
+    expect(row.response_status).toBe('responded');
+    expect(db.query.mock.calls[0][0]).toContain('crm_campaign_segments');
+    expect(db.query.mock.calls[0][0]).toContain("s.criteria->>'leadStatus'");
+    expect(db.query.mock.calls[1][0]).toContain('ON CONFLICT(campaign_id,lead_id) DO UPDATE');
+    expect(audit.log).toHaveBeenCalled();
+  });
+
 });
