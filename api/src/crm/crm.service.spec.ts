@@ -244,4 +244,23 @@ describe('CrmService', () => {
     );
   });
 
+
+  it('treats the all campaign status as no status filter', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    await service.listCampaigns(user, 'all', 25, 50);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE c.company_id=$1 AND ($2::text IS NULL OR c.status=$2)'),
+      ['company-1', null, 25, 50],
+    );
+  });
+
+  it('treats all ticket status and priority filters as unfiltered', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    await service.listTickets(user, 'all', 'all', undefined, 25, 50);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE t.company_id=$1 AND ($2::text IS NULL OR t.status=$2) AND ($3::text IS NULL OR t.priority=$3)'),
+      ['company-1', null, null, null, 25, 50],
+    );
+  });
+
 });
