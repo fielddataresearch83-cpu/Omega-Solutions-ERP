@@ -19,7 +19,7 @@ type Activity = { id:string; activity_type:"call"|"email"|"meeting"|"task"|"note
 type Pipeline = { leads:Array<{status:string;count:number;value:string|number}>; opportunities:Array<{stage:string;count:number;value:string|number;weighted_value:string|number}>; activities?:{pending:number;overdue:number}; currency:string }
 type Tab = "leads"|"opportunities"|"activities"
 const blankLead = {contactName:"",organizationName:"",email:"",phone:"",source:"",estimatedValue:"0",notes:""}
-const blankOpportunity = {title:"",leadId:"",expectedValue:"0",probability:"25",stage:"qualification",expectedCloseDate:"",lossReason:""}
+const blankOpportunity = {title:"",leadId:"",customerId:"",expectedValue:"0",probability:"25",stage:"qualification",expectedCloseDate:"",lossReason:""}
 const blankActivity = {activityType:"task",subject:"",description:"",leadId:"",opportunityId:"",customerId:"",dueAt:""}
 const stages = ["qualification","needs_analysis","proposal","negotiation","won","lost"] as const
 const stageLabel = (value:string) => value.replaceAll("_"," ").replace(/\b\w/g, x=>x.toUpperCase())
@@ -83,11 +83,11 @@ export default function CrmPage() {
   } catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not save lead.")} finally{setSaving(false)}
  }
  async function saveOpportunity(){
-  if(!opportunityForm.title.trim()||(!editingOpportunityId&&!opportunityForm.leadId)){setError("Opportunity title and linked lead are required.");return}
+  if(!opportunityForm.title.trim()||(!editingOpportunityId&&Boolean(opportunityForm.leadId)===Boolean(opportunityForm.customerId))){setError("Choose exactly one linked lead or customer for the opportunity.");return}
   setSaving(true);setError(null)
   try {
    const payload={title:opportunityForm.title.trim(),expectedValue:Math.max(0,Number(opportunityForm.expectedValue)||0),probability:Math.min(100,Math.max(0,Number(opportunityForm.probability)||0)),stage:opportunityForm.stage,expectedCloseDate:opportunityForm.expectedCloseDate||undefined,lossReason:opportunityForm.lossReason.trim()||undefined}
-   if(editingOpportunityId) await api.patch<Opportunity>("/crm/opportunities/"+editingOpportunityId,payload); else await api.post<Opportunity>("/crm/opportunities",{...payload,leadId:opportunityForm.leadId})
+   if(editingOpportunityId) await api.patch<Opportunity>("/crm/opportunities/"+editingOpportunityId,payload); else await api.post<Opportunity>("/crm/opportunities",{...payload,leadId:opportunityForm.leadId||undefined,customerId:opportunityForm.customerId||undefined})
    setOpportunityDialog(false);setEditingOpportunityId(null);setOpportunityForm(blankOpportunity);setTab("opportunities");await load()
   } catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not save opportunity.")} finally{setSaving(false)}
  }
@@ -109,7 +109,7 @@ export default function CrmPage() {
   try{await api.post("/crm/leads/"+lead.id+"/convert");await load()}
   catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not convert lead to customer.")}
  }
- function editOpportunity(o:Opportunity){setEditingOpportunityId(o.id);setOpportunityForm({title:o.title,leadId:o.lead_id||"",expectedValue:String(o.expected_value||0),probability:String(o.probability??0),stage:o.stage,expectedCloseDate:String(o.expected_close_date||"").slice(0,10),lossReason:o.loss_reason||""});setOpportunityDialog(true)}
+ function editOpportunity(o:Opportunity){setEditingOpportunityId(o.id);setOpportunityForm({title:o.title,leadId:o.lead_id||"",customerId:o.customer_id||"",expectedValue:String(o.expected_value||0),probability:String(o.probability??0),stage:o.stage,expectedCloseDate:String(o.expected_close_date||"").slice(0,10),lossReason:o.loss_reason||""});setOpportunityDialog(true)}
  async function updateStage(o:Opportunity,stage:string){
   setError(null)
   const defaultProbability:Record<string,number>={qualification:10,needs_analysis:25,proposal:50,negotiation:75,won:100,lost:0}
@@ -162,13 +162,13 @@ export default function CrmPage() {
 
  <Dialog open={opportunityDialog} onOpenChange={open=>{setOpportunityDialog(open);if(!open)setEditingOpportunityId(null)}}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>{editingOpportunityId?"Edit sales opportunity":"Add sales opportunity"}</DialogTitle><DialogDescription>Track a potential deal through sales stages and weighted forecasts.</DialogDescription></DialogHeader><div className="grid gap-4 sm:grid-cols-2">
   <Field label="Opportunity title *" id="opp-title" wide><Input id="opp-title" value={opportunityForm.title} onChange={e=>setOpportunityForm({...opportunityForm,title:e.target.value})}/></Field>
-  <Field label="Linked lead *" id="opp-lead" wide><select id="opp-lead" value={opportunityForm.leadId} onChange={e=>setOpportunityForm({...opportunityForm,leadId:e.target.value})} className="h-9 rounded-md border border-input bg-background px-3 text-sm"><option value="">Choose a lead</option>{leads.map(l=><option key={l.id} value={l.id}>{l.contact_name}{l.organization_name?" — "+l.organization_name:""}</option>)}</select></Field>
+  <Field label="Linked lead" id="opp-lead" wide><select id="opp-lead" value={opportunityForm.leadId} disabled={Boolean(editingOpportunityId)} onChange={e=>setOpportunityForm({...opportunityForm,leadId:e.target.value,customerId:e.target.value?"":opportunityForm.customerId})} className="h-9 rounded-md border border-input bg-background px-3 text-sm"><option value="">Choose a lead</option>{leads.filter(l=>l.status!=="converted").map(l=><option key={l.id} value={l.id}>{l.contact_name}{l.organization_name?" — "+l.organization_name:""}</option>)}</select></Field><Field label="Or linked customer" id="opp-customer" wide><select id="opp-customer" value={opportunityForm.customerId} disabled={Boolean(editingOpportunityId)} onChange={e=>setOpportunityForm({...opportunityForm,customerId:e.target.value,leadId:e.target.value?"":opportunityForm.leadId})} className="h-9 rounded-md border border-input bg-background px-3 text-sm"><option value="">Choose a customer</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
   <Field label="Expected value (KSh)" id="opp-value"><Input id="opp-value" type="number" min="0" value={opportunityForm.expectedValue} onChange={e=>setOpportunityForm({...opportunityForm,expectedValue:e.target.value})}/></Field>
   <Field label="Probability (%)" id="opp-prob"><Input id="opp-prob" type="number" min="0" max="100" value={opportunityForm.probability} onChange={e=>setOpportunityForm({...opportunityForm,probability:e.target.value})}/></Field>
   <Field label="Stage" id="opp-stage"><select id="opp-stage" value={opportunityForm.stage} onChange={e=>setOpportunityForm({...opportunityForm,stage:e.target.value})} className="h-9 rounded-md border border-input bg-background px-3 text-sm">{stages.map(s=><option key={s} value={s}>{stageLabel(s)}</option>)}</select></Field>
   <Field label="Expected close date" id="opp-date"><Input id="opp-date" type="date" value={opportunityForm.expectedCloseDate} onChange={e=>setOpportunityForm({...opportunityForm,expectedCloseDate:e.target.value})}/></Field>
   {opportunityForm.stage==="lost"&&<Field label="Reason lost" id="opp-reason" wide><Input id="opp-reason" value={opportunityForm.lossReason} onChange={e=>setOpportunityForm({...opportunityForm,lossReason:e.target.value})}/></Field>}
- </div><DialogFooter><DialogClose render={<Button variant="outline">Cancel</Button>}/><Button onClick={()=>void saveOpportunity()} disabled={saving||!opportunityForm.title.trim()||(!editingOpportunityId&&!opportunityForm.leadId)}>{saving?"Saving…":editingOpportunityId?"Save changes":"Save opportunity"}</Button></DialogFooter></DialogContent></Dialog>
+ </div><DialogFooter><DialogClose render={<Button variant="outline">Cancel</Button>}/><Button onClick={()=>void saveOpportunity()} disabled={saving||!opportunityForm.title.trim()||(!editingOpportunityId&&Boolean(opportunityForm.leadId)===Boolean(opportunityForm.customerId))}>{saving?"Saving…":editingOpportunityId?"Save changes":"Save opportunity"}</Button></DialogFooter></DialogContent></Dialog>
 
  <Dialog open={activityDialog} onOpenChange={setActivityDialog}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Schedule follow-up</DialogTitle><DialogDescription>Log a call, email, meeting, task or note against a lead or opportunity.</DialogDescription></DialogHeader><div className="grid gap-4 sm:grid-cols-2">
   <Field label="Activity type" id="activity-type"><select id="activity-type" value={activityForm.activityType} onChange={e=>setActivityForm({...activityForm,activityType:e.target.value})} className="h-9 rounded-md border border-input bg-background px-3 text-sm">{["call","email","meeting","task","note"].map(t=><option key={t} value={t}>{stageLabel(t)}</option>)}</select></Field>
