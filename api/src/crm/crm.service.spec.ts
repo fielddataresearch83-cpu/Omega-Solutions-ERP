@@ -105,4 +105,25 @@ describe('CrmService', () => {
       ['campaign-1', 'company-1'],
     );
   });
+
+  it('does not update a campaign outside the active company', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+    await expect(service.updateCampaign(user, 'foreign-campaign', { status: 'paused' }))
+      .rejects.toThrow(NotFoundException);
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query).toHaveBeenCalledWith(
+      'SELECT start_date, end_date FROM crm_campaigns WHERE id=$1 AND company_id=$2',
+      ['foreign-campaign', 'company-1'],
+    );
+  });
+
+  it('scopes CRM support ticket listing to the active company', async () => {
+    db.query.mockResolvedValue({ rows: [{ id: 'ticket-1' }], rowCount: 1 });
+    const rows = await service.listTickets(user, 'open', 'urgent', 'printer');
+    expect(rows).toEqual([{ id: 'ticket-1' }]);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE t.company_id=$1'),
+      ['company-1', 'open', 'urgent', '%printer%'],
+    );
+  });
 });
