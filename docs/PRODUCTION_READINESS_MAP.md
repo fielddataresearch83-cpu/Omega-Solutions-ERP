@@ -39,10 +39,10 @@
 - [ ] Design and test a least-privilege tenant-isolation approach on an isolated/disposable database before any shared-database changes.
 - [ ] Address branch protection / required checks; current `development` branch remains unprotected.
 
-**Last completed task:** AUTH-04 atomic MFA recovery-code consumption fix and targeted SQL regression test; full development validation passed.  
-**Next task:** Continue SEC-04 / SEC-05 — verify runtime database identity safely and continue tenant authorization matrix / isolated negative tests; add a true PostgreSQL concurrency test in an isolated database.  
+**Last completed task:** Added a deterministic PostgreSQL concurrency integration test for MFA recovery-code consumption and wired an ephemeral PostgreSQL 16 service into development CI. Await CI evidence before closing FIND-18.  
+**Next task:** Verify CI execution of the new isolated PostgreSQL MFA concurrency tests; continue SEC-04 / SEC-05 runtime-role verification and tenant authorization matrix; address branch-protection gate via authorized GitHub settings.  
 **Current branch:** `development` (existing branch only).  
-**Current HEAD:** `8715644855847f531407d5c656320b688c5fbad6`.  
+**Current HEAD before this map update:** `e9b58b23b07f2881921291de2b21448c16b3292d` (workflow) and `7ee7125a57b1e3dc70c3af4d4f1528463f098c51` (integration test).  
 **Production status:** NOT APPROVED; P0 tenant-isolation and governance blockers remain.
 
 ## Status legend
@@ -329,7 +329,7 @@ Do not mark these as fixed without fresh inspection and test evidence.
 | FIND-15 | P1 | Runtime mismatch: repository `.nvmrc` specifies Node 22.22.3 while the main validation workflow installs Node 24 | Confirm deployed runtime and package compatibility; align local, CI, and hosting runtime intentionally | Open |
 | FIND-16 | P1 | `vite-version/` contains both `package-lock.json` and `pnpm-lock.yaml`; `nextjs-version/` also has a pnpm lockfile while root/API use npm | Confirm the canonical package manager per deployed frontend and remove or document unused lockfiles only after validating hosting configuration | Open |
 | FIND-17 | P1 | Root `License.md` attributes the MIT copyright to ShadcnStore (2025); repository contains template-derived frontend assets | Verify upstream license and attribution obligations before changing notices or claiming Omega-owned licensing | Open |
-| FIND-18 | P1 | MFA recovery-code consumption may race: `useRecoveryCode()` reads the full hash array, computes a remainder in application memory, then writes that stale remainder if the target code is still present. Two concurrent requests using different codes can each pass the predicate and the later write can restore the first consumed code | Change consumption to a single atomic SQL array-removal operation against the current row (or lock the row in a transaction); add a concurrency regression test proving both codes are consumed exactly once. Do not test against shared business data | Open — code-review finding; no runtime exploit test performed |
+| FIND-18 | P1 | MFA recovery-code consumption could race when concurrent requests used different codes | Atomic conditional SQL `array_remove` fix and mocked SQL regression assertion are present. Added `api/src/auth/mfa.service.postgres.spec.ts` with a deterministic two-reader barrier to prove concurrent distinct codes are both consumed without restoration, plus duplicate-code single-use coverage. `.github/workflows/validate-development.yml` now provisions an ephemeral PostgreSQL 16 service and sets `MFA_TEST_DATABASE_URL` for API tests; do not use shared Neon data. | Open — integration test added; await successful CI evidence before closure |
 
 ## 18. Final release gates — all required
 
