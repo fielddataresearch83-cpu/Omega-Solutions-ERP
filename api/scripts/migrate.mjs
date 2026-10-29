@@ -21,6 +21,21 @@ const client = new Client({
 
 try {
   await client.connect();
+  const ledgerPresence = await client.query(
+    "SELECT to_regclass('public.omega_schema_migrations') IS NOT NULL AS ledger_exists",
+  );
+  if (!ledgerPresence.rows[0]?.ledger_exists) {
+    const existingTables = await client.query(
+      `SELECT COUNT(*)::int AS count
+       FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
+    );
+    if (Number(existingTables.rows[0]?.count ?? 0) > 0) {
+      throw new Error(
+        'Refusing automatic migration: application tables exist but omega_schema_migrations is missing. Reconcile the existing schema and ledger before retrying.',
+      );
+    }
+  }
   await client.query(`
     CREATE TABLE IF NOT EXISTS omega_schema_migrations (
       filename TEXT PRIMARY KEY,
