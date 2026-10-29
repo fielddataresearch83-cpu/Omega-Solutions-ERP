@@ -179,7 +179,7 @@ jobs:
               WHERE schemaname='public' AND indexname='supplier_bills_supplier_invoice_number_unique'
             `);
             assert.equal(supplierInvoiceIndex.rowCount, 1, 'supplier invoice uniqueness index must exist');
-            assert.match(supplierInvoiceIndex.rows[0].indexdef, /lower\\(btrim\\(/i);
+            assert.match(supplierInvoiceIndex.rows[0].indexdef, /lower\(btrim\(/i);
             assert.match(supplierInvoiceIndex.rows[0].indexdef, /supplier_invoice_number/i);
 
             const fks = await client.query(`
