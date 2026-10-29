@@ -42,7 +42,7 @@
 **Last completed task:** Fixed migration ordering to put version 010/011 in sequence and the workforce foundation migration before the duplicate-prefix extension. [Run 40887731068](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40887731068) passed clean PostgreSQL 16 install, idempotent rerun, and explicit workforce-schema assertions matching the inspected development schema. Full validation job is still running.  
 **Next task:** Verify the full validation job; design an isolated existing-schema upgrade test for migration ordering/checksum compatibility. Continue P0 tenant-isolation remediation and branch-protection gate.  
 **Current branch:** `development` (existing branch only).  
-**Reviewed source HEAD before this map update:** `4001d262e130c74d0a83852e5ec28471411d530a`; audit tracker changes are committed on the existing `development` branch only.  
+**Reviewed source HEAD before this map update:** `da6d5decaefe9c97d5f3cf116e4ff3e9636e5028`; audit tracker changes are committed on the existing `development` branch only.  
 **Production status:** NOT APPROVED; P0 tenant-isolation and governance blockers remain.
 
 ## Status legend
@@ -75,7 +75,7 @@
 
 ## 2. Tenant isolation, authorization, and data access — P0
 
-- [ ] **SEC-01** Inventory every API controller/route and map it to authentication, company scope, branch scope, role/permission, module entitlement, and subscription-plan enforcement.
+- [ ] **SEC-01** Inventory every API controller/route and map it to authentication, company scope, branch scope, role/permission, module entitlement, and subscription-plan enforcement. Partial controller pass (2026-10-29): reviewed guards/decorators for accounting, approvals, audit, branches, companies, contracts, credit notes, CRM, customers, dashboard, employees, expenses, inventory, invoices/M-Pesa, manufacturing, notifications, payroll/remittances, POS, products, purchase orders, quotations, requisitions, sales orders, search, subscriptions, supplier bills, suppliers, users/roles, workforce, and auth. Most business controllers use JWT + permission + module guards; intentionally scoped exceptions (dashboard/search/notifications/subscriptions) need service-level verification. Route-to-service and negative tests remain incomplete.
 - [ ] **SEC-02** Trace company context from verified identity/session through every service and database query; reject client-supplied tenant IDs unless independently authorized.
 - [ ] **SEC-03** Verify active membership and company switching; inactive/revoked memberships must be rejected immediately.
 - [ ] **SEC-04** Review PostgreSQL roles, grants, ownership, connection pooling, and all RLS-enabled tables; verify actual policies and runtime role behavior rather than assuming RLS is present or absent.
