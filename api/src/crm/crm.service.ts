@@ -41,13 +41,24 @@ export class CrmService {
     });
   }
 
+  private listPage(limit: number, offset: number) {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 250) {
+      throw new BadRequestException('List limit must be an integer between 1 and 250.');
+    }
+    if (!Number.isInteger(offset) || offset < 0 || offset > 1000000) {
+      throw new BadRequestException('List offset must be a non-negative integer no greater than 1000000.');
+    }
+    return { limit, offset };
+  }
+
   async listCrmCustomers(user: AuthenticatedUser, search?: string) {
     const companyId = await this.companyId(user);
     const result = await this.db.query('SELECT id, name, email, phone FROM customers WHERE company_id=$1 AND ($2::text IS NULL OR name ILIKE $2 OR email::text ILIKE $2 OR phone ILIKE $2) ORDER BY name ASC LIMIT 250', [companyId, search ? '%' + search + '%' : null]);
     return result.rows;
   }
 
-  async listLeads(user: AuthenticatedUser, search?: string, status?: string) {
+  async listLeads(user: AuthenticatedUser, search?: string, status?: string, limit = 250, offset = 0) {
+    const page = this.listPage(limit, offset);
     const companyId = await this.companyId(user);
     const allowed = ['new', 'qualified', 'unqualified', 'converted'];
     if (status && !allowed.includes(status)) throw new BadRequestException('Invalid lead status.');
@@ -57,8 +68,8 @@ export class CrmService {
        FROM crm_leads WHERE company_id = $1
          AND ($2::text IS NULL OR status = $2)
          AND ($3::text IS NULL OR contact_name ILIKE $3 OR organization_name ILIKE $3 OR email::text ILIKE $3 OR phone ILIKE $3)
-       ORDER BY created_at DESC LIMIT 250`,
-      [companyId, status ?? null, search ? `%${search}%` : null],
+       ORDER BY created_at DESC LIMIT $4 OFFSET $5`,
+      [companyId, status ?? null, search ? `%${search}%` : null, page.limit, page.offset],
     );
     return result.rows;
   }
@@ -124,7 +135,8 @@ export class CrmService {
     return result.rows[0];
   }
 
-  async listOpportunities(user: AuthenticatedUser, stage?: string, search?: string) {
+  async listOpportunities(user: AuthenticatedUser, stage?: string, search?: string, limit = 250, offset = 0) {
+    const page = this.listPage(limit, offset);
     const allowedStages = ['qualification', 'needs_analysis', 'proposal', 'negotiation', 'won', 'lost'];
     if (stage && stage !== 'all' && !allowedStages.includes(stage)) {
       throw new BadRequestException('Invalid opportunity stage.');
@@ -138,8 +150,8 @@ export class CrmService {
        LEFT JOIN customers c ON c.id=o.customer_id AND c.company_id=o.company_id
        WHERE o.company_id=$1 AND ($2::text IS NULL OR o.stage=$2)
          AND ($3::text IS NULL OR o.title ILIKE $3 OR l.contact_name ILIKE $3 OR c.name ILIKE $3)
-       ORDER BY o.expected_close_date NULLS LAST, o.created_at DESC LIMIT 250`,
-      [companyId, stage ?? null, search ? `%${search}%` : null],
+       ORDER BY o.expected_close_date NULLS LAST, o.created_at DESC LIMIT $4 OFFSET $5`,
+      [companyId, stage ?? null, search ? `%${search}%` : null, page.limit, page.offset],
     );
     return result.rows;
   }
