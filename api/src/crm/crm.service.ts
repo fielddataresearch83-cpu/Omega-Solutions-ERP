@@ -206,7 +206,10 @@ export class CrmService {
 
   async createActivity(user: AuthenticatedUser, dto: CreateActivityDto) {
     const membership = await this.membershipFor(user);
-    if (!dto.leadId && !dto.opportunityId && !dto.customerId) throw new BadRequestException('Link the activity to a lead, opportunity or customer.');
+    const activityLinkCount = [dto.leadId, dto.opportunityId, dto.customerId].filter(Boolean).length;
+    if (activityLinkCount !== 1) {
+      throw new BadRequestException('Link the activity to exactly one lead, opportunity or customer.');
+    }
     if (dto.leadId) await this.getLead(user, dto.leadId);
     if (dto.opportunityId) await this.getOpportunity(user, dto.opportunityId);
     if (dto.customerId) {
@@ -404,7 +407,9 @@ export class CrmService {
 
   async createTicket(user: AuthenticatedUser, dto: CreateTicketDto) {
     const membership = await this.membershipFor(user);
-    if (!dto.customerId && !dto.leadId) throw new BadRequestException('Link the ticket to a customer or lead.');
+    if (Boolean(dto.customerId) === Boolean(dto.leadId)) {
+      throw new BadRequestException('Link the ticket to exactly one customer or lead.');
+    }
     if (dto.customerId) {
       const customer = await this.db.query('SELECT id FROM customers WHERE id=$1 AND company_id=$2',[dto.customerId,membership.companyId]);
       if (!customer.rows.length) throw new NotFoundException('CRM customer not found.');
