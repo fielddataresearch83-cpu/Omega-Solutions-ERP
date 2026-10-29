@@ -19,8 +19,8 @@ export class CrmController {
   constructor(private readonly crm: CrmService) {}
 
   @Get('campaigns') @RequirePermissions('crm:read')
-  listCampaigns(@Request() req: { user: AuthenticatedUser }, @Query('status') status?: string) {
-    return this.crm.listCampaigns(req.user, status);
+  listCampaigns(@Request() req: { user: AuthenticatedUser }, @Query('status') status?: string, @Query('limit') limit?: string, @Query('offset') offset?: string) {
+    return this.crm.listCampaigns(req.user, status, limit === undefined ? 200 : Number(limit), offset === undefined ? 0 : Number(offset));
   }
 
   @Post('campaigns') @RequirePermissions('crm:write')
@@ -69,8 +69,8 @@ export class CrmController {
   }
 
   @Get('tickets') @RequirePermissions('crm:read')
-  listTickets(@Request() req: { user: AuthenticatedUser }, @Query('status') status?: string, @Query('priority') priority?: string, @Query('search') search?: string) {
-    return this.crm.listTickets(req.user, status, priority, search);
+  listTickets(@Request() req: { user: AuthenticatedUser }, @Query('status') status?: string, @Query('priority') priority?: string, @Query('search') search?: string, @Query('limit') limit?: string, @Query('offset') offset?: string) {
+    return this.crm.listTickets(req.user, status, priority, search, limit === undefined ? 250 : Number(limit), offset === undefined ? 0 : Number(offset));
   }
 
   @Post('tickets') @RequirePermissions('crm:write')
@@ -142,8 +142,10 @@ export class CrmController {
     @Query('leadId') leadId?: string,
     @Query('opportunityId') opportunityId?: string,
     @Query('pending') pending?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ) {
-    return this.crm.listActivities(req.user, { leadId, opportunityId, pending: pending === 'true' });
+    return this.crm.listActivities(req.user, { leadId, opportunityId, pending: pending === 'true', limit: limit === undefined ? 250 : Number(limit), offset: offset === undefined ? 0 : Number(offset) });
   }
 
   @Post('activities') @RequirePermissions('crm:write')
