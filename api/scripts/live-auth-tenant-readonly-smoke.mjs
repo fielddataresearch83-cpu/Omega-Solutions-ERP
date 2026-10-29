@@ -165,6 +165,22 @@ async function main() {
     { path: "/products", detail: id => `/products/${id}`, label: "products" },
     { path: "/suppliers", detail: id => `/suppliers/${id}`, label: "suppliers" },
     { path: "/invoices", detail: id => `/invoices/${id}`, label: "invoices" },
+    { path: "/contracts", detail: id => `/contracts/${id}`, label: "contracts" },
+    { path: "/requisitions", detail: id => `/requisitions/${id}`, label: "requisitions" },
+    { path: "/purchase-orders", detail: id => `/purchase-orders/${id}`, label: "purchase orders" },
+    { path: "/supplier-bills", detail: id => `/supplier-bills/${id}`, label: "supplier bills" },
+    { path: "/credit-notes", detail: id => `/credit-notes/${id}`, label: "credit notes" },
+    { path: "/sales-orders", detail: id => `/sales-orders/${id}`, label: "sales orders" },
+    { path: "/pos/sales", detail: id => `/pos/sales/${id}`, label: "POS sales" },
+    { path: "/inventory/stock", detail: null, label: "inventory stock" },
+    { path: "/crm/leads", detail: id => `/crm/leads/${id}`, label: "CRM leads" },
+    { path: "/crm/opportunities", detail: id => `/crm/opportunities/${id}`, label: "CRM opportunities" },
+    { path: "/crm/activities", detail: null, label: "CRM activities" },
+    { path: "/payroll/runs", detail: id => `/payroll/runs/${id}`, label: "payroll runs" },
+    { path: "/employees", detail: id => `/employees/${id}`, label: "employees" },
+    { path: "/notifications", detail: null, label: "notifications" },
+    { path: "/audit-logs", detail: null, label: "audit logs" },
+    { path: "/accounting/journals", detail: id => `/accounting/journals/${id}`, label: "accounting journals" },
   ];
   const failures = [];
   for (const resource of resources) {
@@ -183,11 +199,13 @@ async function main() {
       const overlap = listB.filter(row => typeof row?.id === "string" && idsA.has(row.id));
       assert(overlap.length === 0, `${resource.label}: list results contain no shared record IDs across companies`);
       const foreignRecord = listA.find(row => typeof row?.id === "string");
-      if (foreignRecord) {
+      if (foreignRecord && resource.detail) {
         await request("GET", resource.detail(foreignRecord.id), undefined, b.accessToken, [403, 404]);
         checks.push(`${resource.label}: Account B cannot fetch Account A record ${foreignRecord.id}`);
-      } else {
+      } else if (!foreignRecord) {
         checks.push(`${resource.label}: Account A has no records; direct foreign-record lookup not applicable`);
+      } else {
+        checks.push(`${resource.label}: cross-company list IDs checked; no detail route configured for direct-IDOR probe`);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
