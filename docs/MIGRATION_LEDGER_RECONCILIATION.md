@@ -47,7 +47,7 @@
 
 ## CI evidence
 
-- [Clean migration, idempotency, workforce/tax schema assertions, and ledger safety guard](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40890902539)
+- [Clean migration, idempotency, workforce/tax/supplier-index schema assertions, and all ledger safety guards](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40892821358)
 - [Production readiness map](https://github.com/pestria72-code/Omega-Solutions/blob/development/docs/PRODUCTION_READINESS_MAP.md)
 
 **No shared database or production data was modified during this audit.**
