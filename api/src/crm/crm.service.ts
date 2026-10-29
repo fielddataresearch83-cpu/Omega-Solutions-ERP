@@ -436,7 +436,7 @@ export class CrmService {
          FROM crm_campaign_leads cl
          WHERE cl.company_id=$1 AND cl.campaign_id=$2
          UNION ALL
-         SELECT sm.lead_id, 'targeted'::varchar AS response_status, sm.created_at AS added_at, 1 AS priority
+         SELECT sm.lead_id, 'targeted'::varchar AS response_status, sm.added_at AS added_at, 1 AS priority
          FROM crm_campaign_segments linked
          JOIN crm_segments s ON s.id=linked.segment_id AND s.company_id=linked.company_id AND s.is_dynamic=FALSE
          JOIN crm_segment_members sm ON sm.segment_id=s.id AND sm.company_id=s.company_id
