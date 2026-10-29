@@ -103,6 +103,60 @@ After approval and execution, verify catalog definitions, constraints, indexes, 
 - Do not turn RLS on/off or add permissive policies as a shortcut.
 - Do not deploy production or use production data to test repairs.
 
+
+## Fresh read-only catalog comparison — 2026-10-29
+
+**Target verified:** Neon project `Omega Solutions`, branch `omega-migration-smoke-test-live` (`br-snowy-block-b4pwz78t`), database `neondb`. All queries in this review were SELECT/catalog reads only. No shared database objects or rows were changed.
+
+### Confirmed current state
+
+- The migration ledger still contains 48 filenames; these 18 repository migration files remain absent from the ledger. This is a ledger fact, not proof that every migration's DDL is absent.
+- The database identity used for this catalog inspection was `neondb_owner`, with `rolbypassrls=true`. **This is the inspection connection, not verified evidence of the Render API runtime identity.** Runtime identity remains open.
+- The expected objects from many missing migrations already exist, but presence alone does not prove the migration was applied equivalently. Compare full column definitions, constraints, indexes, data invariants, and migration checksums on an isolated clone before classifying any as fully applied.
+- `products.image_url` and `products.image_storage_key` and their storage-key index exist.
+- `employees.national_id` and `idx_employees_company_national_id` exist. The monthly attendance import tables and many expected constraints also exist.
+- POS register/shift/sale tables exist. `invoice_payments.pos_shift_id`, the composite shift/invoice constraints, and `idx_pos_sales_company_request_id` exist. However, the two expected one-open-shift indexes (`uq_pos_one_open_shift_per_register`, `uq_pos_one_open_shift_per_cashier_company`) were not found in the targeted index query.
+- `inventory_stock_levels.average_unit_cost` and `idx_inventory_stock_company_cost` exist. The migration's historical cost backfill and current valuation correctness have **not** been certified by this catalog check.
+- `company_invitations` and its pending-email unique index exist; `user_mfa` exists.
+- `subscription_payments`, `auth_rate_limits`, `auth_refresh_tokens`, and `mpesa_stk_requests` exist with several expected indexes.
+- The tax snapshot migration remains materially incomplete in the inspected schema: `tax_treatment` was absent from `invoice_items`, `quotation_items`, and `supplier_bill_items`; `credit_note_items.invoice_item_id` and `credit_note_items.tax_treatment` were also absent. Their tax-treatment check constraints were not found.
+- `supplier_bills.supplier_invoice_number` exists, but `supplier_bills_supplier_invoice_number_unique` remains absent. The duplicate preflight must be repeated immediately before any future index attempt.
+- RLS is enabled on the attendance/assignment/import and POS tables listed above, with zero policies. The inspection also reconfirmed 55 public tables with RLS enabled and zero policies. Do not treat this as tenant isolation: no policy or role changes were made.
+- Definition mismatches need review, not automatic replay: for example, the current `employee_assignments` employee foreign key uses `ON DELETE CASCADE`, while migration `024_workforce_attendance_assignments.sql` specifies `ON DELETE RESTRICT`; the current attendance employee foreign key also differs from that migration's declared delete behavior. This is evidence that object-existence checks alone are insufficient.
+
+### Migration-by-migration working classification
+
+These are provisional triage labels from the catalog reads, not final “applied” decisions:
+
+| Missing ledger filename(s) | Current observation | Required next action |
+|---|---|---|
+| `024_workforce_attendance_assignments.sql` | Tables/indexes exist; RLS enabled without policies; foreign-key delete behavior differs from file | Full constraint/policy/grant diff on isolated clone; review delete semantics |
+| `025_monthly_attendance_import.sql` | National-ID column/index and import tables exist; RLS enabled without policies | Full DDL and data-conflict diff; review uniqueness and RLS |
+| `030_pos_registers_and_shifts.sql` | Register/shift tables exist; two expected open-shift uniqueness indexes not found | Verify equivalent constraints and concurrent shift invariants |
+| `031_pos_checkout.sql` | POS sales, shift linkage, composite constraints, and request-id index exist | Compare every constraint and confirm request IDs are non-null/unique without changing rows |
+| `032_inventory_weighted_average_cost.sql` | Cost column and index exist | Verify backfill/value invariants on clone; finance owner must approve valuation changes |
+| `034_company_invitations.sql` | Invitation table and pending-email index exist | Compare full FK/unique/index definitions and confirm invite state invariants |
+| `035_user_mfa.sql` | MFA table and recovery/failure-state columns exist | Compare all columns/checks and MFA data invariants |
+| `037_credit_note_staff_read.sql` | Permission seed effects not yet conclusively checked in this pass | Read-only compare role-permission rows; no permission edits |
+| `040_product_image_url.sql` | Image URL column exists | Verify type/default/index parity; no repair indicated by column presence alone |
+| `046_subscription_paystack_payments.sql` | Payment table and pending index exist | Compare constraints/indexes and payment-reference invariants |
+| `047_auth_rate_limits.sql` | Rate-limit table and update-time index exist | Compare primary key, checks, and cleanup behavior |
+| `048_auth_refresh_tokens.sql` | Refresh-token table and family index exist | Compare all token uniqueness/FK/index definitions and revocation invariants |
+| `20261018000000_product_image_storage.sql`, `2026101801_add_product_image_columns.sql` | Both image columns and storage-key index exist | Compare exact index/column definitions; avoid replaying overlapping ALTERs blindly |
+| `202610210001_mpesa_stk_push.sql` | STK request table and expected company-created index exist | Compare all remaining indexes/FKs and callback/reconciliation invariants |
+| `202610260003_transaction_tax_snapshots.sql` | Required tax-treatment columns and checks are absent on the inspected tables | Prepare a forward-only repair after legacy-value, dependency, and credit-note-line review |
+| `202610260005_supplier_invoice_number_uniqueness.sql` | Required unique index absent | Repeat duplicate preflight on clone and immediately before any approved execution |
+| `202610260006_credit_note_invoice_line_links.sql` | Required original-invoice-line and tax snapshot columns/check are absent | Inspect existing credit-note lines and design safe forward repair; do not rewrite historical amounts |
+
+### Remaining evidence gaps
+
+1. Complete catalog comparison for every object in all 18 files, including role grants, policies, triggers, functions, and any data transformation.
+2. Check role-permission effects for migration 037.
+3. Validate all classifications on a disposable PostgreSQL/Neon clone with the exact shared schema/ledger drift reproduced.
+4. Establish a verified backup and restore rehearsal before considering any shared development repair.
+5. Verify the actual Render runtime database role separately; do not infer it from the inspection role.
+6. Test tenant isolation with a non-owner, non-`BYPASSRLS` role and explicit policies on an isolated clone. The current schema state is not acceptable as a completed RLS implementation.
+
 ## Acceptance criteria
 
 - A schema/ledger diff explains every missing migration and every partially applied object.
