@@ -239,7 +239,7 @@ describe('CrmService', () => {
     const rows = await service.listAssignees(user);
     expect(rows).toEqual([{ user_id: 'user-2', full_name: 'Company Staff', email: 'staff@example.test' }]);
     expect(db.query).toHaveBeenCalledWith(
-      expect.stringContaining('WHERE m.company_id=$1 AND m.is_active=TRUE'),
+      expect.stringContaining('WHERE m.company_id=$1 AND m.is_active=TRUE AND u.is_active=TRUE'),
       ['company-1'],
     );
   });
