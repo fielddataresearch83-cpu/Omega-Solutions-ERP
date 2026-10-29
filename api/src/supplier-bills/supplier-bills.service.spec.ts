@@ -86,7 +86,7 @@ describe('SupplierBillsService duplicate supplier invoice protection', () => {
     const user = { userId: 'user-1', companyId: 'company-1' } as any;
     const client = {
       query: vi.fn(async (sql: string) => {
-        const normalizedSql = sql.toLowerCase().replace(/\\s+/g, ' ');
+        const normalizedSql = sql.toLowerCase().replace(/\s+/g, ' ');
         if (normalizedSql.includes('from suppliers')) return { rows: [{ id: 'supplier-1' }], rowCount: 1 };
         if (normalizedSql.includes('pg_advisory_xact_lock')) return { rows: [], rowCount: 1 };
         if (normalizedSql.includes('from supplier_bills') && normalizedSql.includes('supplier_invoice_number')) {
