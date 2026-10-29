@@ -73,7 +73,7 @@ describe('CrmService', () => {
     expect(memberships.getMembershipForCompany).toHaveBeenCalledWith('user-1', 'company-1');
     expect(db.query).toHaveBeenCalledWith(
       expect.stringContaining('WHERE company_id = $1'),
-      ['company-active', null, null],
+      ['company-active', null, null, 250, 0],
     );
   });
 
