@@ -61,7 +61,7 @@ export class CrmService {
     const page = this.listPage(limit, offset);
     const companyId = await this.companyId(user);
     const allowed = ['new', 'qualified', 'unqualified', 'converted'];
-    if (status && !allowed.includes(status)) throw new BadRequestException('Invalid lead status.');
+    if (status && status !== 'all' && !allowed.includes(status)) throw new BadRequestException('Invalid lead status.');
     const result = await this.db.query(
       `SELECT id, company_id, owner_user_id, contact_name, organization_name, email, phone, source,
               status, estimated_value, currency, notes, converted_customer_id, created_at, updated_at
@@ -69,7 +69,7 @@ export class CrmService {
          AND ($2::text IS NULL OR status = $2)
          AND ($3::text IS NULL OR contact_name ILIKE $3 OR organization_name ILIKE $3 OR email::text ILIKE $3 OR phone ILIKE $3)
        ORDER BY created_at DESC LIMIT $4 OFFSET $5`,
-      [companyId, status ?? null, search ? `%${search}%` : null, page.limit, page.offset],
+      [companyId, status && status !== 'all' ? status : null, search ? `%${search}%` : null, page.limit, page.offset],
     );
     return result.rows;
   }
@@ -151,7 +151,7 @@ export class CrmService {
        WHERE o.company_id=$1 AND ($2::text IS NULL OR o.stage=$2)
          AND ($3::text IS NULL OR o.title ILIKE $3 OR l.contact_name ILIKE $3 OR c.name ILIKE $3)
        ORDER BY o.expected_close_date NULLS LAST, o.created_at DESC LIMIT $4 OFFSET $5`,
-      [companyId, stage ?? null, search ? `%${search}%` : null, page.limit, page.offset],
+      [companyId, stage && stage !== 'all' ? stage : null, search ? `%${search}%` : null, page.limit, page.offset],
     );
     return result.rows;
   }
@@ -310,7 +310,7 @@ export class CrmService {
       throw new BadRequestException('Invalid campaign status.');
     }
     const companyId = await this.companyId(user);
-    const result = await this.db.query("SELECT c.*, COUNT(DISTINCT cl.lead_id)::int AS leads_count, COUNT(DISTINCT cl.lead_id) FILTER (WHERE cl.response_status IN ('responded','converted'))::int AS responses_count, COUNT(DISTINCT cs.segment_id)::int AS segments_count FROM crm_campaigns c LEFT JOIN crm_campaign_leads cl ON cl.campaign_id=c.id AND cl.company_id=c.company_id LEFT JOIN crm_campaign_segments cs ON cs.campaign_id=c.id AND cs.company_id=c.company_id WHERE c.company_id=$1 AND ($2::text IS NULL OR c.status=$2) GROUP BY c.id ORDER BY c.created_at DESC LIMIT $3 OFFSET $4", [companyId, status ?? null, page.limit, page.offset]);
+    const result = await this.db.query("SELECT c.*, COUNT(DISTINCT cl.lead_id)::int AS leads_count, COUNT(DISTINCT cl.lead_id) FILTER (WHERE cl.response_status IN ('responded','converted'))::int AS responses_count, COUNT(DISTINCT cs.segment_id)::int AS segments_count FROM crm_campaigns c LEFT JOIN crm_campaign_leads cl ON cl.campaign_id=c.id AND cl.company_id=c.company_id LEFT JOIN crm_campaign_segments cs ON cs.campaign_id=c.id AND cs.company_id=c.company_id WHERE c.company_id=$1 AND ($2::text IS NULL OR c.status=$2) GROUP BY c.id ORDER BY c.created_at DESC LIMIT $3 OFFSET $4", [companyId, status && status !== 'all' ? status : null, page.limit, page.offset]);
     return result.rows;
   }
 
@@ -437,7 +437,7 @@ export class CrmService {
       throw new BadRequestException('Invalid support ticket priority.');
     }
     const companyId = await this.companyId(user);
-    const result = await this.db.query("SELECT t.*,c.name AS customer_name,l.contact_name AS lead_contact_name,u.full_name AS assignee_name FROM crm_support_tickets t LEFT JOIN customers c ON c.id=t.customer_id AND c.company_id=t.company_id LEFT JOIN crm_leads l ON l.id=t.lead_id AND l.company_id=t.company_id LEFT JOIN company_memberships assigned_membership ON assigned_membership.user_id=t.assigned_user_id AND assigned_membership.company_id=t.company_id AND assigned_membership.is_active=TRUE LEFT JOIN users u ON u.id=assigned_membership.user_id WHERE t.company_id=$1 AND ($2::text IS NULL OR t.status=$2) AND ($3::text IS NULL OR t.priority=$3) AND ($4::text IS NULL OR t.subject ILIKE $4 OR t.description ILIKE $4 OR c.name ILIKE $4 OR l.contact_name ILIKE $4) ORDER BY CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,t.created_at DESC LIMIT $5 OFFSET $6", [companyId,status ?? null,priority ?? null,search ? '%' + search + '%' : null,page.limit,page.offset]);
+    const result = await this.db.query("SELECT t.*,c.name AS customer_name,l.contact_name AS lead_contact_name,u.full_name AS assignee_name FROM crm_support_tickets t LEFT JOIN customers c ON c.id=t.customer_id AND c.company_id=t.company_id LEFT JOIN crm_leads l ON l.id=t.lead_id AND l.company_id=t.company_id LEFT JOIN company_memberships assigned_membership ON assigned_membership.user_id=t.assigned_user_id AND assigned_membership.company_id=t.company_id AND assigned_membership.is_active=TRUE LEFT JOIN users u ON u.id=assigned_membership.user_id WHERE t.company_id=$1 AND ($2::text IS NULL OR t.status=$2) AND ($3::text IS NULL OR t.priority=$3) AND ($4::text IS NULL OR t.subject ILIKE $4 OR t.description ILIKE $4 OR c.name ILIKE $4 OR l.contact_name ILIKE $4) ORDER BY CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,t.created_at DESC LIMIT $5 OFFSET $6", [companyId,status && status !== 'all' ? status : null,priority && priority !== 'all' ? priority : null,search ? '%' + search + '%' : null,page.limit,page.offset]);
     return result.rows;
   }
 
