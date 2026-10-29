@@ -76,6 +76,26 @@ describe('CrmService', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
+  it('rejects activities linked to more than one record', async () => {
+    await expect(service.createActivity(user, {
+      activityType: 'task', subject: 'Follow up', leadId: 'lead-1', customerId: 'customer-1',
+    })).rejects.toThrow('Link the activity to exactly one lead, opportunity or customer.');
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects support tickets linked to both a customer and a lead', async () => {
+    await expect(service.createTicket(user, {
+      subject: 'Support request', customerId: 'customer-1', leadId: 'lead-1',
+    })).rejects.toThrow('Link the ticket to exactly one customer or lead.');
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('requires support tickets to be linked to a customer or lead', async () => {
+    await expect(service.createTicket(user, { subject: 'Unlinked ticket' }))
+      .rejects.toThrow('Link the ticket to exactly one customer or lead.');
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   it('lists CRM customers within the current company', async () => {
     db.query.mockResolvedValue({ rows: [{ id: 'customer-1', name: 'Acme Ltd' }], rowCount: 1 });
     const rows = await service.listCrmCustomers(user, 'Acme');
