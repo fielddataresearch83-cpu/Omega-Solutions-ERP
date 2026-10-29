@@ -68,6 +68,11 @@ export class CrmController {
     return this.crm.addSegmentMember(req.user, segmentId, dto);
   }
 
+  @Get('assignees') @RequirePermissions('crm:read')
+  listAssignees(@Request() req: { user: AuthenticatedUser }) {
+    return this.crm.listAssignees(req.user);
+  }
+
   @Get('tickets') @RequirePermissions('crm:read')
   listTickets(@Request() req: { user: AuthenticatedUser }, @Query('status') status?: string, @Query('priority') priority?: string, @Query('search') search?: string, @Query('limit') limit?: string, @Query('offset') offset?: string) {
     return this.crm.listTickets(req.user, status, priority, search, limit === undefined ? 250 : Number(limit), offset === undefined ? 0 : Number(offset));
