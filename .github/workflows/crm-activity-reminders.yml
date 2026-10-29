@@ -1,0 +1,35 @@
+name: CRM activity reminders
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crm-activity-reminders-development
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      API_BASE_URL: https://omega-solutions-api-development.onrender.com
+      CRM_REMINDER_CRON_SECRET: ${{ secrets.CRM_REMINDER_CRON_SECRET }}
+    steps:
+      - name: Dispatch development CRM reminders
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$CRM_REMINDER_CRON_SECRET" ]]; then
+            echo "::warning::CRM_REMINDER_CRON_SECRET is not configured; no reminder dispatch was attempted."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 5 --max-time 45 \
+            -X POST \
+            -H "x-omega-cron-secret: $CRM_REMINDER_CRON_SECRET" \
+            "$API_BASE_URL/api/internal/crm-reminders/dispatch"
