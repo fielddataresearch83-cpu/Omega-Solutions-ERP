@@ -31,5 +31,14 @@ export function compareMigrationNames(a, b) {
   for (let i = 0; i < left.length; i += 1) {
     if (left[i] !== right[i]) return left[i] - right[i];
   }
+
+  // When duplicate numeric prefixes exist, establish base/foundation tables
+  // before additive migrations. This preserves the existing workforce schema:
+  // 024_workforce_foundation creates the canonical tables, then the
+  // attendance-assignment migration adds indexes, RLS, and permissions.
+  const aFoundation = /_foundation\\.sql$/i.test(a);
+  const bFoundation = /_foundation\\.sql$/i.test(b);
+  if (aFoundation !== bFoundation) return aFoundation ? -1 : 1;
+
   return a.localeCompare(b, undefined, { numeric: true });
 }
