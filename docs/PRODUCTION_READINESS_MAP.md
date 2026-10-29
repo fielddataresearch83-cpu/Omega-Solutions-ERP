@@ -32,7 +32,7 @@
 ## Current checkpoint
 
 - [x] Created this audit map on `development`.
-- [ ] Confirm latest branch HEAD and CI status before each new audit session.
+- [x] Confirm latest branch HEAD and CI status before each new audit session. Evidence (2026-10-29): `development` HEAD `e320c450ba1dd9fe64c5616a60b6fd68b3834fef`; Development validation run [40875774674](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40875774674) completed successfully.
 - [ ] Build a file/route/controller/service/schema/test inventory from the current repository; do not rely on prior summaries alone.
 - [ ] Establish baseline test commands and record current pass/fail results.
 - [ ] Audit remaining sections below in priority order.
@@ -61,7 +61,7 @@
 - [x] **RC-02** Inventory every GitHub Actions workflow, reusable workflow, deployment script, package script, and hosting integration. Evidence: enumerated all 14 `.github/workflows/*.yml` files, root/API/Vite/Next.js package scripts, `vite-version/vercel.json`, and deployment guidance/config references in `docs/`; no root `render.yaml`, `Dockerfile`, `netlify.toml`, or `railway.json` appeared in the recursive repository tree.
 - [x] **RC-03** For every workflow, document trigger, permissions, secrets, target environment, and whether it can deploy or mutate data. Evidence: all 14 workflow YAML files reviewed for triggers, permissions, referenced credentials, target environments, and side effects. No live workflow was triggered.
 - [x] **RC-04** Remove the unrelated ShadcnStore deployment workflow from Omega's `development` branch. Evidence: deleted `.github/workflows/deploy.yml` in commit `16a75bbfcc65b383f3bc16fe1a7ebc0f70c1c9c7`; this removes the workflow definition from this repo and does not alter the remote ShadcnStore server.
-- [ ] **RC-05** Review branch protection/rulesets and required checks. Baseline observation: GitHub reported `development` unprotected with no required status checks at the recorded commit; recheck current state.
+- [ ] **RC-05** Review branch protection/rulesets and required checks. Rechecked 2026-10-29: `development` remains `protected: false`, with no required status checks. The connected GitHub integration cannot read the branch-protection endpoint (403); repository rulesets are unavailable on the current private-repository plan (403). This remains an open governance blocker; configure required CI checks in GitHub repository settings when the owner/admin UI or a suitably authorized connection is available. Do not claim protection is enabled.
 - [ ] **RC-06** Confirm CI runs on relevant pushes and that failed checks block release through a documented process.
 - [ ] **RC-07** Replace template-like root documentation with accurate setup, architecture, test, deployment, and recovery guidance.
 - [ ] **RC-08** Confirm dependency lockfiles, supported Node/runtime versions, license notices, and no accidental generated artifacts.
