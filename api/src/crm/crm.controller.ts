@@ -133,7 +133,7 @@ export class CrmController {
 
   @Patch('opportunities/:id') @RequirePermissions('crm:write')
   updateOpportunity(@Request() req: { user: AuthenticatedUser }, @Param('id') id: string, @Body() dto: UpdateOpportunityDto) {
-    return this.crm.updateTicket(req.user, id, dto);
+    return this.crm.updateOpportunity(req.user, id, dto);
   }
 
   @Get('activities') @RequirePermissions('crm:read')
