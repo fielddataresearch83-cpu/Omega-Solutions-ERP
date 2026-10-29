@@ -42,3 +42,18 @@ export function compareMigrationNames(a, b) {
 
   return a.localeCompare(b, undefined, { numeric: true });
 }
+
+/**
+ * Find unapplied migrations that precede already-applied migrations in the
+ * current canonical order. Those gaps can indicate a legacy/incomplete
+ * migration ledger; automatically running them may replay data-changing SQL.
+ */
+export function findMigrationLedgerGaps(sortedFiles, appliedFilenames) {
+  const applied = new Set(appliedFilenames);
+  let lastAppliedIndex = -1;
+  for (let i = 0; i < sortedFiles.length; i += 1) {
+    if (applied.has(sortedFiles[i])) lastAppliedIndex = i;
+  }
+  if (lastAppliedIndex < 0) return [];
+  return sortedFiles.filter((filename, index) => index < lastAppliedIndex && !applied.has(filename));
+}
