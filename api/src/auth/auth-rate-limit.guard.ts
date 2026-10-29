@@ -15,6 +15,9 @@ type AuthRequest = Request & { body?: Record<string, unknown> };
 const LIMITS: Record<string, { limit: number; windowSeconds: number }> = {
   'POST /api/auth/login': { limit: 10, windowSeconds: 60 },
   'POST /api/auth/mfa/challenge': { limit: 10, windowSeconds: 60 },
+  'POST /api/auth/mfa/enroll': { limit: 5, windowSeconds: 60 },
+  'POST /api/auth/mfa/confirm': { limit: 10, windowSeconds: 60 },
+  'POST /api/auth/mfa/disable': { limit: 5, windowSeconds: 60 },
   'POST /api/auth/neon/companies': { limit: 20, windowSeconds: 60 },
   'POST /api/auth/neon/exchange': { limit: 20, windowSeconds: 60 },
   'POST /api/auth/neon/exchange-invitation': { limit: 10, windowSeconds: 60 },
