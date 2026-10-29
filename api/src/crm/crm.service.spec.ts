@@ -233,4 +233,15 @@ describe('CrmService', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
+
+  it('lists only active members of the selected company for CRM assignment', async () => {
+    db.query.mockResolvedValue({ rows: [{ user_id: 'user-2', full_name: 'Company Staff', email: 'staff@example.test' }], rowCount: 1 });
+    const rows = await service.listAssignees(user);
+    expect(rows).toEqual([{ user_id: 'user-2', full_name: 'Company Staff', email: 'staff@example.test' }]);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE m.company_id=$1 AND m.is_active=TRUE'),
+      ['company-1'],
+    );
+  });
+
 });
