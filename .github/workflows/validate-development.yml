@@ -111,6 +111,67 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_migration_test
         run: npm run migrate
+      - name: Assert canonical workforce schema after clean install
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_migration_test
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import pg from 'pg';
+          const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+          await client.connect();
+          try {
+            const columns = await client.query(`
+              SELECT table_name, column_name, data_type, character_maximum_length, column_default
+              FROM information_schema.columns
+              WHERE table_schema='public'
+                AND (table_name, column_name) IN (
+                  ('client_sites','client_name'),
+                  ('employee_assignments','pay_basis'),
+                  ('attendance_records','punched_at'),
+                  ('attendance_records','source'),
+                  ('attendance_records','external_reference')
+                )
+            `);
+            const column = (table, name) => columns.rows.find(row => row.table_name === table && row.column_name === name);
+            assert.equal(column('client_sites','client_name')?.character_maximum_length, 160);
+            assert.equal(column('employee_assignments','pay_basis')?.character_maximum_length, 20);
+            assert.equal(column('attendance_records','punched_at')?.column_default, null);
+            assert.equal(column('attendance_records','source')?.character_maximum_length, 16);
+            assert.equal(column('attendance_records','external_reference')?.data_type, 'text');
+
+            const fks = await client.query(`
+              SELECT tc.table_name, tc.constraint_name, rc.delete_rule
+              FROM information_schema.table_constraints tc
+              JOIN information_schema.referential_constraints rc
+                ON rc.constraint_catalog=tc.constraint_catalog
+               AND rc.constraint_schema=tc.constraint_schema
+               AND rc.constraint_name=tc.constraint_name
+              WHERE tc.table_schema='public'
+                AND tc.constraint_name IN (
+                  'employee_assignments_employee_company_fk',
+                  'attendance_records_employee_company_fk',
+                  'attendance_records_assignment_company_fk'
+                )
+            `);
+            const deleteRule = (table, constraint) => fks.rows.find(row => row.table_name === table && row.constraint_name === constraint)?.delete_rule;
+            assert.equal(deleteRule('employee_assignments','employee_assignments_employee_company_fk'), 'CASCADE');
+            assert.equal(deleteRule('attendance_records','attendance_records_employee_company_fk'), 'CASCADE');
+            assert.equal(deleteRule('attendance_records','attendance_records_assignment_company_fk'), 'RESTRICT');
+
+            const rls = await client.query(`
+              SELECT relname, relrowsecurity FROM pg_class
+              JOIN pg_namespace ON pg_namespace.oid=pg_class.relnamespace
+              WHERE nspname='public' AND relname IN ('client_sites','employee_assignments','attendance_records')
+            `);
+            assert.equal(rls.rows.length, 3);
+            assert.ok(rls.rows.every(row => row.relrowsecurity), 'workforce tables must have RLS enabled');
+            console.log('Canonical workforce schema assertions passed.');
+          } finally {
+            await client.end();
+          }
+          NODE
       - name: Verify migrations are idempotent on the upgraded database
         working-directory: api
         env:
