@@ -3,6 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { compareMigrationNames } from './migration-order.mjs';
 
 const { Client } = pg;
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -30,7 +31,7 @@ try {
 
   const files = (await readdir(migrationsDir))
     .filter((name) => /^\d+_[a-z0-9_]+\.sql$/i.test(name))
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    .sort(compareMigrationNames);
 
   for (const filename of files) {
     const sql = await readFile(path.join(migrationsDir, filename), 'utf8');
