@@ -40,6 +40,16 @@ describe('CrmService', () => {
     );
   });
 
+  it('rejects a blank lead contact name before creating a record', async () => {
+    await expect(service.createLead(user, { contactName: '   ' })).rejects.toThrow('Lead contact name cannot be blank.');
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('rejects a blank lead contact name before updating a record', async () => {
+    await expect(service.updateLead(user, 'lead-1', { contactName: '   ' })).rejects.toThrow('Lead contact name cannot be blank.');
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
   it('uses the active company membership instead of the default membership', async () => {
     memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-active', branchId: null, role: 'owner' });
     db.query.mockResolvedValue({ rows: [], rowCount: 0 });
