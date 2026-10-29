@@ -15,6 +15,6 @@ export class AuditController {
   list(@Req() req: { user: AuthenticatedUser }, @Query('limit') limit?: string) {
     if (!req.user.companyId) return [];
     const parsedLimit = limit ? Number.parseInt(limit, 10) : 100;
-    return this.audit.list(req.user.companyId, Number.isFinite(parsedLimit) ? parsedLimit : 100);
+    return this.audit.list(req.user.companyId, Number.isFinite(parsedLimit) ? parsedLimit : 100, req.user.branchId ?? null);
   }
 }
