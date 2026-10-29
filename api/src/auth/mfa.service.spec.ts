@@ -1,4 +1,5 @@
 import { ServiceUnavailableException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { MfaService } from './mfa.service.js';
 
@@ -49,6 +50,35 @@ describe('MfaService.status', () => {
     const service = new MfaService(db as any);
 
     await expect(service.status('user-1')).rejects.toThrow('database unavailable');
+  });
+});
+
+describe('MfaService.useRecoveryCode atomic consumption', () => {
+  it('removes a recovery code from the current database array in one conditional update', async () => {
+    const code = 'A1B2C3D4';
+    const target = createHash('sha256').update(code.trim().toUpperCase()).digest('hex');
+    const db = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [{ table_name: 'user_mfa' }] })
+        .mockResolvedValueOnce({
+          rows: [{
+            recovery_code_hashes: [target, 'another-hash'],
+            locked_until: null,
+          }],
+        })
+        .mockResolvedValueOnce({ rowCount: 1 }),
+    };
+    const service = new MfaService(db as any);
+
+    await expect(service.useRecoveryCode('user-1', code)).resolves.toBe(true);
+
+    const [sql, params] = db.query.mock.calls[2] as [string, unknown[]];
+    expect(sql).toContain('recovery_code_hashes = array_remove(recovery_code_hashes, $2::text)');
+    expect(sql).toContain('$2::text = ANY(recovery_code_hashes)');
+    expect(sql).toContain('enabled_at IS NOT NULL');
+    expect(sql).toContain('locked_until <= NOW()');
+    expect(sql).not.toContain('jsonb_array_elements_text');
+    expect(params).toEqual(['user-1', target]);
   });
 });
 
