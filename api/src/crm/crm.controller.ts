@@ -92,8 +92,8 @@ export class CrmController {
   }
 
   @Get('leads') @RequirePermissions('crm:read')
-  list(@Request() req: { user: AuthenticatedUser }, @Query('search') search?: string, @Query('status') status?: string) {
-    return this.crm.listLeads(req.user, search, status);
+  list(@Request() req: { user: AuthenticatedUser }, @Query('search') search?: string, @Query('status') status?: string, @Query('limit') limit?: string, @Query('offset') offset?: string) {
+    return this.crm.listLeads(req.user, search, status, limit === undefined ? 250 : Number(limit), offset === undefined ? 0 : Number(offset));
   }
 
   @Get('leads/:leadId') @RequirePermissions('crm:read')
@@ -117,8 +117,8 @@ export class CrmController {
   }
 
   @Get('opportunities') @RequirePermissions('crm:read')
-  listOpportunities(@Request() req: { user: AuthenticatedUser }, @Query('stage') stage?: string, @Query('search') search?: string) {
-    return this.crm.listOpportunities(req.user, stage, search);
+  listOpportunities(@Request() req: { user: AuthenticatedUser }, @Query('stage') stage?: string, @Query('search') search?: string, @Query('limit') limit?: string, @Query('offset') offset?: string) {
+    return this.crm.listOpportunities(req.user, stage, search, limit === undefined ? 250 : Number(limit), offset === undefined ? 0 : Number(offset));
   }
 
   @Post('opportunities') @RequirePermissions('crm:write')
