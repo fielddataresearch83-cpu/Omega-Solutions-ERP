@@ -39,6 +39,20 @@ describe('AuthRateLimitGuard', () => {
     await expect(guard.canActivate(context())).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
+
+  it.each([
+    ['/api/auth/mfa/enroll', 6],
+    ['/api/auth/mfa/confirm', 11],
+    ['/api/auth/mfa/disable', 6],
+  ])('throttles repeated MFA security action %s', async (path, requestCount) => {
+    const db = { query: vi.fn().mockResolvedValue({ rows: [{ request_count: requestCount }] }) };
+    const guard = new AuthRateLimitGuard(db as any);
+    await expect(guard.canActivate(context(path))).rejects.toMatchObject({
+      status: HttpStatus.TOO_MANY_REQUESTS,
+    });
+    expect(db.query).toHaveBeenCalledOnce();
+  });
+
   it('does not throttle routes outside the public auth rules', async () => {
     const db = { query: vi.fn() };
     const guard = new AuthRateLimitGuard(db as any);
