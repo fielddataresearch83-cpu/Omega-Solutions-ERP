@@ -36,8 +36,8 @@ export function compareMigrationNames(a, b) {
   // before additive migrations. This preserves the existing workforce schema:
   // 024_workforce_foundation creates the canonical tables, then the
   // attendance-assignment migration adds indexes, RLS, and permissions.
-  const aFoundation = /_foundation\\.sql$/i.test(a);
-  const bFoundation = /_foundation\\.sql$/i.test(b);
+  const aFoundation = /_foundation\.sql$/i.test(a);
+  const bFoundation = /_foundation\.sql$/i.test(b);
   if (aFoundation !== bFoundation) return aFoundation ? -1 : 1;
 
   return a.localeCompare(b, undefined, { numeric: true });
