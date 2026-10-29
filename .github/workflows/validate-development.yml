@@ -131,7 +131,13 @@ jobs:
                   ('employee_assignments','pay_basis'),
                   ('attendance_records','punched_at'),
                   ('attendance_records','source'),
-                  ('attendance_records','external_reference')
+                  ('attendance_records','external_reference'),
+                  ('products','tax_treatment'),
+                  ('invoice_items','tax_treatment'),
+                  ('quotation_items','tax_treatment'),
+                  ('supplier_bill_items','tax_treatment'),
+                  ('credit_note_items','invoice_item_id'),
+                  ('credit_note_items','tax_treatment')
                 )
             `);
             const column = (table, name) => columns.rows.find(row => row.table_name === table && row.column_name === name);
@@ -140,6 +146,33 @@ jobs:
             assert.equal(column('attendance_records','punched_at')?.column_default, null);
             assert.equal(column('attendance_records','source')?.character_maximum_length, 16);
             assert.equal(column('attendance_records','external_reference')?.data_type, 'text');
+            assert.equal(column('products','tax_treatment')?.character_maximum_length, 20);
+            for (const [table, name] of [
+              ['invoice_items','tax_treatment'],
+              ['quotation_items','tax_treatment'],
+              ['supplier_bill_items','tax_treatment'],
+              ['credit_note_items','tax_treatment'],
+            ]) {
+              assert.equal(column(table, name)?.character_maximum_length, 20, `${table}.${name} must exist in a clean install`);
+              assert.equal(column(table, name)?.is_nullable, 'NO');
+            }
+            assert.equal(column('credit_note_items','invoice_item_id')?.data_type, 'uuid');
+
+            const taxConstraints = await client.query(`
+              SELECT conname FROM pg_constraint
+              WHERE conrelid IN (
+                'public.invoice_items'::regclass,
+                'public.quotation_items'::regclass,
+                'public.supplier_bill_items'::regclass,
+                'public.credit_note_items'::regclass
+              ) AND conname IN (
+                'invoice_items_tax_treatment_check',
+                'quotation_items_tax_treatment_check',
+                'supplier_bill_items_tax_treatment_check',
+                'credit_note_items_tax_treatment_check'
+              )
+            `);
+            assert.equal(taxConstraints.rowCount, 4, 'tax treatment constraints must exist on transaction lines');
 
             const fks = await client.query(`
               SELECT tc.table_name, tc.constraint_name, rc.delete_rule
