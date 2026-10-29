@@ -142,7 +142,9 @@ export class CrmService {
 
   async createOpportunity(user: AuthenticatedUser, dto: CreateOpportunityDto) {
     const membership = await this.membershipFor(user);
-    if (!dto.leadId && !dto.customerId) throw new BadRequestException('An opportunity must be linked to a lead or customer.');
+    if (Boolean(dto.leadId) === Boolean(dto.customerId)) {
+      throw new BadRequestException('An opportunity must be linked to exactly one lead or customer.');
+    }
     if (dto.leadId) await this.getLead(user, dto.leadId);
     if (dto.customerId) {
       const customer = await this.db.query('SELECT id FROM customers WHERE id=$1 AND company_id=$2', [dto.customerId, membership.companyId]);
