@@ -153,6 +153,16 @@ describe('CrmService', () => {
       ['company-1', 'open', 'urgent', '%printer%'],
     );
   });
+  it('only exposes ticket assignee names through an active membership in the same company', async () => {
+    db.query.mockResolvedValue({ rows: [{ id: 'ticket-1', assignee_name: 'Company Staff' }], rowCount: 1 });
+    const rows = await service.listTickets(user);
+    expect(rows).toEqual([{ id: 'ticket-1', assignee_name: 'Company Staff' }]);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('assigned_membership.company_id=t.company_id AND assigned_membership.is_active=TRUE'),
+      ['company-1', null, null, null],
+    );
+  });
+
   it('includes company-scoped customer names for customer-linked activities', async () => {
     db.query.mockResolvedValue({ rows: [{ id: 'activity-1', customer_name: 'Acme Ltd' }], rowCount: 1 });
     const rows = await service.listActivities(user, { pending: true });
