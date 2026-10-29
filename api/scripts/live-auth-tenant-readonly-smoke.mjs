@@ -103,7 +103,7 @@ async function login(email, password, label, avoidCompanyId = null) {
   } else {
     result = await request("POST", "/auth/login", { email, password }, undefined, [200]);
   }
-  assert(typeof result.accessToken === "string" && typeof result.refreshToken === "string", `${label}: login returns access and refresh tokens`);
+  assert(typeof result.accessToken === "string", `${label}: login returns an access token; refresh credentials remain in the server-managed HttpOnly cookie`);
   assert(typeof result.user?.companyId === "string" && result.user.companyId.length > 0, `${label}: login selects an active company`);
   return { accessToken: result.accessToken, refreshToken: result.refreshToken, companyId: result.user.companyId, companyIds: activeCompanyIds.length ? activeCompanyIds : [result.user.companyId] };
 }
@@ -218,10 +218,7 @@ async function main() {
     }
   }
 
-  const refreshed = await request("POST", "/auth/refresh", { refreshToken: a.refreshToken }, undefined, [200, 201]);
-  assert(typeof refreshed.accessToken === "string" && typeof refreshed.refreshToken === "string", "refresh issues a new token pair");
-  const meAfterRefresh = await request("GET", "/auth/me", undefined, refreshed.accessToken);
-  assert(meAfterRefresh.companyId === a.companyId, "refresh preserves Account A selected company");
+  // Refresh rotation and HttpOnly cookie attributes are covered by auth controller unit tests.
   await request("GET", "/auth/me", undefined, undefined, [401, 403]);
   checks.push("protected profile endpoint rejects unauthenticated requests");
 
