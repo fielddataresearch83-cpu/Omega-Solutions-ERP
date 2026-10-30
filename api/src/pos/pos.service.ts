@@ -412,7 +412,9 @@ export class PosService {
            VALUES($1,$2,$3,$4) RETURNING *`,
           [companyId,input.registerId,user.userId,openingFloat],
         );
-        return inserted.rows[0];
+        const savedShift=inserted.rows[0];
+        await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'pos.shift.open',entityType:'pos_shift',entityId:String(savedShift.id),oldValues:null,newValues:{registerId:input.registerId,openingFloat},ipAddress:null});
+        return savedShift;
       });
     } catch (error) {
       if ((error as { code?: string }).code === '23505') throw new ConflictException('This cashier or register already has an open shift.');
