@@ -178,8 +178,8 @@ export class SupplierBillsService {
       const paid=Number(bill.paid_amount)+dto.amount;
       const status=paid+0.000001>=Number(bill.total)?'paid':'partially_paid';
       await client.query('UPDATE supplier_bills SET paid_amount=$1,status=$2,updated_at=NOW() WHERE id=$3 AND company_id=$4',[paid,status,id,m.companyId]);
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId:m.companyId,branchId:null,action:'supplier_bill.payment',entityType:'supplier_bill',entityId:id,oldValues:{paidAmount:bill.paid_amount,status:bill.status},newValues:{amount:dto.amount,method:dto.method,paidAmount:paid,status},ipAddress:null});
     });
-    await this.audit.log({userId:user.userId,companyId:m.companyId,branchId:null,action:'supplier_bill.payment',entityType:'supplier_bill',entityId:id,oldValues:null,newValues:{amount:dto.amount,method:dto.method},ipAddress:null});
     return this.getById(user,id);
   }
 }
