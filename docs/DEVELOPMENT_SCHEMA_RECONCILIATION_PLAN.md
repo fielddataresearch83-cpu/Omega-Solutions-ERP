@@ -333,3 +333,28 @@ The invoice-register CSV's per-invoice `tax_amount` is not a VAT report: it does
 6. Replace the all-invoices client-side report filter with a paginated/server-side date-scoped endpoint before treating it as a scalable financial reporting path.
 
 **Disposition:** the reviewed code supports trial balance, AP/AR reconciliation and an invoice register, but does not demonstrate a complete VAT-period report. This conclusion is bounded to the inspected accounting/dashboard controllers and services and the three named Vite screens; other report implementations outside those paths would need separate verification. No fixes, migrations, or data changes were made.
+
+
+## Follow-up reporting API contract review — 2026-10-30
+
+Read-only review of `InvoicesController`, `InvoicesService.list/getById`, `SupplierBillsController`, `SupplierBillsService.list/getById`, and the report pages. No source code or database changes were made.
+
+### Confirmed scale and completeness issue in invoice register
+
+- `GET /api/invoices` accepts only optional `search` and `status`; there are no date, page, limit, cursor, or sort parameters in the controller/service contract reviewed.
+- `InvoicesService.list` applies company and branch scoping and optional search/status filters, but has no SQL `LIMIT`, pagination, or date predicate. It returns every matching invoice row, including item-count aggregation.
+- The Vite invoice report calls this endpoint once and filters `issue_date` in the browser. Therefore the report's selected date range does not constrain database retrieval; all invoices visible to that membership are loaded first.
+- This is a confirmed unbounded-list contract, not proof of a currently observed outage. At scale it increases query, network, memory, and browser processing costs and can make report loading unreliable. Add a dedicated server-side date-range report endpoint with validated date bounds, stable ordering, pagination/streamed export, and company/branch/permission/module enforcement. Do not silently change the semantics of the operational invoice list without checking its other consumers.
+
+### Supplier-bill reporting data availability
+
+- `GET /api/supplier-bills` is company-wide and blocked for branch-bound memberships. Its list query returns aggregate bill fields including bill date, subtotal, tax amount, total, paid amount, status and item count; it has no date filters or pagination.
+- Supplier-bill detail returns item rows including tax-rate/treatment snapshots. This gives a potential source for an input-tax drill-down, but the list endpoint alone cannot provide treatment/rate bases.
+- The supplier-bill service posts input-tax journal debits when creating a bill, but the reviewed reconciliation endpoint compares accounts-payable control balance with bill balances only. There is no equivalent input-tax subledger reconciliation in the reviewed accounting API.
+
+### Date semantics requiring attention
+
+- AP/AR reconciliation computes ageing relative to PostgreSQL `CURRENT_DATE` and labels the result with a UTC-derived application date. The reviewed routes do not accept an explicit as-of date, so these are current snapshots rather than reproducible historical ageing reports.
+- Trial balance accepts an explicit date and filters posted journal entries by `entry_date`, but its default date label is derived from the application server's UTC date. A future period-reporting contract should use explicit inclusive/exclusive date boundaries and a single documented business timezone.
+
+**Disposition:** the invoice and supplier-bill list APIs are not paginated or period-filtered in the reviewed implementation. This strengthens the recommendation for dedicated server-side reporting contracts. The supplier-bill records and journals provide source data for input VAT, but no input-tax subledger reconciliation was found in the reviewed accounting routes. No fixes or migrations were applied.
