@@ -156,7 +156,6 @@ export class SupplierBillsService {
       }
       throw error;
     }
-    await this.audit.log({userId:user.userId,companyId,branchId:null,action:'supplier_bill.create',entityType:'supplier_bill',entityId:id,oldValues:null,newValues:{supplierId:dto.supplierId,purchaseOrderId:dto.purchaseOrderId??null},ipAddress:null});
     return this.getById(user,id);
   }
   async recordPayment(user:AuthenticatedUser,id:string,dto:RecordSupplierBillPaymentDto) {
