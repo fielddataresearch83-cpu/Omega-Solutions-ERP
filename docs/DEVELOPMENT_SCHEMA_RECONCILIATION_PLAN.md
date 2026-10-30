@@ -289,3 +289,47 @@ Read-only review of the tax policy resolver, invoice/quotation/purchase-order/su
 - Accounting journals currently post output/input tax using aggregate amounts and the configured tax control accounts. This review did not find a tax-return/VAT-summary report implementation in the inspected accounting service; a separate report/UI search is still needed before certifying end-to-end tax reporting.
 
 **Disposition:** creation-time policy enforcement is present for sales invoices, quotations and purchase orders. The confirmed gaps are missing tax-treatment fields in invoice/quotation detail responses, missing purchase-order treatment snapshots, untested supplier-bill policy semantics, absent live snapshot migration effects, and incomplete tax-report verification. No fixes or migrations were applied.
+
+
+## Tax reporting and report-screen review — 2026-10-30
+
+Read-only review of the accounting controller/service, dashboard controller/service, their focused specs, and the Vite report, financial-report, and tax-settings screens. No application code or database objects/rows were changed.
+
+### Confirmed report capabilities in the reviewed paths
+
+- `GET /api/accounting/reports/trial-balance` is the only accounting report endpoint declared by the reviewed `AccountingController`. It returns cumulative posted-ledger balances as of a date, including debit/credit totals and balance variance.
+- Other accounting endpoints in that controller provide account listing, journals, and AP/AR reconciliation/ageing. They do not return VAT-period totals.
+- The default chart of accounts defines separate control accounts for Input VAT Recoverable (`input_tax`) and Output VAT Payable (`output_tax`). Their existence supports journal posting, but does not by itself provide a period tax report.
+- The Vite `/financial-reports` page renders the trial balance only. Its own description says additional financial statements will be enabled as controls are completed.
+- The Vite `/reports` page fetches the full `/invoices` collection and filters invoice issue dates in the browser. It displays invoice count, invoice total, paid amount and outstanding balance. Its CSV includes each invoice's aggregate `tax_amount`, but the page does not calculate period output VAT, group by tax treatment/rate, include credit-note reversals, or include supplier-bill input VAT.
+- The dashboard summary returns invoice revenue trend and overdue invoices, but no tax metrics or VAT return data.
+- The tax settings page configures company tax policy; it is not a tax report.
+
+### Confirmed gap: no VAT-period report in the reviewed API/UI
+
+The reviewed accounting controller exposes no VAT/tax report route, and the reviewed report screens expose no VAT return or tax reconciliation view. In particular, there is no reviewed report that reconciles, for a selected tax period:
+- output VAT on sales invoices;
+- output VAT reversals on credit notes;
+- recoverable input VAT from posted supplier bills;
+- net VAT payable/receivable;
+- breakdown by standard-rated, zero-rated, exempt and out-of-scope treatment, with the relevant taxable bases;
+- transaction-level drill-down and reconciliation to the tax control accounts.
+
+The invoice-register CSV's per-invoice `tax_amount` is not a VAT report: it does not distinguish output from input tax, account for credit-note tax reversals, or provide treatment/rate bases. The trial balance is cumulative and cannot replace a tax-period calculation and reconciliation.
+
+### Additional reporting design risks observed
+
+- The invoice report downloads all invoices and applies the date filter client-side. This is not a period-scoped server-side reporting query and may become slow or incomplete as tenant data grows. It also means the UI's period metrics are derived from the downloaded collection, not a dedicated reporting contract.
+- The trial-balance service defaults its date in the response using the server's current UTC date when no date is supplied; the UI supplies a browser-local date. Review date/timezone semantics before reusing it for statutory period boundaries.
+- The accounting control-account setup has separate input/output VAT accounts, but the inspected report API does not query those accounts by tax period or reconcile them to transaction subledgers.
+
+### Required next work before claiming tax reporting is complete
+
+1. Define the authoritative Kenyan VAT-period reporting rules and period boundaries with the business/accounting owner; do not hard-code rates or assume every company is VAT registered.
+2. Design a server-side, company-scoped report contract with explicit period dates, currency, tax treatment/rate bases, output tax, credit-note reversals, input tax, net position, and reconciliation variances.
+3. Derive values from immutable transaction snapshots and posted accounting entries; do not infer historical tax treatment from current product settings. Decide how legacy/unclassified rows and unposted/void transactions are presented.
+4. Reconcile the report to the output/input tax control accounts and transaction subledgers, and expose drill-down to the underlying invoices, credit notes and supplier bills.
+5. Add tests for date boundaries, company isolation, branch/permission/module access, multiple currencies, legacy classifications, rounding, credit-note reversals, supplier input-tax evidence, and ledger/subledger reconciliation.
+6. Replace the all-invoices client-side report filter with a paginated/server-side date-scoped endpoint before treating it as a scalable financial reporting path.
+
+**Disposition:** the reviewed code supports trial balance, AP/AR reconciliation and an invoice register, but does not demonstrate a complete VAT-period report. This conclusion is bounded to the inspected accounting/dashboard controllers and services and the three named Vite screens; other report implementations outside those paths would need separate verification. No fixes, migrations, or data changes were made.
