@@ -300,9 +300,9 @@ export class InventoryService {
       const movement = await this.insertMovement(client,{companyId,productId:dto.productId,warehouseId:dto.warehouseId,type:'adjustment',quantity:delta,unitCost:adjustmentCost,reference:dto.reference,notes:dto.notes,userId:user.userId});
       await this.postMovementJournal(client,{companyId,userId:user.userId,movementId:movement.id,quantity:delta,unitCost:adjustmentCost,description:`Inventory adjustment ${dto.reference?.trim() || movement.id}`});
       await this.syncLegacyProductQuantity(client,companyId,dto.productId);
+      await this.logMovement(client,user,companyId,branchId,movement.id,'inventory.stock.adjust',{productId:dto.productId,warehouseId:dto.warehouseId,quantity:dto.newQuantity});
       return movement;
     });
-    await this.logMovement(user,companyId,branchId,result.id,'inventory.stock.adjust',{productId:dto.productId,warehouseId:dto.warehouseId,quantity:dto.newQuantity});
     return result;
   }
 
@@ -339,9 +339,9 @@ export class InventoryService {
       const out=await this.insertMovement(client,{companyId,productId:dto.productId,warehouseId:dto.sourceWarehouseId,type:'transfer_out',quantity:-dto.quantity,unitCost:transferCost,reference:dto.reference,notes:dto.notes,userId:user.userId,transferGroupId});
       const into=await this.insertMovement(client,{companyId,productId:dto.productId,warehouseId:dto.destinationWarehouseId,type:'transfer_in',quantity:dto.quantity,unitCost:transferCost,reference:dto.reference,notes:dto.notes,userId:user.userId,transferGroupId});
       await this.syncLegacyProductQuantity(client,companyId,dto.productId);
+      await this.logMovement(client,user,companyId,branchId,transferGroupId,'inventory.stock.transfer',{productId:dto.productId,sourceWarehouseId:dto.sourceWarehouseId,destinationWarehouseId:dto.destinationWarehouseId,quantity:dto.quantity});
       return {transferGroupId,sourceMovement:out,destinationMovement:into};
     });
-    await this.logMovement(user,companyId,branchId,result.transferGroupId,'inventory.stock.transfer',{productId:dto.productId,sourceWarehouseId:dto.sourceWarehouseId,destinationWarehouseId:dto.destinationWarehouseId,quantity:dto.quantity});
     return result;
   }
 
@@ -378,9 +378,9 @@ export class InventoryService {
       const saved=await this.insertMovement(client,{companyId,productId:dto.productId,warehouseId:dto.warehouseId,type,quantity:signedQuantity,unitCost:movementCost,reference:dto.reference,notes:dto.notes,userId:user.userId});
       await this.postMovementJournal(client,{companyId,userId:user.userId,movementId:saved.id,quantity:signedQuantity,unitCost:movementCost,description:`Manual stock ${type} ${dto.reference?.trim() || saved.id}`});
       await this.syncLegacyProductQuantity(client,companyId,dto.productId);
+      await this.logMovement(client,user,companyId,branchId,saved.id,type==='receipt'?'inventory.stock.receipt':'inventory.stock.issue',{productId:dto.productId,warehouseId:dto.warehouseId,quantity:dto.quantity});
       return saved;
     });
-    await this.logMovement(user,companyId,branchId,movement.id,type==='receipt'?'inventory.stock.receipt':'inventory.stock.issue',{productId:dto.productId,warehouseId:dto.warehouseId,quantity:dto.quantity});
     return movement;
   }
 
@@ -465,7 +465,7 @@ export class InventoryService {
     );
   }
 
-  private async logMovement(user:AuthenticatedUser,companyId:string,branchId:string|null,entityId:string,action:string,values:Record<string,unknown>) {
-    await this.audit.log({userId:user.userId,companyId,branchId,action,entityType:'inventory_movement',entityId,oldValues:null,newValues:values,ipAddress:null});
+  private async logMovement(client:PoolClient,user:AuthenticatedUser,companyId:string,branchId:string|null,entityId:string,action:string,values:Record<string,unknown>) {
+    await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId,action,entityType:'inventory_movement',entityId,oldValues:null,newValues:values,ipAddress:null});
   }
 }
