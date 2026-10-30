@@ -53,9 +53,9 @@ export class RequisitionsService {
         await client.query(`INSERT INTO requisition_items(company_id,requisition_id,product_id,quantity,notes) VALUES($1,$2,$3,$4,$5)`,
           [companyId, id, item.productId, item.quantity, item.notes ?? null]);
       }
+      await this.audit.logInTransaction(client, { userId:user.userId, companyId, branchId:targetBranchId, action:'create', entityType:'requisition', entityId:id, oldValues:null, newValues:{ title:dto.title, status:'draft' }, ipAddress:null });
       return id;
     });
-    await this.audit.log({ userId:user.userId, companyId, branchId:membership.branchId, action:'create', entityType:'requisition', entityId:id, oldValues:null, newValues:{ title:dto.title, status:'draft' }, ipAddress:null });
     return this.get(user, id);
   }
   async submit(user: AuthenticatedUser, id: string) {
@@ -72,9 +72,9 @@ export class RequisitionsService {
         ON CONFLICT(company_id,entity_type,entity_id) DO UPDATE SET status='pending',decision_note=NULL,requested_at=NOW(),decided_at=NULL,approver_user_id=NULL`,
         [membership.companyId, row.branch_id, id, user.userId]);
       await client.query(`UPDATE requisitions SET status='pending_approval',updated_at=NOW() WHERE company_id=$1 AND id=$2`, [membership.companyId,id]);
+      await this.audit.logInTransaction(client, { userId:user.userId, companyId:membership.companyId, branchId:row.branch_id ?? null, action:'submit_for_approval', entityType:'requisition', entityId:id, oldValues:{status:row.status}, newValues:{status:'pending_approval'}, ipAddress:null });
       return row;
     });
-    await this.audit.log({ userId:user.userId, companyId:membership.companyId, branchId:membership.branchId, action:'submit_for_approval', entityType:'requisition', entityId:id, oldValues:{status:result.status}, newValues:{status:'pending_approval'}, ipAddress:null });
     return this.get(user,id);
   }
 }
