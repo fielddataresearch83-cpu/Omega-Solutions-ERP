@@ -12,7 +12,7 @@ describe('ApprovalsService', () => {
   let db: { query: Mock; transaction: Mock };
   let client: { query: Mock };
   let memberships: { getMembership: Mock; getMembershipForCompany: Mock };
-  let audit: { log: Mock };
+  let audit: { log: Mock; logInTransaction: Mock };
   const user = { userId: 'approver-1', companyId: 'company-1', branchId: null } as any;
 
   beforeEach(async () => {
@@ -25,7 +25,7 @@ describe('ApprovalsService', () => {
       getMembership: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'manager' }),
       getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'manager' }),
     };
-    audit = { log: vi.fn().mockResolvedValue(undefined) };
+    audit = { log: vi.fn().mockResolvedValue(undefined), logInTransaction: vi.fn().mockResolvedValue(undefined) };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ApprovalsService,
@@ -63,7 +63,7 @@ describe('ApprovalsService', () => {
     expect(calls[0][1]).toEqual(['company-1', 'approval-1']);
     expect(calls.some(([sql, params]) => sql.includes('UPDATE approval_requests') && params?.[0] === decision && params?.[1] === 'approver-1')).toBe(true);
     expect(calls.some(([sql, params]) => sql.includes('UPDATE requisitions') && params?.[0] === decision && params?.[1] === 'company-1' && params?.[2] === 'req-1')).toBe(true);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+    expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       companyId: 'company-1',
       action,
       entityType: 'approval_request',
