@@ -10,14 +10,14 @@ describe('ExpensesService',()=>{
  const user:AuthenticatedUser={userId:'user-1',email:'owner@example.test',fullName:'Owner',companyId:'company-active',branchId:null,role:'owner',permissions:['expenses:read','expenses:write']};
  let db:{query:ReturnType<typeof vi.fn>;transaction:ReturnType<typeof vi.fn>};
  let memberships:{getMembership:ReturnType<typeof vi.fn>;getMembershipForCompany:ReturnType<typeof vi.fn>};
- let audit:{log:ReturnType<typeof vi.fn>};
+ let audit:{log:ReturnType<typeof vi.fn>;logInTransaction:ReturnType<typeof vi.fn>};
  let accounting:{ensureDefaults:ReturnType<typeof vi.fn>};
  let service:ExpensesService;
  beforeEach(()=>{
   db={query:vi.fn(),transaction:vi.fn()};
   const membership={companyId:'company-active',branchId:null,role:'owner'};
   memberships={getMembership:vi.fn(),getMembershipForCompany:vi.fn().mockResolvedValue(membership)};
-  audit={log:vi.fn().mockResolvedValue(undefined)};
+  audit={log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)};
   accounting={ensureDefaults:vi.fn().mockResolvedValue(undefined)};
   service=new ExpensesService(db as unknown as DatabaseService,memberships as unknown as MembershipsService,audit as unknown as AuditService,accounting as unknown as AccountingService);
  });
@@ -34,7 +34,7 @@ describe('ExpensesService',()=>{
   expect(db.query).not.toHaveBeenCalled();
   expect(db.transaction).not.toHaveBeenCalled();
   expect(accounting.ensureDefaults).not.toHaveBeenCalled();
-  expect(audit.log).not.toHaveBeenCalled();
+  expect(audit.logInTransaction).not.toHaveBeenCalled();
  });
  it('posts a balanced expense journal and records its source atomically',async()=>{
   const client={query:vi.fn().mockImplementation(async(sql:string,params:unknown[] = [])=>{
@@ -54,7 +54,7 @@ describe('ExpensesService',()=>{
   expect(lines?.[0]).toContain('VALUES($1,$2,$3,$4,$5,0),($1,$2,$6,$7,0,$5)');
   expect(lines?.[1]).toEqual(['company-active','journal-1','expense-account','Office supplies',25.5,'cash-account','Paid by cash']);
   expect(client.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE expenses SET journal_entry_id=$1'),['journal-1','expense-1','company-active']);
-  expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({action:'expenses.create',companyId:'company-active'}));
+  expect(audit.logInTransaction).toHaveBeenCalledWith(client,expect.objectContaining({action:'expenses.create',companyId:'company-active'}));
  });
  it('rejects a missing payment account before posting or auditing',async()=>{
   const client={query:vi.fn().mockImplementation(async(sql:string)=>{
