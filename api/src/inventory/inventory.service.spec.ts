@@ -12,13 +12,13 @@ describe('InventoryService', () => {
   let service: InventoryService;
   let db: { query: Mock; transaction: Mock };
   let memberships: { getMembership: Mock };
-  let audit: { log: Mock };
+  let audit: { log: Mock; logInTransaction: Mock };
   let accounting: { ensureDefaults: Mock };
 
   beforeEach(async () => {
     db = { query: vi.fn(), transaction: vi.fn() };
     memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'owner' }) };
-    audit = { log: vi.fn().mockResolvedValue(undefined) };
+    audit = { log: vi.fn().mockResolvedValue(undefined), logInTransaction: vi.fn().mockResolvedValue(undefined) };
     accounting = { ensureDefaults: vi.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -321,7 +321,7 @@ describe('InventoryService', () => {
     expect(calls.filter(([sql]) => sql.includes('UPDATE inventory_stock_levels') && sql.includes('quantity=quantity+$1'))).toHaveLength(1);
     expect(calls.filter(([sql]) => sql.includes('INSERT INTO inventory_stock_movements'))).toHaveLength(2);
     expect(calls.some(([sql, params]) => sql.includes('UPDATE products SET stock_quantity') && params?.[0] === 'company-1')).toBe(true);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+    expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       companyId: 'company-1',
       action: 'inventory.stock.transfer',
       entityId: result.transferGroupId,
@@ -384,7 +384,7 @@ describe('InventoryService', () => {
     expect(calls.some(([sql, params]) => sql.includes('UPDATE inventory_stock_levels') && sql.includes('average_unit_cost=CASE') && params?.[0] === 4 && params?.[1] === 15)).toBe(true);
     expect(calls.some(([sql, params]) => sql.includes('INSERT INTO inventory_stock_movements') && params?.[3] === 'receipt' && params?.[4] === 4 && params?.[5] === 15)).toBe(true);
     expect(calls.some(([sql, params]) => sql.includes('UPDATE products SET stock_quantity') && params?.[0] === 'company-1')).toBe(true);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+    expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       action: 'inventory.stock.receipt',
       entityId: 'receipt-movement',
       companyId: 'company-1',
