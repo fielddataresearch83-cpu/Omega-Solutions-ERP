@@ -527,3 +527,22 @@ Follow-up source review of invoice, inventory, POS, supplier-bill and manufactur
 5. Verify that the tests run against PostgreSQL, not only mocked `PoolClient` objects. Existing service specs are largely mock-based and the reviewed specs do not establish atomic rollback under an actual database failure.
 
 **Important boundary:** this mapping confirms source-level transaction placement, not live database concurrency behavior. It is a migration plan, not authorization to modify application code or database schema. No fixes, commits to application code, migrations, DB writes or deployments were performed.
+
+
+## Transaction-aware audit writer — implementation checkpoint (2026-10-30)
+
+Implemented on the existing `development` branch:
+
+- `AuditService.logInTransaction(client, entry)` writes the audit row using the caller's `PoolClient`; insert failures are logged and rethrown. The existing standalone `log(entry)` remains for deliberate standalone events.
+- Migrated invoice create, payment report, payment confirm/reject/reconcile and invoice status transitions to write their audit rows before the enclosing transaction commits.
+- Migrated inventory stock adjustment, transfer, receipt and issue audit events into their stock/ledger transactions.
+- Migrated POS checkout, shift open and shift close audit events into their transactions. The existing checkout request-key early-return path still returns the original sale without writing a duplicate checkout event.
+- Migrated supplier-bill payment and manufacturing production completion/cancellation audit events into their existing transactions.
+- Updated focused service mocks/assertions and added AuditService tests for use of the supplied transaction client and propagation of insert failures.
+
+Validation on commit `293f8d52b12986d07e6e5ac277443a365e8b3cee`:
+- API build/tests/lint workflow: passed.
+- Full validation workflow: passed, including API tests, development API health/database smoke check, and frontend build.
+- Clean disposable PostgreSQL migration/idempotency smoke workflow: passed.
+
+**Not yet completed:** a dedicated PostgreSQL integration test that injects an audit INSERT failure into a real business transaction and proves both business and audit writes roll back. Current tests verify the transaction writer's client usage and error propagation; CI's clean-PostgreSQL migration smoke is not that failure-injection test. Remaining standalone audit call sites (for example warehouse/master-data, register/assignment, supplier-bill creation and other manufacturing create/start/cost events) have not yet been migrated. No database schema/data, runtime DB role/grants, or production service was changed; no deployment was performed.
