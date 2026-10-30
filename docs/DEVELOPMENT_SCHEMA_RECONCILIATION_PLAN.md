@@ -462,3 +462,40 @@ Before rollout, inventory every `audit.log` call site (including controllers, gu
 4. external object-storage failures are recoverable without orphaned or prematurely deleted objects.
 
 **Disposition:** this scan confirms the audit atomicity issue is systemic, not limited to invoice/payment paths. It does not establish that every call site has identical business impact; the remediation must be prioritized by criticality and transaction shape. No fixes were applied.
+
+
+## Audit mechanism and schema design review — 2026-10-30
+
+Read-only inspection of `api/src/audit/audit.service.ts`, its unit spec, `api/src/database.service.ts`, the audit module/controller, baseline migration `api/src/migrations/004_audit_logs.sql`, core schema and approval migration.
+
+### Confirmed implementation facts
+
+- `AuditService.log(entry)` calls `DatabaseService.query()`. That method uses `Pool.query`, so the audit insert obtains an independent pooled connection and cannot join the caller's transaction.
+- The audit service has no optional `PoolClient` / transaction executor argument and no transaction-scoped write method.
+- `DatabaseService.transaction(callback)` already provides a checked-out `PoolClient` to its callback. This is the natural integration point; no second transaction abstraction is needed.
+- The audit unit spec verifies company/branch filtering for reads and verifies that a failed audit insert is rethrown. It does not test a business mutation and audit insert in one transaction, rollback on audit failure, PostgreSQL transaction behavior, or duplicate retry handling.
+- The baseline audit migration creates `audit_logs` with nullable actor/company/branch/entity IDs, action/entity strings, JSONB old/new values, IP address and timestamp. It adds indexes for user, company, entity and timestamp.
+- The migration comment calls the table append-only, but this migration creates no trigger or constraint preventing UPDATE/DELETE. This is a documented intention, not proof of database-enforced immutability. Effective runtime role grants and any later trigger/grant changes require catalog inspection under the actual Render runtime role before making a security claim.
+- The audit list endpoint requires `audit:read`, scopes by company and optionally branch, and caps reads at 200 rows. The baseline permissions seed grants audit read to owner/admin and manager, not ordinary staff/viewer.
+
+### Design implications and proposed API
+
+Use a transaction executor contract that accepts either the existing `PoolClient` or a narrowly typed query interface, and make the transactional form explicit (for example `logInTransaction(client, entry)`). Keeping a separate non-transactional method for genuinely standalone events should be deliberate and limited; state-changing business services must use the transaction-scoped method before commit.
+
+A safe rollout should be staged:
+1. Add the transaction-scoped audit writer and unit tests without changing callers.
+2. Migrate the highest-risk operations first: payments/refunds, invoice cancellation, POS checkout/shift close, inventory movements/transfers, goods receipts, manufacturing completion, supplier-bill posting, payroll/remittance state changes, and approval decisions.
+3. Migrate remaining operational and master-data mutations.
+4. Add PostgreSQL-backed integration tests that inject audit insert failure inside the same transaction and assert both mutation and audit row roll back. Add success tests proving both commit.
+5. Add explicit request idempotency or durable operation keys to non-idempotent externally retriable commands. Atomic audit does not itself make the business operation idempotent.
+6. Only after verifying the actual runtime database role, enforce append-only audit behavior with least-privilege grants and/or a narrowly scoped trigger. Preserve an audited, controlled retention/legal process rather than granting application code arbitrary UPDATE/DELETE.
+
+### Schema gaps to consider (not yet proposed as an immediate migration)
+
+- `audit_logs` has no request/correlation ID, idempotency key, source/system actor type, or event schema version. These fields would improve tracing and support deduplication, but should be designed against actual request middleware, background jobs and integration event IDs rather than added speculatively.
+- `user_id`, `company_id` and `branch_id` are nullable and use `ON DELETE SET NULL`; this preserves audit rows but can reduce direct attribution after entity deletion. Do not make them NOT NULL without an explicit system-actor and retention design.
+- The generic `entity_id` is VARCHAR(100), not a foreign key. This is flexible for polymorphic records, but integrity must come from the transaction and application contract.
+- No unique event identity is defined. If an outbox is selected for external delivery, give the outbox event a stable UUID and unique deduplication key; do not assume the current audit table can deduplicate retries.
+- Do not add RLS policies or change DB roles as part of this application fix without isolated rehearsal and explicit approval. Existing tenant scoping in the audit list is application-level.
+
+**Disposition:** transaction-aware audit writes can reuse the existing `DatabaseService.transaction` client. The key change is to the audit service contract and its callers, not a wholesale rewrite of the database layer. No application code, migration, schema, business data or production service was changed in this review.
