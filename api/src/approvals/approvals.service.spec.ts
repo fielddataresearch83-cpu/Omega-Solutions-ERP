@@ -192,7 +192,7 @@ describe('ApprovalsService', () => {
     expect(client.query.mock.calls.some(([sql, params]) =>
       String(sql).includes("VALUES($1,$2,'purchase_order',$3,$4,'pending'") &&
       (params as unknown[])[0] === 'company-1' && (params as unknown[])[2] === 'po-1')).toBe(true);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+    expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       action: 'submit_for_approval', entityType: 'purchase_order', entityId: 'po-1',
     }));
   });
@@ -247,7 +247,7 @@ describe('ApprovalsService', () => {
       id: 'approval-1', entityId: 'po-1', entityType: 'purchase_order', status: 'approved',
     });
     expect(client.query.mock.calls.some(([sql]) => String(sql).includes("UPDATE purchase_orders SET status='ordered'"))).toBe(true);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+    expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       action: 'approve', newValues: { status: 'approved', entityId: 'po-1', entityType: 'purchase_order', note: null },
     }));
   });
