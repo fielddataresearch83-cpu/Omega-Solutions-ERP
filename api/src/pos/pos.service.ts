@@ -349,9 +349,10 @@ export class PosService {
         }
       }
       await client.query('UPDATE customers SET outstanding_balance=GREATEST(0,outstanding_balance-$1),updated_at=NOW() WHERE id=$2 AND company_id=$3',[confirmedCents/100,customerId,companyId]);
-      return {saleId:sale.rows[0].id,invoiceId, saleNumber,total,subtotal:subtotalCents/100,taxAmount:taxCents/100,amountConfirmed:confirmedCents/100,pendingPayment:pendingCents/100,status:pendingCents?'awaiting_payment_confirmation':'completed'};
+      const checkoutResult={saleId:sale.rows[0].id,invoiceId, saleNumber,total,subtotal:subtotalCents/100,taxAmount:taxCents/100,amountConfirmed:confirmedCents/100,pendingPayment:pendingCents/100,status:pendingCents?'awaiting_payment_confirmation':'completed'};
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'pos.sale.checkout',entityType:'pos_sale',entityId:checkoutResult.saleId,oldValues:null,newValues:checkoutResult,ipAddress:null});
+      return checkoutResult;
     });
-    if(!('idempotent' in totals)) await this.audit.log({userId:user.userId,companyId,branchId:null,action:'pos.sale.checkout',entityType:'pos_sale',entityId:totals.saleId,oldValues:null,newValues:totals,ipAddress:null});
     return totals;
   }
 
@@ -417,11 +418,6 @@ export class PosService {
       if ((error as { code?: string }).code === '23505') throw new ConflictException('This cashier or register already has an open shift.');
       throw error;
     }
-    await this.audit.log({
-      userId:user.userId, companyId, branchId:null, action:'pos.shift.open',
-      entityType:'pos_shift', entityId:String((shift as {id:string}).id), oldValues:null,
-      newValues:{registerId:input.registerId,openingFloat}, ipAddress:null,
-    });
     return shift;
   }
 
@@ -457,13 +453,9 @@ export class PosService {
          WHERE id=$1 AND company_id=$2 AND status='open' RETURNING *`,
         [shiftId,companyId,user.userId,expectedCash,countedCash,difference,input.notes?.trim() || null],
       );
-      return updated.rows[0];
-    });
-    await this.audit.log({
-      userId:user.userId, companyId, branchId:null, action:'pos.shift.close',
-      entityType:'pos_shift', entityId:shiftId, oldValues:{status:'open'},
-      newValues:{status:'closed',countedCash,expectedCash:(shift as {expected_cash:number|string}).expected_cash,cashDifference:(shift as {cash_difference:number|string}).cash_difference},
-      ipAddress:null,
+      const closedShift=updated.rows[0];
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'pos.shift.close',entityType:'pos_shift',entityId:shiftId,oldValues:{status:'open'},newValues:{status:'closed',countedCash,expectedCash:closedShift.expected_cash,cashDifference:closedShift.cash_difference},ipAddress:null});
+      return closedShift;
     });
     return shift;
   }
