@@ -423,3 +423,42 @@ Read-only review of `InvoicesService` payment report/confirm/reject/reconcile an
 - The code reviewed contains meaningful invoice-first row locking, balance rechecks, transaction grouping and balanced journal construction. No definite duplicate journal or overpayment race was established in these inspected paths.
 - Mocked tests and source review do not prove PostgreSQL concurrency/rollback behavior. No live financial transactions were executed.
 - No code fixes or database changes were applied. The new confirmed finding is audit/financial-transaction atomicity and ambiguous retry behavior.
+
+
+## Cross-module audit-log atomicity expansion — 2026-10-30
+
+Follow-up read-only scan of service-layer `audit.log` call sites in approvals, contracts, expenses, manufacturing, purchase orders, requisitions, workforce, inventory, products, customers, suppliers, branches, and user-role management. Reviewed representative surrounding transaction code. No application code, schema, business data, or production services were changed.
+
+### Scope expanded beyond finance
+
+The same commit-then-audit pattern is present in additional state-changing workflows:
+
+- **Approvals:** purchase-order/contract submission and approval decisions update approval/entity state inside a transaction, then write audit events separately.
+- **Contracts:** create/update, submit, activate/suspend, contract-to-requisition creation and obligation changes are followed by a separate audit insert. Obligation create/status operations also use standalone DB mutations before audit.
+- **Manufacturing:** BOM and production-order creation, order start, production costs, completion and cancellation write operational/stock/journal changes transactionally, then audit separately.
+- **Purchase orders and requisitions:** creation, status changes, goods receipt and approval submission are followed by separate audit writes.
+- **Workforce:** assignment creation/transfer, attendance import/approval and clock punches are committed before their audit event. Some single-statement mutations are also followed by a separate audit write.
+- **Inventory:** warehouse create/update and stock movement audit helper use separate audit writes after the underlying operation. Stock movement callers perform their inventory transaction before calling the helper.
+- **Expenses:** expense and journal creation are transactional, then audit is written separately.
+- **Products, customers, suppliers, branches and membership role changes:** mutations complete before audit insertion; several of these are simple single-query writes rather than multi-step transactions.
+
+### Impact classification
+
+- The confirmed failure mode is broad: if the audit table insert fails after a successful state change, the API can report failure while the operation persists and its audit event is missing.
+- Financial, stock, production and approval actions are highest priority because a retry or mistaken belief that the operation failed can cause duplicate or inconsistent downstream work.
+- Master-data CRUD also has the ambiguous-success/missing-audit problem, but generally lower immediate financial impact.
+- Image storage workflows require special handling: object-storage side effects cannot participate in a PostgreSQL transaction. Keep database audit/outbox atomic with metadata changes and use a compensating cleanup/retry process for object upload/delete.
+
+### Remediation design recommendation
+
+Adopt one shared transaction-aware audit API, e.g. `audit.log(client, entry)`, which writes through the caller's existing `PoolClient`. Require state-changing service methods to include the audit insert before committing their existing transaction. For single-statement mutations, use a transaction or a data-modifying CTE that atomically writes both mutation and audit row. Avoid a global fire-and-forget logger or swallowing audit errors.
+
+Where an external side effect is involved, persist an outbox event in the same DB transaction and let a worker retry delivery/cleanup. Define stable event IDs and unique constraints for deduplication. Preserve actor, company, branch, entity, action, old/new values and request correlation metadata.
+
+Before rollout, inventory every `audit.log` call site (including controllers, guards, background jobs and integrations), update service tests, and add PostgreSQL-backed failure-injection tests proving:
+1. audit insert failure rolls back the associated database mutation;
+2. successful mutation and audit row commit together;
+3. client retry after ambiguous connection failure does not duplicate a financial/stock/approval action;
+4. external object-storage failures are recoverable without orphaned or prematurely deleted objects.
+
+**Disposition:** this scan confirms the audit atomicity issue is systemic, not limited to invoice/payment paths. It does not establish that every call site has identical business impact; the remediation must be prioritized by criticality and transaction shape. No fixes were applied.
