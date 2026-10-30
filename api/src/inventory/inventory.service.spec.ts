@@ -137,21 +137,22 @@ describe('InventoryService', () => {
     memberships.getMembership.mockResolvedValue({ companyId: 'company-1', branchId, role: 'manager' });
     db.query
       .mockResolvedValueOnce({ rows: [{ id: branchId }], rowCount: 1 })
-      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
-      .mockResolvedValueOnce({ rows: [{
-        id: 'warehouse-new', company_id: 'company-1', branch_id: branchId,
-        code: 'MAIN', name: 'Main', location: null, capacity: 0, is_active: true,
-        created_at: '2026-10-23T00:00:00.000Z', updated_at: '2026-10-23T00:00:00.000Z',
-      }], rowCount: 1 });
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    const client = { query: vi.fn().mockResolvedValue({ rows: [{
+      id: 'warehouse-new', company_id: 'company-1', branch_id: branchId,
+      code: 'MAIN', name: 'Main', location: null, capacity: 0, is_active: true,
+      created_at: '2026-10-23T00:00:00.000Z', updated_at: '2026-10-23T00:00:00.000Z',
+    }], rowCount: 1 }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
 
     const result = await service.createWarehouse(user, { code: 'main', name: 'Main' });
 
     expect(result.branch_id).toBe(branchId);
-    expect(db.query).toHaveBeenNthCalledWith(3,
+    expect(client.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO warehouses'),
       ['company-1', branchId, 'MAIN', 'Main', null, 0, true],
     );
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ branchId, action: 'inventory.warehouse.create' }));
+    expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ branchId, action: 'inventory.warehouse.create' }));
   });
 
   it('keeps the assigned-branch predicate on the warehouse update statement itself', async () => {
@@ -162,14 +163,15 @@ describe('InventoryService', () => {
       code: 'MAIN', name: 'Main', location: null, capacity: 0, is_active: true,
       created_at: '2026-10-23T00:00:00.000Z', updated_at: '2026-10-23T00:00:00.000Z',
     };
-    db.query
-      .mockResolvedValueOnce({ rows: [existing], rowCount: 1 })
-      .mockResolvedValueOnce({ rows: [{ ...existing, name: 'Renamed' }], rowCount: 1 });
+    db.query.mockResolvedValueOnce({ rows: [existing], rowCount: 1 });
+    const client = { query: vi.fn().mockResolvedValue({ rows: [{ ...existing, name: 'Renamed' }], rowCount: 1 }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
 
     await service.updateWarehouse(user, 'warehouse-1', { name: 'Renamed' });
 
-    expect(db.query.mock.calls[1][0]).toContain('WHERE id=$2 AND company_id=$3 AND ($4::uuid IS NULL OR branch_id=$4)');
-    expect(db.query.mock.calls[1][1]).toEqual(['Renamed', 'warehouse-1', 'company-1', branchId]);
+    expect(client.query.mock.calls[0][0]).toContain('WHERE id=$2 AND company_id=$3 AND ($4::uuid IS NULL OR branch_id=$4)');
+    expect(client.query.mock.calls[0][1]).toEqual(['Renamed', 'warehouse-1', 'company-1', branchId]);
+    expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'inventory.warehouse.update' }));
   });
 
   it('reconciles stock levels against movement history, legacy totals, and the inventory control account without writes', async () => {
