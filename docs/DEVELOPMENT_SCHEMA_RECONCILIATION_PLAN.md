@@ -209,3 +209,42 @@ Read-only review of repository migration SQL against live catalog evidence:
 - Both columns remain absent from the live schema.
 
 No schema, ledger, or business rows were changed. This is not authorization to apply migrations.
+
+
+## Credit-note application-path review — 2026-10-30
+
+Read-only review of `api/src/credit-notes/credit-notes.controller.ts`, `credit-notes.service.ts`, DTOs, service specs, and migration `202610260006_credit_note_invoice_line_links.sql`. No source code or database objects/rows were changed.
+
+### Controls confirmed in the current service
+
+- Controller requires JWT authentication, `credit-notes:read/write` permissions, and the `sales` module entitlement.
+- Company context is resolved from the authenticated membership. Credit-note list/detail, invoice selection, invoice-line selection, item reads, refund balances, and writes are scoped by company ID.
+- Creation loads the invoice with `WHERE id=$1 AND company_id=$2 FOR UPDATE`, checks branch access for branch-bound users, and rejects draft/cancelled invoices.
+- Original lines are selected using both `company_id` and `invoice_id`; the requested line IDs must all resolve. Thus the service-level create path rejects a line belonging to another invoice or company.
+- Unit price, tax rate, and tax treatment are taken from the selected original invoice line, not accepted from the request. Requested quantity is checked against previously credited quantity and remaining line value.
+- Invoice-row locking serializes concurrent credit-note creation against the same invoice. The credit-note insert, item inserts, journal, customer-credit balance, invoice credited amount, and customer receivable update are in one database transaction.
+- Refund creation locks the customer-credit balance row and checks the remaining refundable amount before inserting the refund and journal.
+- DTO validation requires UUID references, a positive quantity, bounded text, and at least one item. The service additionally rejects duplicate original-line IDs in one note.
+
+### Confirmed integrity gap: historical credits are not accounted for by the new line-level cap
+
+The line-cap query sums prior `credit_note_items` only where `cni.invoice_item_id=$3`. Migration 202610260006 adds that column as nullable, and the current migration contains no historical backfill. Existing credit-note lines therefore remain unlinked unless separately reconciled. Their quantities and values are invisible to the new per-invoice-line cap. After the migration is applied, a new credit against a previously credited invoice line could exceed the true remaining quantity/value if an earlier credit note for that line has a NULL link.
+
+This is not evidence that a current shared-database write is possible: the inspected live schema still lacks the column, so the current service's insert/select statements also depend on the missing migration. It is a forward-migration/backfill acceptance blocker. Before enabling this code path, define a deterministic historical matching strategy using invoice, company, and line attributes; classify ambiguous/unmatchable historical lines; and refuse credit issuance for affected invoices until reconciled or safely handled. Do not guess links or alter historical amounts.
+
+### Database constraint design gap remains
+
+Migration 202610260006 declares no FK for `invoice_item_id`, and no composite company-scoped FK. The service checks ownership for new creates, but the database would not prevent invalid references introduced by another writer, a future code path, or direct SQL. Design a forward-only constraint after confirming referenced key uniqueness and handling historical NULL/unmatched rows. Preserve tenant scoping in the constraint (or equivalent DB-enforced invariant), not only in application queries.
+
+### Test coverage gaps
+
+Existing service specs cover company-scoped listing, over-quantity rejection, duplicate line references, branch restriction, paid-invoice customer-credit treatment, tax journal balancing, and refund limits. The reviewed specs do not explicitly test:
+- rejecting an invoice line from a different invoice;
+- rejecting an invoice line from another company;
+- historical unlinked credit-note lines being included in remaining-quantity/value calculations;
+- concurrent credit attempts against the same invoice;
+- DB-level rejection of a cross-company or nonexistent invoice-line reference.
+
+Add isolated tests for these cases before marking the credit-note integrity work complete. The service's invoice-row lock is a sound serialization mechanism for this path, but a concurrency regression test should verify it against PostgreSQL rather than mocks alone.
+
+**Disposition:** application-level tenant/ownership validation for new credit-note creation is present in the inspected code. The unresolved blockers are historical credit reconciliation, database-enforced referential/company integrity, missing live migration effects, and targeted regression coverage. No fix or migration was applied.
