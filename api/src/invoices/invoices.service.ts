@@ -277,14 +277,8 @@ export class InvoicesService {
           ],
         );
       }
+      await this.audit.logInTransaction(client, { userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'invoice.create', entityType: 'invoice', entityId: invoice.id, oldValues: null, newValues: { invoiceNumber: invoice.invoice_number, total: invoice.total }, ipAddress: null });
       return invoice;
-    });
-
-    await this.audit.log({
-      userId: user.userId, companyId: membership.companyId, branchId: membership.branchId,
-      action: 'invoice.create', entityType: 'invoice', entityId: result.id,
-      oldValues: null, newValues: { invoiceNumber: result.invoice_number, total: result.total },
-      ipAddress: null,
     });
     return this.getById(user, result.id);
   }
@@ -337,15 +331,9 @@ export class InvoicesService {
           dto.reference?.trim() || null, dto.notes?.trim() || null, user.userId,
         ],
       );
-      return inserted.rows[0];
-    });
-
-    await this.audit.log({
-      userId: user.userId, companyId: membership.companyId, branchId: membership.branchId,
-      action: 'invoice.payment.report', entityType: 'invoice_payment', entityId: payment.id,
-      oldValues: null,
-      newValues: { invoiceId, amount: payment.amount, method: payment.method, reference: payment.reference, status: 'pending' },
-      ipAddress: null,
+      const payment = inserted.rows[0];
+      await this.audit.logInTransaction(client, { userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'invoice.payment.report', entityType: 'invoice_payment', entityId: payment.id, oldValues: null, newValues: { invoiceId, amount: payment.amount, method: payment.method, reference: payment.reference, status: 'pending' }, ipAddress: null });
+      return payment;
     });
     return this.getById(user, invoiceId);
   }
@@ -420,14 +408,8 @@ export class InvoicesService {
         'UPDATE customers SET outstanding_balance=GREATEST(0,outstanding_balance-$1),updated_at=NOW() WHERE id=$2 AND company_id=$3',
         [paymentAmount, invoice.customer_id, membership.companyId],
       );
+      await this.audit.logInTransaction(client, { userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'invoice.payment.confirm', entityType: 'invoice_payment', entityId: payment.id, oldValues: { status: 'pending' }, newValues: { invoiceId, amount: payment.amount, method: payment.method, status: 'confirmed' }, ipAddress: null });
       return payment;
-    });
-    await this.audit.log({
-      userId: user.userId, companyId: membership.companyId, branchId: membership.branchId,
-      action: 'invoice.payment.confirm', entityType: 'invoice_payment', entityId: confirmed.id,
-      oldValues: { status: 'pending' },
-      newValues: { invoiceId, amount: confirmed.amount, method: confirmed.method, status: 'confirmed' },
-      ipAddress: null,
     });
     return this.getById(user, invoiceId);
   }
@@ -559,12 +541,8 @@ export class InvoicesService {
         "UPDATE invoice_payments SET status='rejected' WHERE id=$1 AND invoice_id=$2 AND company_id=$3 AND status='pending'",
         [paymentId, invoiceId, membership.companyId],
       );
+      await this.audit.logInTransaction(client, { userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'invoice.payment.reject', entityType: 'invoice_payment', entityId: row.id, oldValues: { status: 'pending' }, newValues: { invoiceId, status: 'rejected' }, ipAddress: null });
       return row;
-    });
-    await this.audit.log({
-      userId: user.userId, companyId: membership.companyId, branchId: membership.branchId,
-      action: 'invoice.payment.reject', entityType: 'invoice_payment', entityId: payment.id,
-      oldValues: { status: 'pending' }, newValues: { invoiceId, status: 'rejected' }, ipAddress: null,
     });
     return this.getById(user, invoiceId);
   }
@@ -598,14 +576,8 @@ export class InvoicesService {
          WHERE id=$3 AND invoice_id=$4 AND company_id=$5 AND status='confirmed'`,
         [reference, user.userId, paymentId, invoiceId, membership.companyId],
       );
+      await this.audit.logInTransaction(client, { userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'invoice.payment.reconcile', entityType: 'invoice_payment', entityId: row.id, oldValues: { status: 'confirmed' }, newValues: { invoiceId, statementReference: reference, status: 'reconciled' }, ipAddress: null });
       return row;
-    });
-    await this.audit.log({
-      userId: user.userId, companyId: membership.companyId, branchId: membership.branchId,
-      action: 'invoice.payment.reconcile', entityType: 'invoice_payment', entityId: payment.id,
-      oldValues: { status: 'confirmed' },
-      newValues: { invoiceId, statementReference: reference, status: 'reconciled' },
-      ipAddress: null,
     });
     return this.getById(user, invoiceId);
   }
@@ -714,16 +686,11 @@ export class InvoicesService {
         'UPDATE invoices SET status = $1::invoice_status, updated_at = NOW() WHERE id = $2 AND company_id = $3',
         [status, invoiceId, membership.companyId],
       );
+      if (previousStatus !== status) {
+        await this.audit.logInTransaction(client, { userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'invoice.status.update', entityType: 'invoice', entityId: invoiceId, oldValues: { status: previousStatus }, newValues: { status }, ipAddress: null });
+      }
       return invoice.status;
     });
-
-    if (previousStatus !== status) {
-      await this.audit.log({
-        userId: user.userId, companyId: membership.companyId, branchId: membership.branchId,
-        action: 'invoice.status.update', entityType: 'invoice', entityId: invoiceId,
-        oldValues: { status: previousStatus }, newValues: { status }, ipAddress: null,
-      });
-    }
     return this.getById(user, invoiceId);
   }
 
