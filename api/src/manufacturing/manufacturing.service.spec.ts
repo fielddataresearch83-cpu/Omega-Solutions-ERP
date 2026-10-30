@@ -167,7 +167,7 @@ describe('ManufacturingService',()=>{
   expect(result.cost_type).toBe('labour');
   expect(client.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO journal_entry_lines'),expect.arrayContaining(['company-active','journal-cost-1']));
   expect(client.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE manufacturing_order_costs SET journal_entry_id'),['company-active','cost-1','journal-cost-1']);
-  expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({action:'manufacturing.order.cost.create'}));
+  expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({action:'manufacturing.order.cost.create'}));
  });
  it('rejects labour and overhead costs on orders that are not in progress',async()=>{
   const client={query:vi.fn().mockResolvedValue({rows:[{id:'order-1',status:'planned'}],rowCount:1})};
