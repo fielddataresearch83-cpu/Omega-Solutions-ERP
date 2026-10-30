@@ -18,6 +18,7 @@ describe('DatabaseService PostgreSQL transaction integration', () => {
   afterAll(async () => {
     if (db) {
       try {
+        await db.query('DROP TABLE IF EXISTS audit_logs CASCADE');
         await db.query('DROP TABLE IF EXISTS transaction_rollback_probe');
       } finally {
         await db.onModuleDestroy();
