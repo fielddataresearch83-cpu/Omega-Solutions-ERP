@@ -147,6 +147,7 @@ export class SupplierBillsService {
       if(taxAmount>0)journalLines.push({systemCode:'input_tax',debit:taxAmount,credit:0,description:'Recoverable input tax'});
       journalLines.push({systemCode:'accounts_payable',debit:0,credit:subtotal+taxAmount,description:'Supplier payable'});
       await this.postJournal(client,{companyId,date:dto.billDate??null,description:`Supplier bill ${number}`,sourceType:'supplier_bill',sourceId:billId,userId:user.userId,lines:journalLines});
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'supplier_bill.create',entityType:'supplier_bill',entityId:billId,oldValues:null,newValues:{supplierId:dto.supplierId,purchaseOrderId:dto.purchaseOrderId??null},ipAddress:null});
       return billId;
     });
     } catch(error) {
