@@ -89,20 +89,22 @@ export class InventoryService {
       'SELECT id FROM warehouses WHERE company_id=$1 AND UPPER(code)=UPPER($2)', [companyId, code],
     );
     if (exists.rows.length) throw new ConflictException('A warehouse with this code already exists.');
-    const result = await this.db.query<WarehouseRow>(
-      `INSERT INTO warehouses(company_id,branch_id,code,name,location,capacity,is_active)
-       VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [companyId,targetBranchId,code,name,dto.location?.trim() || null,dto.capacity ?? 0,dto.isActive ?? true],
-    ).catch((error: unknown) => {
+    try {
+      return await this.db.transaction(async client => {
+        const result = await client.query<WarehouseRow>(
+          `INSERT INTO warehouses(company_id,branch_id,code,name,location,capacity,is_active)
+           VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+          [companyId,targetBranchId,code,name,dto.location?.trim() || null,dto.capacity ?? 0,dto.isActive ?? true],
+        );
+        const warehouse = result.rows[0];
+        await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:targetBranchId,action:'inventory.warehouse.create',entityType:'warehouse',entityId:warehouse.id,oldValues:null,newValues:{code:warehouse.code,name:warehouse.name},ipAddress:null});
+        return warehouse;
+      });
+    } catch (error) {
       const databaseError = error as { code?: string };
-      if (databaseError.code === '23505') {
-        throw new ConflictException('A warehouse with this code already exists.');
-      }
+      if (databaseError.code === '23505') throw new ConflictException('A warehouse with this code already exists.');
       throw error;
-    });
-    const warehouse = result.rows[0];
-    await this.audit.log({userId:user.userId,companyId,branchId:targetBranchId,action:'inventory.warehouse.create',entityType:'warehouse',entityId:warehouse.id,oldValues:null,newValues:{code:warehouse.code,name:warehouse.name},ipAddress:null});
-    return warehouse;
+    }
   }
 
   async updateWarehouse(user: AuthenticatedUser, warehouseId: string, dto: UpdateWarehouseDto): Promise<WarehouseRow> {
@@ -140,18 +142,20 @@ export class InventoryService {
     if (!fields.length) return existing;
     fields.push('updated_at=NOW()');
     values.push(warehouseId,companyId,branchId);
-    const result = await this.db.query<WarehouseRow>(
-      `UPDATE warehouses SET ${fields.join(',')} WHERE id=$${values.length-2} AND company_id=$${values.length-1} AND ($${values.length}::uuid IS NULL OR branch_id=$${values.length}) RETURNING *`, values as (string|number|boolean|null)[],
-    ).catch((error: unknown) => {
+    try {
+      return await this.db.transaction(async client => {
+        const result = await client.query<WarehouseRow>(
+          `UPDATE warehouses SET ${fields.join(',')} WHERE id=${values.length-2} AND company_id=${values.length-1} AND (${values.length}::uuid IS NULL OR branch_id=${values.length}) RETURNING *`, values as (string|number|boolean|null)[],
+        );
+        if (!result.rows[0]) throw new NotFoundException('Warehouse not found.');
+        await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:result.rows[0].branch_id,action:'inventory.warehouse.update',entityType:'warehouse',entityId:warehouseId,oldValues:{name:existing.name,code:existing.code},newValues:{name:result.rows[0].name,code:result.rows[0].code},ipAddress:null});
+        return result.rows[0];
+      });
+    } catch (error) {
       const databaseError = error as { code?: string };
-      if (databaseError.code === '23505') {
-        throw new ConflictException('A warehouse with this code already exists.');
-      }
+      if (databaseError.code === '23505') throw new ConflictException('A warehouse with this code already exists.');
       throw error;
-    });
-    if (!result.rows[0]) throw new NotFoundException('Warehouse not found.');
-    await this.audit.log({userId:user.userId,companyId,branchId:result.rows[0].branch_id,action:'inventory.warehouse.update',entityType:'warehouse',entityId:warehouseId,oldValues:{name:existing.name,code:existing.code},newValues:{name:result.rows[0].name,code:result.rows[0].code},ipAddress:null});
-    return result.rows[0];
+    }
   }
 
   async listStock(user: AuthenticatedUser, warehouseId?: string, search?: string): Promise<StockRow[]> {
