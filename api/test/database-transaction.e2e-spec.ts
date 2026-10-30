@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DatabaseService } from '../src/database.service.js';
+import { AuditService } from '../src/audit/audit.service.js';
 
 describe('DatabaseService PostgreSQL transaction integration', () => {
   let db: DatabaseService;
@@ -160,6 +161,61 @@ describe('DatabaseService PostgreSQL transaction integration', () => {
     expect(payments.rows[0]).toEqual({ count: '1', total: '70.00' });
 
     await db.query('DROP TABLE payroll_remittance_payments, payroll_remittance_obligations CASCADE');
+  });
+
+
+  it('rolls back a business write when the real audit_logs INSERT fails', async () => {
+    const audit = new AuditService(db);
+    await db.query('DROP TABLE IF EXISTS audit_logs CASCADE');
+    await db.query(`CREATE TABLE audit_logs (
+      id bigserial PRIMARY KEY,
+      user_id text,
+      company_id text,
+      branch_id text,
+      action varchar(100) NOT NULL,
+      entity_type varchar(50) NOT NULL,
+      entity_id varchar(100),
+      old_values jsonb,
+      new_values jsonb,
+      ip_address varchar(45),
+      created_at timestamptz NOT NULL DEFAULT NOW()
+    )`);
+    await db.query(`CREATE FUNCTION fail_audit_probe_insert() RETURNS trigger
+      LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''forced audit insert failure''; END;'`);
+    await db.query(`CREATE TRIGGER fail_audit_probe_insert_trigger
+      BEFORE INSERT ON audit_logs FOR EACH ROW EXECUTE FUNCTION fail_audit_probe_insert()`);
+
+    await expect(db.transaction(async (client) => {
+      await client.query(
+        'INSERT INTO transaction_rollback_probe (id, value) VALUES ($1, $2)',
+        [3, 'business mutation must roll back'],
+      );
+      await audit.logInTransaction(client, {
+        userId: 'user-a',
+        companyId: 'company-a',
+        branchId: null,
+        action: 'test.business.mutation',
+        entityType: 'transaction_rollback_probe',
+        entityId: '3',
+        oldValues: null,
+        newValues: { value: 'business mutation must roll back' },
+        ipAddress: null,
+      });
+    })).rejects.toThrow('forced audit insert failure');
+
+    const business = await db.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM transaction_rollback_probe WHERE id=$1',
+      [3],
+    );
+    const events = await db.query<{ count: string }>(
+      'SELECT COUNT(*)::text AS count FROM audit_logs',
+    );
+    expect(business.rows[0]?.count).toBe('0');
+    expect(events.rows[0]?.count).toBe('0');
+
+    await db.query('DROP TRIGGER fail_audit_probe_insert_trigger ON audit_logs');
+    await db.query('DROP FUNCTION fail_audit_probe_insert()');
+    await db.query('DROP TABLE audit_logs CASCADE');
   });
 
   it('commits successful writes', async () => {
