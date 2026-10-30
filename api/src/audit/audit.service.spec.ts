@@ -35,6 +35,16 @@ describe('AuditService', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 
+  it('propagates failures from transaction-scoped audit inserts', async () => {
+    const failure = new Error('audit insert failed');
+    client.query.mockRejectedValue(failure);
+    await expect(service.logInTransaction(client as never, {
+      userId: 'user-a', companyId: 'company-a', branchId: null,
+      action: 'invoice.payment.confirm', entityType: 'invoice_payment', entityId: 'payment-a',
+      oldValues: { status: 'pending' }, newValues: { status: 'confirmed' }, ipAddress: null,
+    })).rejects.toBe(failure);
+  });
+
   it('surfaces audit persistence failures instead of silently swallowing them', async () => {
     const failure = new Error('database unavailable');
     db.query.mockRejectedValue(failure);
