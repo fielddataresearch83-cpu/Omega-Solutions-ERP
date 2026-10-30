@@ -190,7 +190,7 @@ export class ContractsService {
     const dueDate=body.dueDate===undefined||body.dueDate===null?null:body.dueDate as string;
     const notes=body.notes===undefined||body.notes===null?null:body.notes as string;
     await this.db.transaction(async client=>{
-      await client.query('INSERT INTO contract_obligations(id,company_id,contract_id,title,due_date,notes) VALUES($1,$2,$3,$4,$5,$6)',[obligationId,membership.companyId,id,body.title.trim(),dueDate,notes]);
+      await client.query('INSERT INTO contract_obligations(id,company_id,contract_id,title,due_date,notes) VALUES($1,$2,$3,$4,$5,$6)',[obligationId,membership.companyId,id,String(body.title).trim(),dueDate,notes]);
       await this.audit.logInTransaction(client,{userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'create',entityType:'contract_obligation',entityId:obligationId,oldValues:null,newValues:{contractId:id,title:body.title,dueDate,status:'open'},ipAddress:null});
     });
     return this.get(user,id);
