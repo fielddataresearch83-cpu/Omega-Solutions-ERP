@@ -175,7 +175,7 @@ describe('CreditNotesService', () => {
       transaction: vi.fn(async (callback: (client: unknown) => Promise<unknown>) => callback(client)),
     };
     const memberships = { getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-a', branchId: null, role: 'owner' }), getMembership: vi.fn() };
-    const audit = { log: vi.fn().mockResolvedValue(undefined) };
+    const audit = { log: vi.fn(), logInTransaction: vi.fn().mockResolvedValue(undefined) };
     const service = new CreditNotesService(
       db as unknown as DatabaseService,
       memberships as unknown as MembershipsService,
@@ -198,7 +198,7 @@ describe('CreditNotesService', () => {
     const credits = journalLines.reduce((sum, line) => sum + Number(line[5]), 0);
     expect(debits).toBe(116);
     expect(credits).toBe(116);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'credit_note.create', companyId: 'company-a' }));
+    expect(audit.logInTransaction).toHaveBeenCalledWith(client, expect.objectContaining({ action: 'credit_note.create', companyId: 'company-a' }));
   });
 
   it.each(['zero_rated', 'exempt'])('posts a balanced zero-tax journal for %s credits', async (treatment) => {
@@ -275,7 +275,7 @@ describe('CreditNotesService', () => {
     expect(journalLines.reduce((sum, line) => sum + Number(line[4]), 0)).toBe(40);
     expect(journalLines.reduce((sum, line) => sum + Number(line[5]), 0)).toBe(40);
     expect(client.query.mock.calls.some(call => String(call[0]).includes('UPDATE customer_credit_balances'))).toBe(true);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'credit_note.refund', entityId: 'refund-a' }));
+    expect(audit.logInTransaction).toHaveBeenCalledWith(client, expect.objectContaining({ action: 'credit_note.refund', entityId: 'refund-a' }));
   });
 
   it('rejects a refund above the available customer credit', async () => {
