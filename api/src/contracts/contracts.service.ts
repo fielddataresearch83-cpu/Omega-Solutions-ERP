@@ -105,7 +105,7 @@ export class ContractsService {
   }
   async submitForApproval(user: AuthenticatedUser, id: string) {
     const membership = await this.companyFor(user);
-    const result = await this.db.transaction(async client => {
+    await this.db.transaction(async client => {
       const locked = await client.query(
         'SELECT * FROM contracts WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id IS NULL OR branch_id=$3) FOR UPDATE',
         [membership.companyId, id, membership.branchId],
@@ -127,7 +127,7 @@ export class ContractsService {
 
   async changeStatus(user: AuthenticatedUser, id: string, status: 'active' | 'suspended') {
     const membership = await this.companyFor(user);
-    const result = await this.db.transaction(async client => {
+    await this.db.transaction(async client => {
       const locked = await client.query(
         'SELECT * FROM contracts WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id IS NULL OR branch_id=$3) FOR UPDATE',
         [membership.companyId, id, membership.branchId],
