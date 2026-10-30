@@ -63,8 +63,8 @@ export class ContractsService {
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
       [id,companyId,body.branchId ?? m.branchId,number,String(body.title).trim(),type,type==='customer'?body.customerId:null,type==='supplier'?body.supplierId:null,body.description??null,body.startDate,body.endDate,body.renewalDate??null,body.currency??'KES',Number(body.contractValue??0),body.monthlyBudget==null?null:Number(body.monthlyBudget),ownerUserId,body.notes??null,user.userId]);
       await this.insertItems(client,companyId,id,body.items);
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:m.branchId,action:'create',entityType:'contract',entityId:id,oldValues:null,newValues:{title:body.title,contractType:type,status:'draft'},ipAddress:null});
     });
-    await this.audit.log({userId:user.userId,companyId,branchId:m.branchId,action:'create',entityType:'contract',entityId:id,oldValues:null,newValues:{title:body.title,contractType:type,status:'draft'},ipAddress:null});
     return this.get(user,id);
   }
   private async insertItems(client: any, companyId: string, contractId: string, raw: unknown) {
@@ -99,8 +99,8 @@ export class ContractsService {
         await client.query('DELETE FROM contract_items WHERE company_id=$1 AND contract_id=$2',[membership.companyId,id]);
         await this.insertItems(client,membership.companyId,id,body.items);
       }
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'update',entityType:'contract',entityId:id,oldValues:null,newValues:body,ipAddress:null});
     });
-    await this.audit.log({userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'update',entityType:'contract',entityId:id,oldValues:null,newValues:body,ipAddress:null});
     return this.get(user,id);
   }
   async submitForApproval(user: AuthenticatedUser, id: string) {
@@ -119,9 +119,9 @@ export class ContractsService {
       }
       await client.query("UPDATE contracts SET status='pending_approval',updated_at=NOW() WHERE company_id=$1 AND id=$2", [membership.companyId, id]);
       await client.query("INSERT INTO approval_requests(company_id,branch_id,entity_type,entity_id,requester_user_id,status,decision_note,requested_at,decided_at,approver_user_id) VALUES($1,$2,'contract',$3,$4,'pending',NULL,NOW(),NULL,NULL) ON CONFLICT(company_id,entity_type,entity_id) DO UPDATE SET status='pending',requester_user_id=$4,approver_user_id=NULL,decision_note=NULL,requested_at=NOW(),decided_at=NULL", [membership.companyId, row.branch_id ?? null, id, user.userId]);
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'submit_for_approval',entityType:'contract',entityId:id,oldValues:{status:row.status},newValues:{status:'pending_approval'},ipAddress:null});
       return { oldStatus: String(row.status) };
     });
-    await this.audit.log({ userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'submit_for_approval', entityType: 'contract', entityId: id, oldValues: { status: result.oldStatus }, newValues: { status: 'pending_approval' }, ipAddress: null });
     return this.get(user, id);
   }
 
@@ -138,9 +138,9 @@ export class ContractsService {
       if (status === 'active' && !['draft', 'suspended'].includes(String(row.status))) throw new BadRequestException('Only draft or suspended contracts can be activated.');
       if (status === 'suspended' && row.status !== 'active') throw new BadRequestException('Only active contracts can be suspended.');
       await client.query('UPDATE contracts SET status=$3,updated_at=NOW() WHERE company_id=$1 AND id=$2', [membership.companyId, id, status]);
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'status_change',entityType:'contract',entityId:id,oldValues:{status:row.status},newValues:{status},ipAddress:null});
       return { oldStatus: String(row.status) };
     });
-    await this.audit.log({ userId: user.userId, companyId: membership.companyId, branchId: membership.branchId, action: 'status_change', entityType: 'contract', entityId: id, oldValues: { status: result.oldStatus }, newValues: { status }, ipAddress: null });
     return this.get(user, id);
   }
 
@@ -177,9 +177,9 @@ export class ContractsService {
         await client.query('INSERT INTO requisition_items(company_id,requisition_id,product_id,quantity,notes) VALUES($1,$2,$3,$4,$5)',
           [membership.companyId, requisitionId, item.product_id, item.quantity, `Contract ${String(row.contract_number)}: ${item.description}${item.unit ? ` (${item.unit})` : ''}`]);
       }
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId:membership.companyId,branchId:targetBranchId??membership.branchId,action:'create_from_contract',entityType:'requisition',entityId:requisitionId,oldValues:null,newValues:{contractId:id,contractNumber:String(row.contract_number),status:'draft',itemCount:planned.rows.length},ipAddress:null});
       return { contractNumber: String(row.contract_number), branchId: targetBranchId, itemCount: planned.rows.length };
     });
-    await this.audit.log({ userId: user.userId, companyId: membership.companyId, branchId: result.branchId ?? membership.branchId, action: 'create_from_contract', entityType: 'requisition', entityId: requisitionId, oldValues: null, newValues: { contractId: id, contractNumber: result.contractNumber, status: 'draft', itemCount: result.itemCount }, ipAddress: null });
     return { id: requisitionId, requestNumber, contractId: id, status: 'draft', itemCount: result.itemCount, message: 'Draft requisition created. Review it and submit it through the normal approval workflow.' };
   }
   async addObligation(user:AuthenticatedUser,id:string,body:Record<string,unknown>) {
