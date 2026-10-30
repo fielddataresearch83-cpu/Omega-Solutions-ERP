@@ -81,22 +81,25 @@ export class PosService {
     }
     let register;
     try {
-      const result = await this.db.query(
-        `INSERT INTO pos_registers(company_id,branch_id,code,name)
-         VALUES($1,$2,$3,$4)
-         RETURNING id,company_id,branch_id,code,name,is_active,created_at`,
-        [companyId, input.branchId ?? null, code, name],
-      );
-      register = result.rows[0];
+      register = await this.db.transaction(async client => {
+        const result = await client.query(
+          `INSERT INTO pos_registers(company_id,branch_id,code,name)
+           VALUES($1,$2,$3,$4)
+           RETURNING id,company_id,branch_id,code,name,is_active,created_at`,
+          [companyId, input.branchId ?? null, code, name],
+        );
+        const saved = result.rows[0];
+        await this.audit.logInTransaction(client, {
+          userId:user.userId, companyId, branchId:input.branchId ?? null,
+          action:'pos.register.create', entityType:'pos_register', entityId:String(saved.id),
+          oldValues:null, newValues:{code,name}, ipAddress:null,
+        });
+        return saved;
+      });
     } catch (error) {
       if ((error as { code?: string }).code === '23505') throw new ConflictException('A register with this code already exists in this company.');
       throw error;
     }
-    await this.audit.log({
-      userId:user.userId, companyId, branchId:input.branchId ?? null,
-      action:'pos.register.create', entityType:'pos_register', entityId:String((register as {id:string}).id),
-      oldValues:null, newValues:{code,name}, ipAddress:null,
-    });
     return register;
   }
 
