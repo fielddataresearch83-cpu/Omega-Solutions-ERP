@@ -106,9 +106,9 @@ export class ManufacturingService {
     await client.query(`INSERT INTO manufacturing_order_materials(company_id,production_order_id,material_product_id,required_quantity,unit_cost)
      SELECT $1,$2,p.id,$4,COALESCE(NULLIF(s.average_unit_cost,0),p.cost_price) FROM products p LEFT JOIN inventory_stock_levels s ON s.company_id=p.company_id AND s.product_id=p.id AND s.warehouse_id=$5 WHERE p.company_id=$1 AND p.id=$3`,[companyId,created.rows[0].id,line.material_product_id,required,dto.warehouseId]);
    }
+   await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId,action:'manufacturing.order.create',entityType:'manufacturing_production_order',entityId:created.rows[0].id,oldValues:null,newValues:{bomId:dto.bomId,warehouseId:dto.warehouseId,plannedQuantity:dto.plannedQuantity},ipAddress:null});
    return created.rows[0].id;
   });
-  await this.audit.log({userId:user.userId,companyId,branchId,action:'manufacturing.order.create',entityType:'manufacturing_production_order',entityId:orderId,oldValues:null,newValues:{bomId:dto.bomId,warehouseId:dto.warehouseId,plannedQuantity:dto.plannedQuantity},ipAddress:null});
   return (await this.db.query('SELECT * FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2',[companyId,orderId])).rows[0];
  }
 
@@ -127,9 +127,10 @@ export class ManufacturingService {
     await client.query(`UPDATE manufacturing_order_materials SET reserved_quantity=required_quantity,unit_cost=CASE WHEN $4::numeric>0 THEN $4 ELSE unit_cost END WHERE company_id=$1 AND production_order_id=$2 AND material_product_id=$3`,[companyId,id,material.material_product_id,Number(reserved.rows[0].average_unit_cost??0)]);
    }
    await client.query(`UPDATE manufacturing_production_orders SET status='in_progress',actual_start_at=NOW(),material_reserved_at=NOW(),updated_at=NOW() WHERE company_id=$1 AND id=$2`,[companyId,id]);
-   return (await client.query(`SELECT * FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2`,[companyId,id])).rows[0];
+   const started=(await client.query(`SELECT * FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2`,[companyId,id])).rows[0];
+   await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId,action:'manufacturing.order.start',entityType:'manufacturing_production_order',entityId:id,oldValues:{status:'planned'},newValues:{status:'in_progress'},ipAddress:null});
+   return started;
   });
-  await this.audit.log({userId:user.userId,companyId,branchId,action:'manufacturing.order.start',entityType:'manufacturing_production_order',entityId:id,oldValues:{status:'planned'},newValues:{status:'in_progress'},ipAddress:null});
   return result;
  }
  async listOrderCosts(user:AuthenticatedUser,id:string){
@@ -152,9 +153,10 @@ export class ManufacturingService {
    const journalId=await this.postJournal(client,{companyId,description:'Production '+dto.costType+' cost for order '+id+': '+description,sourceType:dto.costType==='labour'?'manufacturing_labour_cost':'manufacturing_overhead_cost',sourceId:cost.rows[0].id,userId:user.userId,amount:dto.amount,debitSystem:'work_in_progress',creditAccountId:account.rows[0].id});
    if(!journalId)throw new BadRequestException('Cost journal was not created.');
    await client.query(`UPDATE manufacturing_order_costs SET journal_entry_id=$3 WHERE company_id=$1 AND id=$2`,[companyId,cost.rows[0].id,journalId]);
-   return (await client.query(`SELECT c.id,c.production_order_id,c.cost_type,c.description,c.amount,c.incurred_on,c.source_account_id,a.code AS source_account_code,a.name AS source_account_name,c.journal_entry_id,c.created_at FROM manufacturing_order_costs c JOIN chart_of_accounts a ON a.id=c.source_account_id AND a.company_id=c.company_id WHERE c.company_id=$1 AND c.id=$2`,[companyId,cost.rows[0].id])).rows[0];
+   const savedCost=(await client.query(`SELECT c.id,c.production_order_id,c.cost_type,c.description,c.amount,c.incurred_on,c.source_account_id,a.code AS source_account_code,a.name AS source_account_name,c.journal_entry_id,c.created_at FROM manufacturing_order_costs c JOIN chart_of_accounts a ON a.id=c.source_account_id AND a.company_id=c.company_id WHERE c.company_id=$1 AND c.id=$2`,[companyId,cost.rows[0].id])).rows[0];
+   await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId,action:'manufacturing.order.cost.create',entityType:'manufacturing_order_cost',entityId:savedCost.id,oldValues:null,newValues:{productionOrderId:id,costType:dto.costType,amount:dto.amount,sourceAccountId:dto.sourceAccountId},ipAddress:null});
+   return savedCost;
   });
-  await this.audit.log({userId:user.userId,companyId,branchId,action:'manufacturing.order.cost.create',entityType:'manufacturing_order_cost',entityId:result.id,oldValues:null,newValues:{productionOrderId:id,costType:dto.costType,amount:dto.amount,sourceAccountId:dto.sourceAccountId},ipAddress:null}); return result;
  }
  async completeOrder(user:AuthenticatedUser,id:string){
   const {companyId,branchId}=await this.companyFor(user);
