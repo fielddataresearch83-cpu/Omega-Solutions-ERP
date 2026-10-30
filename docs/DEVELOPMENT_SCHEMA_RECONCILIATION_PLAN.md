@@ -546,3 +546,33 @@ Validation on commit `293f8d52b12986d07e6e5ac277443a365e8b3cee`:
 - Clean disposable PostgreSQL migration/idempotency smoke workflow: passed.
 
 **Not yet completed:** a dedicated PostgreSQL integration test that injects an audit INSERT failure into a real business transaction and proves both business and audit writes roll back. Current tests verify the transaction writer's client usage and error propagation; CI's clean-PostgreSQL migration smoke is not that failure-injection test. Remaining standalone audit call sites (for example warehouse/master-data, register/assignment, supplier-bill creation and other manufacturing create/start/cost events) have not yet been migrated. No database schema/data, runtime DB role/grants, or production service was changed; no deployment was performed.
+
+
+## Expanded transactional audit migration — 2026-10-30
+
+The first tranche has been extended on the existing `development` branch.
+
+### Additional callers migrated
+
+- **Approvals:** purchase-order submission, contract submission, and approval/rejection decisions now write audit events using the same transaction client as the approval-request and linked business-state updates.
+- **Contracts:** contract creation and editing, submission for approval, activation/suspension, contract-to-requisition generation, obligation creation and obligation status updates now write their audit events inside the transaction that persists the operation.
+- **Inventory master data:** warehouse creation and update now share a transaction with their audit inserts. The update statement retains its company and branch predicates and parameterized placeholders.
+- **POS:** register creation and salesperson-to-warehouse assignment now write audit events inside their existing/new transaction.
+- **Procurement:** supplier-bill creation audit now shares the bill/items/journal transaction.
+
+Together with the earlier invoice, stock movement, POS checkout/shift, supplier-bill payment, and manufacturing workflow changes, the migrated areas now include the critical workflows and several related master-data operations.
+
+### Validation
+
+- Real PostgreSQL audit failure-injection test passed in the dedicated `transaction-integration` workflow on commit `fea604773fa8375c803f0982acafb8ef0bbe61d7`. It creates a disposable `audit_logs` table and a trigger that deliberately rejects the audit INSERT, then verifies that the preceding business write is also rolled back. The test cleans up its temporary schema in `afterAll`.
+- On latest code commit `05fc449b157f397e9f0e20551d8c48da79b7a8d9`, API build/unit tests/lint passed (run 41057552070), full validation including API tests and frontend build passed (run 41057552161), and clean PostgreSQL migration/idempotency smoke passed (run 41057552239).
+- The approval regression workflow passed on the latest commit.
+- A CI failure during this pass exposed and led to correction of a malformed warehouse-update placeholder, a missing return in manufacturing cost creation, a validated-title TypeScript narrowing issue, and two approval-test expectations still pointing to the standalone writer.
+
+### Still outstanding
+
+A repository-wide source scan still finds standalone audit writes in additional modules, including credit-note creation/refunds, purchase-order create/status/receipt, requisitions, expenses, employees/leave, branches, customers, products/image operations, and workforce operations. These need individual transaction-boundary review; do not blindly replace each call because some external file-storage side effects require an outbox/compensation design.
+
+The PostgreSQL failure-injection test currently proves the shared transaction boundary and AuditService writer behavior using a representative business-table write. It does not yet execute every migrated service method under a failing audit trigger. Add service-level PostgreSQL tests for high-value paths as those callers are migrated.
+
+No production deployment, live Neon schema change, business-data mutation, database role/grant change, or branch creation was performed.
