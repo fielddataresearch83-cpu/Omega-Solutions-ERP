@@ -358,3 +358,38 @@ Read-only review of `InvoicesController`, `InvoicesService.list/getById`, `Suppl
 - Trial balance accepts an explicit date and filters posted journal entries by `entry_date`, but its default date label is derived from the application server's UTC date. A future period-reporting contract should use explicit inclusive/exclusive date boundaries and a single documented business timezone.
 
 **Disposition:** the invoice and supplier-bill list APIs are not paginated or period-filtered in the reviewed implementation. This strengthens the recommendation for dedicated server-side reporting contracts. The supplier-bill records and journals provide source data for input VAT, but no input-tax subledger reconciliation was found in the reviewed accounting routes. No fixes or migrations were applied.
+
+
+## Accounting and inventory lifecycle integrity review — 2026-10-30
+
+Read-only review of the accounting service, inventory service and focused specs, invoice status/payment paths, POS checkout and POS specs, and invoice stock-reversal spec. No application source, schema, business data, or production services were changed.
+
+### Confirmed positive controls
+
+- Invoice send/cancel and payment confirmation use database transactions. Invoice status/payment paths lock the invoice row before applying their related ledger and customer-balance updates.
+- POS checkout uses a request-key advisory transaction lock and returns the existing sale for a retry by the same cashier. Stock issue, invoice/item creation, sale record, sales/COGS journals, payment records and customer balance updates occur inside the checkout transaction.
+- POS checkout uses the selected warehouse's weighted-average cost for both stock issue and COGS; the same transaction writes stock movement and stock-level changes.
+- Manual inventory receipt/issue/adjustment updates stock level, movement history, legacy product quantity and (for non-zero cost) the inventory adjustment journal within one transaction.
+- Stock transfers lock both warehouse/product rows in sorted warehouse-ID order, update both stock levels, write paired movements under one transfer group, and synchronize legacy product quantity in one transaction. No net inventory journal is expected for a same-company warehouse transfer.
+- Accounting AP/AR reconciliation runs its control-account, subledger and ageing reads in a read-only REPEATABLE READ transaction, reducing inconsistent cross-query snapshots.
+
+### Confirmed reporting/reconciliation consistency gap
+
+- Inventory `reconciliation()` runs its stock-vs-movement, legacy product quantity, and valuation-vs-inventory-control queries through three independent `db.query` calls in `Promise.all`, not one repeatable-read snapshot.
+- Concurrent receipts, issues, transfers, POS checkouts, adjustments or journal postings can occur between those queries. The returned combined report can therefore compare different database states and show a transient false mismatch (or miss a mismatch that is corrected between reads).
+- The focused inventory spec verifies the three comparisons and that they are read-only, but does not verify a consistent snapshot under concurrent writes.
+
+**Recommended:** execute the three reconciliation queries in one `REPEATABLE READ READ ONLY` transaction, as the accounting reconciliations already do. Add a test asserting the isolation statement and that all three queries use the same transaction client.
+
+### Confirmed lifecycle test-coverage gaps
+
+- `invoices.stock.spec.ts` contains one focused test proving cancellation restores a POS sale to the checkout warehouse and uses the stored issue cost. It does not exercise the full status-cancellation transaction, journal reversal, customer balance update, rollback on a failed journal, or repeated cancellation.
+- POS specs cover idempotent retry and COGS journal-line construction, but the reviewed focused tests do not demonstrate an end-to-end transaction rollback across stock, invoice, POS sale, journals, payments and customer balances.
+- Inventory specs cover paired transfer movement writes, row locking and quantity checks, and the read-only reconciliation query shapes. They do not provide PostgreSQL-backed concurrency tests for competing issue/transfer/adjustment requests or failure injection after each stage to prove atomic rollback.
+- Accounting service specs cover AP/AR reconciliation outputs and account seeding; the reviewed tests do not comprehensively assert ledger balance invariants across invoice, payment, credit-note, supplier-bill and stock lifecycles.
+
+### Scope limitation
+
+The code paths inspected show several well-structured transactional safeguards, but mocked unit tests do not prove PostgreSQL locking behavior, isolation, rollback semantics, trigger/constraint enforcement, or deployed database compatibility. No live business-data transaction tests were run. Treat these as code-review findings, not a production accounting certification.
+
+**Disposition:** no definite unbalanced journal or tenant-crossing defect was established in this pass. The concrete new issue is that inventory reconciliation does not use a consistent database snapshot. The principal remaining risk is insufficient PostgreSQL-backed lifecycle/concurrency/rollback evidence across the integrated workflows.
