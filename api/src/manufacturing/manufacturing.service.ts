@@ -157,6 +157,7 @@ export class ManufacturingService {
    await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId,action:'manufacturing.order.cost.create',entityType:'manufacturing_order_cost',entityId:savedCost.id,oldValues:null,newValues:{productionOrderId:id,costType:dto.costType,amount:dto.amount,sourceAccountId:dto.sourceAccountId},ipAddress:null});
    return savedCost;
   });
+  return result;
  }
  async completeOrder(user:AuthenticatedUser,id:string){
   const {companyId,branchId}=await this.companyFor(user);
