@@ -115,7 +115,7 @@ After approval and execution, verify catalog definitions, constraints, indexes, 
 - The expected objects from many missing migrations already exist, but presence alone does not prove the migration was applied equivalently. Compare full column definitions, constraints, indexes, data invariants, and migration checksums on an isolated clone before classifying any as fully applied.
 - `products.image_url` and `products.image_storage_key` and their storage-key index exist.
 - `employees.national_id` and `idx_employees_company_national_id` exist. The monthly attendance import tables and many expected constraints also exist.
-- POS register/shift/sale tables exist. `invoice_payments.pos_shift_id`, the composite shift/invoice constraints, and `idx_pos_sales_company_request_id` exist. However, the two expected one-open-shift indexes (`uq_pos_one_open_shift_per_register`, `uq_pos_one_open_shift_per_cashier_company`) were not found in the targeted index query.
+- POS register/shift/sale tables exist. `invoice_payments.pos_shift_id`, the composite shift/invoice constraints, `idx_pos_sales_company_request_id`, and both expected one-open-shift partial unique indexes exist. A later complete `pg_indexes` read on 2026-10-30 confirmed `uq_pos_one_open_shift_per_register` and `uq_pos_one_open_shift_per_cashier_company`; the earlier targeted query result was incomplete and its contrary statement is superseded.
 - `inventory_stock_levels.average_unit_cost` and `idx_inventory_stock_company_cost` exist. The migration's historical cost backfill and current valuation correctness have **not** been certified by this catalog check.
 - `company_invitations` and its pending-email unique index exist; `user_mfa` exists.
 - `subscription_payments`, `auth_rate_limits`, `auth_refresh_tokens`, and `mpesa_stk_requests` exist with several expected indexes.
@@ -164,3 +164,17 @@ These are provisional triage labels from the catalog reads, not final “applied
 - No unexplained ledger gaps or schema drift remain after the approved repair.
 - Clean-install, upgrade, idempotency, tenant-isolation, finance, stock, and critical workflow tests pass.
 - Backup/restore and recovery instructions are proven, not merely documented.
+
+
+## Follow-up catalog verification — 2026-10-30
+
+All checks below were read-only against the same development database; no DDL or row changes were made.
+
+- Current validation run [40909097738](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40909097738) completed successfully on development HEAD `85bf9d094a4efe8f9d916b830628462c9263f34a`: API build/tests/lint, purchase-order approval regression, frontend build, and dependency-audit reporting all passed.
+- A broader `pg_indexes` catalog result confirms both POS one-open-shift partial unique indexes are present and match the predicates/keys declared by migration 030. This corrects the earlier 2026-10-29 statement that they were absent. Do not create or replay them.
+- The following expected tax/credit-note columns remain absent: `invoice_items.tax_treatment`, `quotation_items.tax_treatment`, `supplier_bill_items.tax_treatment`, `credit_note_items.invoice_item_id`, and `credit_note_items.tax_treatment`. The corresponding migration 202610260003 and 202610260006 checks/definitions therefore remain an actionable schema gap.
+- `supplier_bills.supplier_invoice_number` remains present, but the partial expression unique index `supplier_bills_supplier_invoice_number_unique` remains absent. The application advisory-lock mitigation does not replace the database constraint. No duplicate preflight or index creation was performed in this follow-up.
+- The full catalog result was large and truncated by the inspection interface; it is useful for object discovery but is not a retained schema-only dump and does not complete the required exact definition comparison. Constraints, triggers, functions, grants, RLS policies, ownership, and data invariants still require a complete isolated-clone diff.
+- The inspection connection remains `neondb_owner` with `BYPASSRLS`; Render runtime identity is still unverified. The finding of zero RLS policies remains a release blocker.
+
+**Current classification adjustment:** migration 030's two one-open-shift indexes are present; do not classify those indexes as missing. Migration 024 remains definition-mismatched because the live employee foreign-key delete actions differ from the migration's `ON DELETE RESTRICT`. The migration ledger still has 18 missing filenames; no ledger rows were inserted.
