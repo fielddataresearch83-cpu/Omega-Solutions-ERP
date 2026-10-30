@@ -189,8 +189,10 @@ export class ContractsService {
     const {membership,row}=await this.scoped(user,id); this.assertBranchWritable(membership,row); const obligationId=randomUUID();
     const dueDate=body.dueDate===undefined||body.dueDate===null?null:body.dueDate as string;
     const notes=body.notes===undefined||body.notes===null?null:body.notes as string;
-    await this.db.query('INSERT INTO contract_obligations(id,company_id,contract_id,title,due_date,notes) VALUES($1,$2,$3,$4,$5,$6)',[obligationId,membership.companyId,id,body.title.trim(),dueDate,notes]);
-    await this.audit.log({userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'create',entityType:'contract_obligation',entityId:obligationId,oldValues:null,newValues:{contractId:id,title:body.title,dueDate,status:'open'},ipAddress:null});
+    await this.db.transaction(async client=>{
+      await client.query('INSERT INTO contract_obligations(id,company_id,contract_id,title,due_date,notes) VALUES($1,$2,$3,$4,$5,$6)',[obligationId,membership.companyId,id,body.title.trim(),dueDate,notes]);
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'create',entityType:'contract_obligation',entityId:obligationId,oldValues:null,newValues:{contractId:id,title:body.title,dueDate,status:'open'},ipAddress:null});
+    });
     return this.get(user,id);
   }
   async updateObligation(user:AuthenticatedUser,id:string,obligationId:string,body:Record<string,unknown>) {
