@@ -83,7 +83,7 @@ export class PurchaseOrdersService {
   }
   async updateStatus(user: AuthenticatedUser,id:string,dto:UpdatePurchaseOrderStatusDto) {
     const m=await this.companyFor(user); this.assertCompanyWideProcurement(m);
-    const state=await this.db.transaction(async client=>{
+    await this.db.transaction(async client=>{
       const res=await client.query<{status:string}>('SELECT status FROM purchase_orders WHERE id=$1 AND company_id=$2 FOR UPDATE',[id,m.companyId]);
       const row=res.rows[0];if(!row)throw new NotFoundException('Purchase order not found.');
       if(dto.status==='ordered'&&row.status==='draft') {
@@ -98,7 +98,6 @@ export class PurchaseOrdersService {
       }
       else throw new BadRequestException(`Cannot change purchase order status from ${row.status} to ${dto.status}.`);
       await this.audit.logInTransaction(client, {userId:user.userId,companyId:m.companyId,branchId:null,action:'purchase_order.status_change',entityType:'purchase_order',entityId:id,oldValues:{status:row.status},newValues:{status:dto.status},ipAddress:null});
-      return row.status;
     });
     return this.getById(user,id);
   }
