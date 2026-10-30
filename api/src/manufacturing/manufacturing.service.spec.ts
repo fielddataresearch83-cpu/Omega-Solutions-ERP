@@ -35,12 +35,12 @@ describe('ManufacturingService',()=>{
  });
 
  const user:AuthenticatedUser={userId:'user-1',email:'owner@example.test',fullName:'Owner',companyId:'company-active',branchId:null,role:'owner',permissions:['manufacturing:read','manufacturing:write']};
- let db:{query:Mock;transaction:Mock};let memberships:{getMembership:Mock;getMembershipForCompany:Mock};let audit:{log:Mock};let service:ManufacturingService;
+ let db:{query:Mock;transaction:Mock};let memberships:{getMembership:Mock;getMembershipForCompany:Mock};let audit:{log:Mock;logInTransaction:Mock};let service:ManufacturingService;
  beforeEach(()=>{
   db={query:vi.fn(),transaction:vi.fn()};
   const membership={companyId:'company-active',branchId:null,role:'owner'};
   memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-default'}),getMembershipForCompany:vi.fn().mockResolvedValue(membership)};
-  audit={log:vi.fn().mockResolvedValue(undefined)};
+  audit={log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)};
   service=new ManufacturingService(db as unknown as DatabaseService,memberships as unknown as MembershipsService,audit as unknown as AuditService);
  });
  it('scopes BOM listing to the active company',async()=>{
@@ -87,7 +87,7 @@ describe('ManufacturingService',()=>{
   const result=await service.cancelOrder(user,'order-1');
   expect(result.status).toBe('cancelled');
   expect(client.query).toHaveBeenCalledWith(expect.stringContaining('reserved_quantity=reserved_quantity-$1'),[3,'company-active','warehouse-1','material-1']);
-  expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({action:'manufacturing.order.cancel',oldValues:{status:'in_progress'},newValues:{status:'cancelled'}}));
+  expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({action:'manufacturing.order.cancel',oldValues:{status:'in_progress'},newValues:{status:'cancelled'}}));
  });
 
  it('blocks production start when component stock is insufficient', async () => {
@@ -125,7 +125,7 @@ describe('ManufacturingService',()=>{
   const lines=client.query.mock.calls.filter((call:[string,unknown[]])=>call[0].includes('INSERT INTO journal_entry_lines'));
   expect(lines).toHaveLength(4);
   expect(lines.map((call:[string,unknown[]])=>[call[1][4],call[1][5]])).toEqual([[100,0],[0,100],[100,0],[0,100]]);
-  expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({action:'manufacturing.order.complete'}));
+  expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({action:'manufacturing.order.complete'}));
  });
 
  it('does not post production journals a second time for an already completed order',async()=>{
