@@ -13,7 +13,7 @@ describe('PosService', () => {
   let service: PosService;
   let db: { query: Mock; transaction: Mock };
   let memberships: { getMembership: Mock; getMembershipForCompany: Mock };
-  let audit: { log: Mock };
+  let audit: { log: Mock; logInTransaction: Mock };
   let accounting: { ensureDefaults: Mock };
   const user = { userId: 'cashier-1', companyId: 'company-1', permissions: ['sales:team-read'] } as any;
 
@@ -23,7 +23,7 @@ describe('PosService', () => {
       getMembership: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'owner' }),
       getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'owner' }),
     };
-    audit = { log: vi.fn().mockResolvedValue(undefined) };
+    audit = { log: vi.fn().mockResolvedValue(undefined), logInTransaction: vi.fn().mockResolvedValue(undefined) };
     accounting = { ensureDefaults: vi.fn().mockResolvedValue(undefined) };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -115,7 +115,7 @@ describe('PosService', () => {
     expect(cashCall?.[1]).toEqual(['company-1', 'shift-1']);
     expect(String(cashCall?.[0])).toContain("status IN ('confirmed','reconciled')");
     expect(String(cashCall?.[0])).toContain("method='cash'");
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'pos.shift.close', entityId: 'shift-1' }));
+    expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'pos.shift.close', entityId: 'shift-1' }));
   });
 
   it('returns the original sale for a retry by the same cashier without creating another sale', async () => {
