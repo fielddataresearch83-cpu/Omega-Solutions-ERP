@@ -76,9 +76,9 @@ export class PurchaseOrdersService {
       }
       const inserted=await client.query<{id:string}>(`INSERT INTO purchase_orders(company_id,supplier_id,order_number,expected_date,status,subtotal,tax_amount,total,notes,created_by) VALUES($1,$2,$3,$4,'draft',$5,$6,$7,$8,$9) RETURNING id`,[companyId,dto.supplierId,number,dto.expectedDate??null,subtotal,taxAmount,subtotal+taxAmount,dto.notes??null,user.userId]);
       for(const l of lines) await client.query(`INSERT INTO purchase_order_items(company_id,purchase_order_id,product_id,product_name,sku,quantity,unit_cost,tax_rate,line_subtotal,tax_amount,line_total) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[companyId,inserted.rows[0].id,l.productId,l.name,l.sku,l.qty,l.cost,l.rate,l.sub,l.tax,l.total]);
+      await this.audit.logInTransaction(client, {userId:user.userId,companyId,branchId:null,action:'purchase_order.create',entityType:'purchase_order',entityId:inserted.rows[0].id,oldValues:null,newValues:{supplierId:dto.supplierId},ipAddress:null});
       return inserted.rows[0].id;
     });
-    await this.audit.log({userId:user.userId,companyId,branchId:null,action:'purchase_order.create',entityType:'purchase_order',entityId:id,oldValues:null,newValues:{supplierId:dto.supplierId},ipAddress:null});
     return this.getById(user,id);
   }
   async updateStatus(user: AuthenticatedUser,id:string,dto:UpdatePurchaseOrderStatusDto) {
@@ -97,9 +97,9 @@ export class PurchaseOrdersService {
         await client.query("UPDATE purchase_orders SET status='cancelled',updated_at=NOW() WHERE id=$1 AND company_id=$2",[id,m.companyId]);
       }
       else throw new BadRequestException(`Cannot change purchase order status from ${row.status} to ${dto.status}.`);
+      await this.audit.logInTransaction(client, {userId:user.userId,companyId:m.companyId,branchId:null,action:'purchase_order.status_change',entityType:'purchase_order',entityId:id,oldValues:{status:row.status},newValues:{status:dto.status},ipAddress:null});
       return row.status;
     });
-    await this.audit.log({userId:user.userId,companyId:m.companyId,branchId:null,action:'purchase_order.status_change',entityType:'purchase_order',entityId:id,oldValues:{status:state},newValues:{status:dto.status},ipAddress:null});
     return this.getById(user,id);
   }
   async listReceipts(user: AuthenticatedUser, id: string) {
@@ -229,8 +229,8 @@ export class PurchaseOrdersService {
       const sums=await client.query<{ordered:string|number;received:string|number}>('SELECT COALESCE(SUM(quantity),0) ordered,COALESCE(SUM(received_quantity),0) received FROM purchase_order_items WHERE purchase_order_id=$1 AND company_id=$2',[id,m.companyId]);
       const done=Number(sums.rows[0].ordered)>0&&Number(sums.rows[0].received)+0.0000001>=Number(sums.rows[0].ordered);
       await client.query('UPDATE purchase_orders SET status=$1,updated_at=NOW() WHERE id=$2 AND company_id=$3',[done?'received':'partially_received',id,m.companyId]);
+      await this.audit.logInTransaction(client, {userId:user.userId,companyId:m.companyId,branchId:null,action:'purchase_order.receive',entityType:'purchase_order',entityId:id,oldValues:{status:po.status},newValues:{status:done?'received':'partially_received',warehouseId:dto.warehouseId,itemCount:dto.items.length,receiptId},ipAddress:null});
     });
-    await this.audit.log({userId:user.userId,companyId:m.companyId,branchId:null,action:'purchase_order.receive',entityType:'purchase_order',entityId:id,oldValues:null,newValues:{warehouseId:dto.warehouseId,itemCount:dto.items.length,receiptId},ipAddress:null});
     const receiptResult = await this.db.query(
       `SELECT id,company_id,purchase_order_id,warehouse_id,receipt_reference,notes,received_by,received_at,receipt_value
        FROM goods_receipts WHERE id=$1 AND company_id=$2 AND purchase_order_id=$3`,
