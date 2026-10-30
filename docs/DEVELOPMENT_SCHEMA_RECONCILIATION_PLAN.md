@@ -393,3 +393,33 @@ Read-only review of the accounting service, inventory service and focused specs,
 The code paths inspected show several well-structured transactional safeguards, but mocked unit tests do not prove PostgreSQL locking behavior, isolation, rollback semantics, trigger/constraint enforcement, or deployed database compatibility. No live business-data transaction tests were run. Treat these as code-review findings, not a production accounting certification.
 
 **Disposition:** no definite unbalanced journal or tenant-crossing defect was established in this pass. The concrete new issue is that inventory reconciliation does not use a consistent database snapshot. The principal remaining risk is insufficient PostgreSQL-backed lifecycle/concurrency/rollback evidence across the integrated workflows.
+
+
+## Invoice payment, cancellation and audit-atomicity review — 2026-10-30
+
+Read-only review of `InvoicesService` payment report/confirm/reject/reconcile and status transitions, `SupplierBillsService.recordPayment`, `CreditNotesService.recordRefund`, POS checkout/shift close, and `AuditService.log`. No application code, schema, business data, or production services were changed.
+
+### Confirmed financial lifecycle safeguards
+
+- Invoice payment reporting locks the company-scoped invoice row, totals existing pending reports, and rejects a new report that would exceed the remaining amount after confirmed payments and credits.
+- Payment confirmation locks the invoice first and then the company/invoice-scoped payment row. It only accepts pending reports, rechecks the remaining invoice balance, creates a balanced receipt journal, marks the payment confirmed, updates invoice paid amount/status, updates any linked POS sale, and reduces customer outstanding balance in one database transaction.
+- Payment rejection only transitions pending reports. Reconciliation only transitions confirmed reports and requires a non-empty statement reference; neither transition posts a second receipt journal.
+- Invoice cancellation locks the invoice, refuses paid/partially-paid invoices, refuses invoices with issued credit notes, and refuses any non-rejected payment report. For eligible sent/overdue invoices, stock restoration, COGS reversal, sales/tax/receivable reversal, customer-balance adjustment and invoice status update are in one transaction.
+- Supplier-bill payment locks the bill row, checks the outstanding amount under that lock, inserts the payment, posts the AP/cash-or-bank journal, and updates paid amount/status in one transaction. This serializes concurrent payments against the same bill.
+- Credit-note refunds lock the customer-credit balance and check remaining refundable value before recording a refund and balanced journal (previous review).
+
+### Confirmed audit atomicity gap affecting financial operations
+
+- The reviewed invoice payment report, payment confirmation, payment rejection, payment reconciliation, invoice status transition, supplier-bill payment, credit-note refund and POS checkout paths call `audit.log` after their financial database transaction has committed.
+- `AuditService.log` inserts the audit row using a separate `db.query`, catches database errors only to log them, and then rethrows the error.
+- Therefore, if the audit insert fails after a successful financial commit, the API request can return an error even though the payment/status/checkout/refund has persisted. The user may reasonably retry an action that already happened. For payment confirmation, a retry then fails because the payment is no longer pending; for non-idempotent payment reporting, a retry can create another pending report if remaining balance permits. The audit record is also absent for the committed operation.
+- POS checkout has a request-key idempotency path that can return the prior sale on retry, but that does not remove the missing-audit-record problem. Other reviewed invoice actions do not expose equivalent general request idempotency keys.
+- This is an application-level consistency issue between the financial transaction and its required audit trail; it is not a journal imbalance finding.
+
+**Recommended:** write the audit event in the same database transaction/client as the financial mutation, so both commit or roll back together. If audit delivery must be asynchronous, use a transactional outbox written in the financial transaction and a retryable dispatcher with unique event identity; do not silently swallow audit failures. Add failure-injection tests proving that an audit insert failure cannot leave an unaudited committed financial mutation, and idempotency tests for retry after ambiguous network/database failures.
+
+### Scope and disposition
+
+- The code reviewed contains meaningful invoice-first row locking, balance rechecks, transaction grouping and balanced journal construction. No definite duplicate journal or overpayment race was established in these inspected paths.
+- Mocked tests and source review do not prove PostgreSQL concurrency/rollback behavior. No live financial transactions were executed.
+- No code fixes or database changes were applied. The new confirmed finding is audit/financial-transaction atomicity and ambiguous retry behavior.
