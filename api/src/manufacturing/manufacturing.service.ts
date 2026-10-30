@@ -193,9 +193,10 @@ export class ManufacturingService {
     if(totalProductionCost>0) await this.postJournal(client,{companyId,description:`Finished goods received from production order ${id}`,sourceType:'manufacturing_finished_goods',sourceId:id,userId:user.userId,amount:totalProductionCost,debitSystem:'inventory',creditSystem:'work_in_progress'});
    }
    await client.query(`UPDATE manufacturing_production_orders SET status='completed',produced_quantity=$3,completed_at=NOW(),materials_consumed_at=NOW(),updated_at=NOW() WHERE company_id=$1 AND id=$2`,[companyId,id,finishedQuantity]);
-   return (await client.query(`SELECT * FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2`,[companyId,id])).rows[0];
+   const completed=(await client.query(`SELECT * FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2`,[companyId,id])).rows[0];
+   await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId,action:'manufacturing.order.complete',entityType:'manufacturing_production_order',entityId:id,oldValues:{status:'in_progress'},newValues:{status:'completed',producedQuantity:completed.produced_quantity},ipAddress:null});
+   return completed;
   });
-  await this.audit.log({userId:user.userId,companyId,branchId,action:'manufacturing.order.complete',entityType:'manufacturing_production_order',entityId:id,oldValues:{status:'in_progress'},newValues:{status:'completed',producedQuantity:result.produced_quantity},ipAddress:null});
   return result;
  }
 
@@ -222,9 +223,10 @@ export class ManufacturingService {
     }
    }
    await client.query(`UPDATE manufacturing_production_orders SET status='cancelled',updated_at=NOW() WHERE company_id=$1 AND id=$2`,[companyId,id]);
-   return (await client.query(`SELECT * FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2`,[companyId,id])).rows[0];
+   const cancelled=(await client.query(`SELECT * FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2`,[companyId,id])).rows[0];
+   await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId,action:'manufacturing.order.cancel',entityType:'manufacturing_production_order',entityId:id,oldValues:{status:previousStatus},newValues:{status:'cancelled'},ipAddress:null});
+   return cancelled;
   });
-  await this.audit.log({userId:user.userId,companyId,branchId,action:'manufacturing.order.cancel',entityType:'manufacturing_production_order',entityId:id,oldValues:{status:previousStatus},newValues:{status:'cancelled'},ipAddress:null});
   return result;
  }
 }
