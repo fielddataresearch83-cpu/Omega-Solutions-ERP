@@ -199,9 +199,11 @@ export class ContractsService {
     const {membership,row}=await this.scoped(user,id); this.assertBranchWritable(membership,row);
     const status=String(body.status??'');
     if(!['open','in_progress','completed','waived'].includes(status)) throw new BadRequestException('Invalid obligation status.');
-    const result=await this.db.query('UPDATE contract_obligations SET status=$4,completed_at=CASE WHEN $4=\'completed\' THEN NOW() ELSE NULL END WHERE company_id=$1 AND contract_id=$2 AND id=$3 RETURNING id',[membership.companyId,id,obligationId,status]);
-    if(!result.rows[0]) throw new NotFoundException('Contract obligation not found.');
-    await this.audit.log({userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'status_change',entityType:'contract_obligation',entityId:obligationId,oldValues:null,newValues:{contractId:id,status},ipAddress:null});
+    await this.db.transaction(async client=>{
+      const result=await client.query('UPDATE contract_obligations SET status=$4,completed_at=CASE WHEN $4=\\'completed\\' THEN NOW() ELSE NULL END WHERE company_id=$1 AND contract_id=$2 AND id=$3 RETURNING id',[membership.companyId,id,obligationId,status]);
+      if(!result.rows[0]) throw new NotFoundException('Contract obligation not found.');
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId:membership.companyId,branchId:membership.branchId,action:'status_change',entityType:'contract_obligation',entityId:obligationId,oldValues:null,newValues:{contractId:id,status},ipAddress:null});
+    });
     return this.get(user,id);
   }
 }
