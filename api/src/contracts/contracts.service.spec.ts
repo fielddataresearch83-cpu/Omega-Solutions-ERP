@@ -11,7 +11,7 @@ describe('ContractsService branch mutation authorization', () => {
   let service: ContractsService;
   let db: { query: Mock; transaction: Mock };
   let memberships: { getMembership: Mock; getMembershipForCompany: Mock };
-  let audit: { log: Mock };
+  let audit: { log: Mock; logInTransaction: Mock };
   const user = { userId: 'user-branch-a', companyId: 'company-1', branchId: 'branch-a' } as any;
 
   beforeEach(async () => {
@@ -27,7 +27,7 @@ describe('ContractsService branch mutation authorization', () => {
         role: 'staff',
       }),
     };
-    audit = { log: vi.fn().mockResolvedValue(undefined) };
+    audit = { log: vi.fn().mockResolvedValue(undefined), logInTransaction: vi.fn().mockResolvedValue(undefined) };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ContractsService,
@@ -165,7 +165,7 @@ describe('ContractsService branch mutation authorization', () => {
     await service.update(user, 'contract-a', { title: 'Branch contract' });
 
     expect(db.transaction).toHaveBeenCalledTimes(1);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+    expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
       companyId: 'company-1',
       branchId: 'branch-a',
       action: 'update',
