@@ -248,3 +248,44 @@ Existing service specs cover company-scoped listing, over-quantity rejection, du
 Add isolated tests for these cases before marking the credit-note integrity work complete. The service's invoice-row lock is a sound serialization mechanism for this path, but a concurrency regression test should verify it against PostgreSQL rather than mocks alone.
 
 **Disposition:** application-level tenant/ownership validation for new credit-note creation is present in the inspected code. The unresolved blockers are historical credit reconciliation, database-enforced referential/company integrity, missing live migration effects, and targeted regression coverage. No fix or migration was applied.
+
+
+## Tax transaction-path review — 2026-10-30
+
+Read-only review of the tax policy resolver, invoice/quotation/purchase-order/supplier-bill/credit-note services, DTOs, selected types/specs, and tax migrations. No source code or database objects/rows were changed.
+
+### Confirmed controls
+
+- `readCompanyTaxPolicy` fails closed for malformed non-empty settings and malformed configured policies. A VAT-registered configured company must supply a valid standard rate.
+- In configured mode, invoice and quotation creation load each product within the current company, use the product's persisted tax treatment/rate, reject legacy/unclassified products, reject standard-rated sales for non-VAT-registered companies, and require standard product rates to match the company standard rate.
+- Invoice and quotation line calculations use integer cents and round line tax to cents. Their inserts persist the resolved `tax_treatment`, `tax_rate`, subtotal, tax and total.
+- Purchase-order creation also loads company-owned products and resolves configured tax using the product's persisted treatment/rate. It stores the calculated rate and amounts on purchase-order lines.
+- Supplier-bill creation requires a valid treatment enum when supplied and uses the shared resolver. In configured mode, a standard-rated bill line must match the company's standard rate and non-standard treatments calculate zero tax. Supplier-bill lines persist treatment/rate and amounts; bill posting separates input tax from payable in the journal.
+- Credit-note creation copies tax rate and tax treatment from the locked original invoice line and computes reversal tax from the original line's unit price and requested credit quantity. Journal entries debit output tax by the calculated credit tax.
+
+### Confirmed read/API omission: tax treatment is not returned for invoice or quotation detail lines
+
+- `InvoicesService.getById` selects invoice line `tax_rate` and amounts but omits `tax_treatment`, even though creation writes it.
+- `QuotationsService.getById` likewise omits `tax_treatment`, even though creation writes it.
+- The corresponding `InvoiceItemRow` and `QuotationItemRow` types also do not declare `tax_treatment`.
+- This prevents API consumers from reliably displaying/auditing the stored tax classification snapshot on invoice and quotation detail responses. Add the column to both detail SELECTs and row types, then test response serialization and UI display. Do not infer treatment from the current product record because product classification may have changed after the transaction.
+
+### Confirmed purchase-order snapshot gap
+
+- Purchase-order creation resolves tax treatment from the product but its in-memory line structure and INSERT persist only `tax_rate` and calculated amounts; `purchase_order_items` does not receive a `tax_treatment` snapshot.
+- The purchase-order DTO accepts a client tax-rate override but not a treatment; the resolver correctly applies product treatment/rate at creation. However, once the product changes classification, the purchase-order line cannot independently reveal the exact treatment originally applied.
+- Decide whether purchase orders are intended to be immutable tax snapshots. If yes, add a forward migration for `purchase_order_items.tax_treatment`, persist the resolved value, and expose it in detail responses. Backfill historical rows only where treatment can be proven; otherwise mark them explicitly legacy/unknown without recalculating amounts.
+
+### Supplier-bill policy distinction requiring explicit product decision
+
+- Supplier-bill DTO accepts `taxTreatment` and `taxRate` from the authorized bill creator. For configured policy, the resolver validates the standard rate against company policy, but it does not derive supplier input-tax treatment from the purchase-order/product line. This may be intentional because supplier invoice input-tax evidence can differ from the product's sales/output tax classification; document that distinction and require the operator to classify from the supplier tax invoice. If the intended rule is to inherit purchase-order/product treatment, the current flow does not enforce it.
+- Existing supplier-bill service tests cover duplicate references and branch restrictions but do not test configured tax-policy behaviour, tax-treatment snapshots, or the input-tax journal for standard/zero-rated/exempt/out-of-scope cases. Add focused tests to pin down the intended supplier-input-tax policy before changing the implementation.
+
+### Test coverage and remaining review
+
+- `tax-policy.spec.ts` covers legacy compatibility, standard-rate matching, VAT-registration requirements, unclassified-product rejection, exempt zero-tax handling, and malformed policies.
+- Purchase-order tax specs exist, but invoice/quotation tax-path specs and configured supplier-bill tax-path specs were not found in the reviewed focused spec files.
+- Migration 202610260003 adds NOT NULL DEFAULT `legacy` treatment snapshots and CHECK constraints to invoice, quotation and supplier-bill lines; those columns remain absent from the inspected shared development schema. Migration 202610260006 adds the credit-note treatment snapshot, also absent. No migration was run.
+- Accounting journals currently post output/input tax using aggregate amounts and the configured tax control accounts. This review did not find a tax-return/VAT-summary report implementation in the inspected accounting service; a separate report/UI search is still needed before certifying end-to-end tax reporting.
+
+**Disposition:** creation-time policy enforcement is present for sales invoices, quotations and purchase orders. The confirmed gaps are missing tax-treatment fields in invoice/quotation detail responses, missing purchase-order treatment snapshots, untested supplier-bill policy semantics, absent live snapshot migration effects, and incomplete tax-report verification. No fixes or migrations were applied.
