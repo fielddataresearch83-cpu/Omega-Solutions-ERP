@@ -34,7 +34,7 @@ export class ApprovalsService {
   async submitPurchaseOrder(user: AuthenticatedUser, id: string) {
     const membership = await this.companyFor(user);
     if (membership.branchId) throw new ForbiddenException('Purchase orders are company-wide until branch attribution is supported. A company-wide procurement administrator must submit them for approval.');
-    const oldStatus = await this.db.transaction(async client => {
+    await this.db.transaction(async client => {
       const found = await client.query(
         'SELECT id,status,created_by FROM purchase_orders WHERE company_id=$1 AND id=$2 FOR UPDATE',
         [membership.companyId, id]);
@@ -57,7 +57,7 @@ export class ApprovalsService {
 
   async submitContract(user: AuthenticatedUser, id: string) {
     const membership = await this.companyFor(user);
-    const result = await this.db.transaction(async client => {
+    await this.db.transaction(async client => {
       const found = await client.query('SELECT id,status,created_by,branch_id FROM contracts WHERE company_id=$1 AND id=$2 AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',[membership.companyId,id,membership.branchId]);
       const row=found.rows[0];
       if(!row) throw new NotFoundException('Contract not found.');
