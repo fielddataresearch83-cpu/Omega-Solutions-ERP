@@ -499,3 +499,31 @@ A safe rollout should be staged:
 - Do not add RLS policies or change DB roles as part of this application fix without isolated rehearsal and explicit approval. Existing tenant scoping in the audit list is application-level.
 
 **Disposition:** transaction-aware audit writes can reuse the existing `DatabaseService.transaction` client. The key change is to the audit service contract and its callers, not a wholesale rewrite of the database layer. No application code, migration, schema, business data or production service was changed in this review.
+
+
+## High-risk caller transaction mapping — 2026-10-30
+
+Follow-up source review of invoice, inventory, POS, supplier-bill and manufacturing services and their focused specs. This narrows the first implementation tranche to existing transaction boundaries; no source changes were made.
+
+| Workflow | Existing DB transaction | Audit currently outside it | Retry / test observations |
+|---|---|---|---|
+| Invoice creation | Yes; customer/product validation, invoice and item inserts, stock/ledger work | `invoice.create` after commit | No evidence in reviewed path of a general request idempotency key |
+| Invoice payment report | Yes; locks invoice and inserts pending payment report | `invoice.payment.report` after commit | Retrying an ambiguous successful request can create another pending report while remaining balance permits |
+| Invoice payment confirmation | Yes; locks invoice/payment, posts receipt journal, updates invoice/payment/sale/customer balance | `invoice.payment.confirm` after commit | A retry sees non-pending payment; caller can receive error after successful commit |
+| Invoice payment reject/reconcile | Yes; guarded payment status transition | Audit after commit | No duplicate journal expected from these status-only transitions; audit can still be missing |
+| Invoice status update/cancel | Yes; locks and mutates invoice and reverses linked stock/ledger where applicable | Status audit after commit | Cancellation has business preconditions; audit failure leaves completed cancellation with error response |
+| Inventory adjust/transfer/receipt/issue | Yes; stock levels, movement rows, weighted-average cost and journal where applicable | Movement audit helper after commit | No operation-level idempotency key identified in reviewed method signatures |
+| POS checkout | Yes; advisory lock on request ID and sale/stock/invoice/journal/payment writes | Audit after commit | Checkout already has request-key idempotency; retry returns existing sale, but missing audit event remains |
+| POS shift open/close | Yes; shift/register state changes | Audit after commit | No audit-in-transaction behavior in reviewed paths |
+| Supplier-bill create/payment | Yes; bill/items/postings and payment/AP/cash journal | Audit after commit | Payment row lock protects outstanding amount; request idempotency not established |
+| Manufacturing BOM/order create, start, costs, complete, cancel | Yes; operational/stock/journal work where applicable | Audit after commit | No general idempotency key identified in reviewed method signatures |
+
+### First implementation tranche (proposal only)
+
+1. Extend `AuditService` with an explicit `logInTransaction(client, entry)` method. It must issue the same parameterized INSERT through the supplied client and must not catch-and-continue; errors must escape to the caller and roll back the transaction.
+2. Add focused unit tests for the SQL/parameters and error propagation, plus a database integration test that runs a sample mutation and audit insert through one `DatabaseService.transaction` and injects an audit insert failure.
+3. Migrate invoice payment report/confirmation and invoice cancellation/status changes; inventory movement/transfer/adjustment; POS checkout and shift open/close; supplier-bill payment; manufacturing completion/cancellation. Keep existing business locks and operation order.
+4. Add stable idempotency keys to non-idempotent externally retriable commands as a separate contract change, with unique company-scoped operation records. Do not reuse POS checkout's request key without verifying its scope, retention and caller contract.
+5. Verify that the tests run against PostgreSQL, not only mocked `PoolClient` objects. Existing service specs are largely mock-based and the reviewed specs do not establish atomic rollback under an actual database failure.
+
+**Important boundary:** this mapping confirms source-level transaction placement, not live database concurrency behavior. It is a migration plan, not authorization to modify application code or database schema. No fixes, commits to application code, migrations, DB writes or deployments were performed.
