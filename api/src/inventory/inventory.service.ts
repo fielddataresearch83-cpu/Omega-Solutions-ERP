@@ -145,7 +145,7 @@ export class InventoryService {
     try {
       return await this.db.transaction(async client => {
         const result = await client.query<WarehouseRow>(
-          `UPDATE warehouses SET ${fields.join(',')} WHERE id=${values.length-2} AND company_id=${values.length-1} AND (${values.length}::uuid IS NULL OR branch_id=${values.length}) RETURNING *`, values as (string|number|boolean|null)[],
+          `UPDATE warehouses SET ${fields.join(',')} WHERE id=$${values.length-2} AND company_id=$${values.length-1} AND ($${values.length}::uuid IS NULL OR branch_id=$${values.length}) RETURNING *`, values as (string|number|boolean|null)[],
         );
         if (!result.rows[0]) throw new NotFoundException('Warehouse not found.');
         await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:result.rows[0].branch_id,action:'inventory.warehouse.update',entityType:'warehouse',entityId:warehouseId,oldValues:{name:existing.name,code:existing.code},newValues:{name:result.rows[0].name,code:result.rows[0].code},ipAddress:null});
