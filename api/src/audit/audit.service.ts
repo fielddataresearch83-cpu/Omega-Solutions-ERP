@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService, QueryParams } from '../database.service.js';
+import type { PoolClient } from 'pg';
 
 export interface AuditEntry {
   userId: string | null;
@@ -34,6 +35,41 @@ export class AuditService {
       [companyId, safeLimit, branchId],
     );
     return result.rows;
+  }
+
+
+  /**
+   * Persist an audit event on the caller's transaction connection. The caller
+   * must await this before returning from DatabaseService.transaction so an
+   * audit failure aborts the business mutation as well.
+   */
+  async logInTransaction(client: PoolClient, entry: AuditEntry): Promise<void> {
+    const sql = `
+      INSERT INTO audit_logs
+        (user_id, company_id, branch_id, action, entity_type, entity_id, old_values, new_values, ip_address)
+      VALUES
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `;
+    const params: QueryParams = [
+      entry.userId,
+      entry.companyId,
+      entry.branchId,
+      entry.action,
+      entry.entityType,
+      entry.entityId,
+      entry.oldValues ? JSON.stringify(entry.oldValues) : null,
+      entry.newValues ? JSON.stringify(entry.newValues) : null,
+      entry.ipAddress,
+    ];
+
+    try {
+      await client.query(sql, params);
+    } catch (err) {
+      this.logger.error(
+        `Failed to write transactional audit log for ${entry.action} (${entry.entityType}:${entry.entityId ?? 'unknown'}): ${err instanceof Error ? err.stack ?? err.message : String(err)}`,
+      );
+      throw err;
+    }
   }
 
   async log(entry: AuditEntry): Promise<void> {
