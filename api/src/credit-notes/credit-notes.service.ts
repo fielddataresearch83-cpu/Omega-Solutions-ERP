@@ -176,12 +176,12 @@ export class CreditNotesService {
         'UPDATE customer_credit_balances SET refunded_amount=refunded_amount+$1,updated_at=NOW() WHERE id=$2 AND company_id=$3',
         [amount, balance.id, companyId],
       );
+      await this.audit.logInTransaction(client, {
+        userId: user.userId, companyId, branchId: branchId ?? null, action: 'credit_note.refund',
+        entityType: 'customer_credit_refund', entityId: inserted.rows[0].id, oldValues: null,
+        newValues: { creditNoteId, amount, method: dto.method, reference }, ipAddress: null,
+      });
       return inserted.rows[0];
-    });
-    await this.audit.log({
-      userId: user.userId, companyId, branchId: branchId ?? null, action: 'credit_note.refund',
-      entityType: 'customer_credit_refund', entityId: refund.id, oldValues: null,
-      newValues: { creditNoteId, amount, method: dto.method, reference }, ipAddress: null,
     });
     return this.getById(user, creditNoteId);
   }
@@ -350,12 +350,12 @@ export class CreditNotesService {
           [receivableAmount, invoice.customer_id, companyId],
         );
       }
+      await this.audit.logInTransaction(client, {
+        userId: user.userId, companyId, branchId: branchId ?? null, action: 'credit_note.create',
+        entityType: 'credit_note', entityId: note.rows[0].id, oldValues: null,
+        newValues: { invoiceId: dto.invoiceId, reason, subtotal, tax, total, issueDate }, ipAddress: null,
+      });
       return note.rows[0];
-    });
-    await this.audit.log({
-      userId: user.userId, companyId, branchId: branchId ?? null, action: 'credit_note.create',
-      entityType: 'credit_note', entityId: created.id, oldValues: null,
-      newValues: { invoiceId: dto.invoiceId, reason, subtotal, tax, total, issueDate }, ipAddress: null,
     });
     return this.getById(user, created.id);
   }
