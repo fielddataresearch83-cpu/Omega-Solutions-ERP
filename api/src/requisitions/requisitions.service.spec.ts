@@ -12,7 +12,7 @@ describe('RequisitionsService approval submission', () => {
   let db: { query: Mock; transaction: Mock };
   let client: { query: Mock };
   let memberships: { getMembership: Mock; getMembershipForCompany: Mock };
-  let audit: { log: Mock };
+  let audit: { log: Mock; logInTransaction: Mock };
   const user = { userId: 'requester-1', companyId: 'company-1', branchId: null } as any;
 
   beforeEach(async () => {
@@ -25,7 +25,7 @@ describe('RequisitionsService approval submission', () => {
       getMembership: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'staff' }),
       getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'staff' }),
     };
-    audit = { log: vi.fn().mockResolvedValue(undefined) };
+    audit = { log: vi.fn().mockResolvedValue(undefined), logInTransaction: vi.fn().mockResolvedValue(undefined) };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RequisitionsService,
@@ -56,7 +56,7 @@ describe('RequisitionsService approval submission', () => {
     expect(calls[0][1]).toEqual(['company-1', 'req-1']);
     expect(calls.some(([sql, params]) => sql.includes('INSERT INTO approval_requests') && sql.includes("'pending'") && params?.[2] === 'req-1' && params?.[3] === user.userId)).toBe(true);
     expect(calls.some(([sql, params]) => sql.includes("UPDATE requisitions SET status='pending_approval'") && params?.[0] === 'company-1' && params?.[1] === 'req-1')).toBe(true);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+    expect(audit.logInTransaction).toHaveBeenCalledWith(client, expect.objectContaining({
       companyId: 'company-1', action: 'submit_for_approval', entityType: 'requisition', entityId: 'req-1',
     }));
   });
@@ -69,7 +69,7 @@ describe('RequisitionsService approval submission', () => {
 
     await expect(service.submit(user, 'req-1')).rejects.toThrow(BadRequestException);
     expect(client.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO approval_requests'))).toBe(false);
-    expect(audit.log).not.toHaveBeenCalled();
+    expect(audit.logInTransaction).not.toHaveBeenCalled();
   });
 
   it('does not resubmit a requisition that is already pending approval', async () => {
