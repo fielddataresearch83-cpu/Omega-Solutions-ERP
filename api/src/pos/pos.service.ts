@@ -166,9 +166,10 @@ export class PosService {
       if(branchId && w.rows[0].branch_id!==branchId) throw new ForbiddenException('You can only assign warehouses within your assigned branch.');
       const duplicate=await client.query('SELECT user_id FROM salesperson_stock_assignments WHERE company_id=$1 AND warehouse_id=$2 AND is_active=true AND user_id<>$3 FOR UPDATE',[companyId,input.warehouseId,input.userId]);
       if(duplicate.rows[0]) throw new BadRequestException('Warehouse already assigned to another salesperson.');
-      return (await client.query(`INSERT INTO salesperson_stock_assignments(company_id,user_id,warehouse_id,assigned_by,is_active) VALUES($1,$2,$3,$4,true) ON CONFLICT(company_id,user_id) DO UPDATE SET warehouse_id=EXCLUDED.warehouse_id,assigned_by=EXCLUDED.assigned_by,is_active=true,updated_at=NOW() RETURNING id,user_id,warehouse_id,is_active`,[companyId,input.userId,input.warehouseId,user.userId])).rows[0];
+      const saved=(await client.query(`INSERT INTO salesperson_stock_assignments(company_id,user_id,warehouse_id,assigned_by,is_active) VALUES($1,$2,$3,$4,true) ON CONFLICT(company_id,user_id) DO UPDATE SET warehouse_id=EXCLUDED.warehouse_id,assigned_by=EXCLUDED.assigned_by,is_active=true,updated_at=NOW() RETURNING id,user_id,warehouse_id,is_active`,[companyId,input.userId,input.warehouseId,user.userId])).rows[0];
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'salesperson_stock.assign',entityType:'salesperson_stock_assignment',entityId:String(saved.id),oldValues:null,newValues:{userId:input.userId,warehouseId:input.warehouseId},ipAddress:null});
+      return saved;
     });
-    await this.audit.log({userId:user.userId,companyId,branchId:null,action:'salesperson_stock.assign',entityType:'salesperson_stock_assignment',entityId:String(saved.id),oldValues:null,newValues:{userId:input.userId,warehouseId:input.warehouseId},ipAddress:null});
     return saved;
   }
   async searchProducts(user:AuthenticatedUser, search?:string, warehouseId?:string) {
