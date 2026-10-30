@@ -50,10 +50,10 @@ export class ExpensesService {
     await client.query(`INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit) VALUES($1,$2,$3,$4,$5,0),($1,$2,$6,$7,0,$5)`,
      [companyId,journal.rows[0].id,expenseAccount.rows[0].id,dto.description.trim(),amount,cashAccount.rows[0].id,`Paid by ${dto.paymentMethod}`]);
     await client.query('UPDATE expenses SET journal_entry_id=$1 WHERE id=$2 AND company_id=$3',[journal.rows[0].id,expense.id,companyId]);
+    await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:membership.branchId,action:'expenses.create',entityType:'expense',entityId:expense.id,oldValues:null,newValues:{amount,category:dto.category,paymentMethod:dto.paymentMethod},ipAddress:null});
     return expense.id;
    });
   }catch(error){if((error as {code?:string}).code==='23505')throw new ConflictException('An expense with this number already exists.');throw error;}
-  await this.audit.log({userId:user.userId,companyId,branchId:membership.branchId,action:'expenses.create',entityType:'expense',entityId:expenseId,oldValues:null,newValues:{amount,category:dto.category,paymentMethod:dto.paymentMethod},ipAddress:null});
   return (await this.db.query(`SELECT e.id,e.company_id,e.expense_number,e.expense_date,e.description,e.category,e.amount,e.payment_method,e.reference,e.expense_account_id,a.code AS account_code,a.name AS account_name,e.journal_entry_id,e.created_at FROM expenses e JOIN chart_of_accounts a ON a.id=e.expense_account_id AND a.company_id=e.company_id WHERE e.company_id=$1 AND e.id=$2`,[companyId,expenseId])).rows[0];
  }
 }
