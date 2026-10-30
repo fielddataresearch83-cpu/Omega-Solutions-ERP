@@ -70,10 +70,10 @@ export class ManufacturingService {
      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id`,[companyId,code,name,dto.productId,dto.outputQuantity,dto.notes?.trim()||null,user.userId]);
     for(const line of dto.lines)await client.query(`INSERT INTO manufacturing_bom_lines(company_id,bom_id,material_product_id,quantity,waste_percent,notes)
      VALUES($1,$2,$3,$4,$5,$6)`,[companyId,result.rows[0].id,line.materialProductId,line.quantity,line.wastePercent??0,line.notes?.trim()||null]);
+    await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId,action:'manufacturing.bom.create',entityType:'manufacturing_bom',entityId:result.rows[0].id,oldValues:null,newValues:{code,name,productId:dto.productId,lines:dto.lines.length},ipAddress:null});
     return result.rows[0].id;
    });
   }catch(e){if((e as {code?:string}).code==='23505')throw new ConflictException('A BOM with this code already exists in this company.');throw e;}
-  await this.audit.log({userId:user.userId,companyId,branchId,action:'manufacturing.bom.create',entityType:'manufacturing_bom',entityId:createdId,oldValues:null,newValues:{code,name,productId:dto.productId,lines:dto.lines.length},ipAddress:null});
   return this.getBom(user,createdId);
  }
  async listOrders(user:AuthenticatedUser){
