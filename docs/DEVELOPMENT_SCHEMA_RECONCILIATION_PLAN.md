@@ -178,3 +178,34 @@ All checks below were read-only against the same development database; no DDL or
 - The inspection connection remains `neondb_owner` with `BYPASSRLS`; Render runtime identity is still unverified. The finding of zero RLS policies remains a release blocker.
 
 **Current classification adjustment:** migration 030's two one-open-shift indexes are present; do not classify those indexes as missing. Migration 024 remains definition-mismatched because the live employee foreign-key delete actions differ from the migration's `ON DELETE RESTRICT`. The migration ledger still has 18 missing filenames; no ledger rows were inserted.
+
+
+## Focused migration-definition review — 2026-10-30
+
+Read-only review of repository migration SQL against live catalog evidence:
+
+### Migration 024 — workforce assignments and attendance
+
+- Repository SQL explicitly declares `employee_assignments(employee_id, company_id) -> employees(id, company_id) ON DELETE RESTRICT` and `attendance_records(employee_id, company_id) -> employees(id, company_id) ON DELETE RESTRICT`.
+- Live catalog instead reports both composite employee foreign keys with `ON DELETE CASCADE`. This is a confirmed definition mismatch, not merely an assumption from table existence.
+- Live `employee_assignments(site_id, company_id)` and `attendance_records(assignment_id, company_id)` use `ON DELETE RESTRICT`, matching the migration.
+- Do not “fix” the live constraints directly. First establish whether cascade behaviour is relied on by existing workflows and inspect dependent rows on a disposable clone; then produce a reviewed forward-only migration if needed.
+
+### Migration 202610260003 — transaction tax snapshots
+
+- Migration adds `tax_treatment` as NOT NULL DEFAULT `legacy` to invoice, quotation, and supplier-bill line tables, plus named CHECK constraints and column comments.
+- Live catalog still lacks all three columns. Exact remediation must verify defaults, nullability, constraints, comments, and application write/read paths on an isolated clone before any shared migration.
+
+### Migration 202610260005 — supplier invoice uniqueness
+
+- Migration's preflight groups non-void bills by company, supplier, and normalized invoice number (`LOWER(BTRIM(...))`), then creates a partial unique expression index.
+- A read-only duplicate preflight on 2026-10-30 returned zero duplicate groups for the current development data. This is a point-in-time observation only; rerun the exact preflight immediately before any future index creation because concurrent writes can introduce duplicates.
+- The required index remains absent in the live catalog. No index was created.
+
+### Migration 202610260006 — credit-note invoice-line link
+
+- Migration adds nullable `invoice_item_id UUID`, `tax_treatment NOT NULL DEFAULT 'legacy'`, a CHECK constraint, and a lookup index.
+- **Definition review finding:** the migration does not declare a foreign key from `credit_note_items.invoice_item_id` to `invoice_items.id`, nor a composite company-scoped foreign key. Its comment says the line references an original invoice line, but the DDL itself does not enforce referential or same-company integrity. This should be reviewed as a migration design gap before applying it; do not silently alter historical migration files. A new forward migration should be designed after checking key uniqueness and service-level transaction validation.
+- Both columns remain absent from the live schema.
+
+No schema, ledger, or business rows were changed. This is not authorization to apply migrations.
