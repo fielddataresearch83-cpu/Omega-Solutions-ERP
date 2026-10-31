@@ -1,4 +1,4 @@
-name: Generate safe dependency remediation locks
+name: Refresh API dependency lockfile and validate workspaces
 
 on:
   push:
@@ -26,19 +26,18 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Use npm with the Arborist peer-resolution fix
+        run: npm install --global npm@11.6.0
+
       - name: Regenerate API dependency lockfile
         working-directory: api
-        run: rm -f package-lock.json && (npm install --package-lock-only --no-audit --no-fund || { cat /home/runner/.npm/_logs/*debug-0.log; exit 1; })
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
       - name: Install API dependencies after lockfile update
         working-directory: api
         run: npm ci --no-audit --no-fund
 
-      - name: Regenerate frontend dependency lockfile
-        working-directory: vite-version
-        run: rm -f package-lock.json && npm install --package-lock-only --no-audit --no-fund
-
-      - name: Install frontend dependencies after lockfile update
+      - name: Install frontend dependencies from the committed lockfile
         working-directory: vite-version
         run: npm ci --no-audit --no-fund
 
@@ -62,7 +61,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add api/package-lock.json vite-version/package-lock.json
+          git add api/package-lock.json
           if git diff --cached --quiet; then
             echo "No dependency lockfile changes to commit."
           else
