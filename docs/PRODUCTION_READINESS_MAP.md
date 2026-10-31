@@ -2,9 +2,10 @@
 
 > **Single source of truth for the production-readiness audit.** Update this file as work is completed so the same checks are not repeated.
 >
-> Repository: [pestria72-code/Omega-Solutions](https://github.com/pestria72-code/Omega-Solutions)  
+> Repository: [fielddataresearch83-cpu/Omega-Solutions-Local-Development](https://github.com/fielddataresearch83-cpu/Omega-Solutions-Local-Development)  
+> Source repository `pestria72-code/Omega-Solutions` is not to be modified.  
 > Working branch: `development` only  
-> Initial baseline checked: `ecef9cebde0a65e2882dab1ca7421de4090d2c26` (2026-10-29)  
+> Current verified checkpoint: `453cf0d7d503dde6d519061a5bb4a52f1dc33e55` (2026-10-31)  
 > Status: **AUDIT IN PROGRESS — not approved for production**
 
 ## Operating rules
@@ -13,7 +14,7 @@
 2. Do not intentionally change, deploy to, or mutate production. Do not use production data for tests.
 3. Do not mutate business data in the shared development database during audit. Use isolated/disposable test databases or controlled fixtures for tests that require writes.
 4. Do not add demo/sample business data or bypass authentication. Do not use the prohibited dashboard E2E account.
-5. Inspect and document evidence before changing code. Fix one coherent issue at a time, add/regress tests, and run relevant CI before moving on.
+5. Inspect and document evidence before changing code. Fix one coherent issue at a time, add/regress tests, and run relevant CI before moving on. **Do not push unvalidated code.** Run the local pre-push gate first; if a check fails, stop and fix it before pushing. Push one coherent, locally verified commit to the existing `development` branch, then wait for every applicable GitHub Actions workflow to complete successfully before starting the next change. A successful workflow run validates only the commit and checks it actually ran.
 6. Never mark an item complete because code exists or a page renders. Mark it complete only after its acceptance criteria have been verified and evidence is recorded below.
 7. Do not run the unrelated **“Deploy Template to ShadcnStore”** workflow. Audit workflow targets before triggering any deployment workflow.
 8. No production deployment until all release gates pass and the user explicitly authorizes release.
@@ -27,22 +28,28 @@
 - If evidence becomes stale after related code changes, reopen the affected item.
 - Before each session, read **Current checkpoint**, **Open findings**, and the relevant module section first. Continue from the first unchecked high-priority item; do not restart completed checks without a reason.
 - “Not applicable” requires a written reason and reviewer confirmation; it is not equivalent to verified.
-- This is a manually maintained Markdown checklist; it is not a GitHub Actions automation. The agreed workflow is to update it after each completed/verified task.
+- This is a manually maintained Markdown checklist; it is not a GitHub Actions automation. Update it after each completed/verified task. Do not mark tasks complete based only on a passing general CI run.
+- GitHub Actions runs are validation evidence, not a mechanism for selecting or pushing code. The repository currently has overlapping workflows and differing Node versions; record this as an open CI-governance issue until a safe consolidation is locally tested. Do not use direct GitHub Contents API commits as a substitute for local pre-push validation.
+- Do not run workflows that alter Neon Auth configuration, mutate shared business data, send messages, or interact with Render/Vercel. Manual live workflows require a separate explicit authorization and side-effect review.
 
 ## Current checkpoint
 
-- [x] Confirm current `development` HEAD and record the latest completed full validation. Evidence (2026-10-29): [Development validation run 40907213680](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40907213680) passed API build/tests, purchase-order approval regression, API lint, frontend build, and dependency-audit reporting on commit `9c748e574fe57afdc3965370eda177e4a7fb95f2`. A subsequent documentation-only schema-reconciliation update is now at `3ff399e72abf58468c41dd82945b59ce19c1da34`; its push triggered a new validation run, so do not claim that newer HEAD is validated until that run completes.
-- [x] Fix MFA recovery-code stale-array race and verify concurrent PostgreSQL behavior in isolated CI. Atomic SQL fix: `44290f1c1c4b7002197eefd8cacfcf0ace93db1e`; SQL regression assertion: `8715644855847f531407d5c656320b688c5fbad6`; PostgreSQL integration tests and ephemeral Postgres CI service added in commits `62f61f86c3657aa1eae689ddddfd09a3aa280ec6`, `7ee7125a57b1e3dc70c3af4d4f1528463f098c51`, and `e9b58b23b07f2881921291de2b21448c16b3292d`. [Run 40882243954 passed](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40882243954); job logs confirm `mfa.service.postgres.spec.ts (2 tests)`, 57 test files and 419 tests passed. The test ran against the ephemeral PostgreSQL 16 service, not shared Neon.
-- [x] Continue read-only route and authentication review against the current branch; no production deploy or shared business-data mutation.
+- [x] Confirm current repository, branch, and CI status. Evidence (2026-10-31): repository is `fielddataresearch83-cpu/Omega-Solutions-Local-Development`; current `development` HEAD is `453cf0d7d503dde6d519061a5bb4a52f1dc33e55`. The source repository `pestria72-code/Omega-Solutions` remains untouched.
+- [x] Verify the latest commit's applicable GitHub Actions workflows. All three runs completed successfully on `453cf0d7`: [Development validation run 41209470336](https://github.com/fielddataresearch83-cpu/Omega-Solutions-Local-Development/actions/runs/41209470336), [Validate Omega development run 41209470291](https://github.com/fielddataresearch83-cpu/Omega-Solutions-Local-Development/actions/runs/41209470291), and [Workforce API validation run 41209470278](https://github.com/fielddataresearch83-cpu/Omega-Solutions-Local-Development/actions/runs/41209470278). The previous commit `8be82ca` had three failed runs; the two purchasing test mock fixes in `453cf0d7` were followed by three passing runs. This is commit-level CI evidence, not production-readiness approval.
+- [ ] Establish and verify a local pre-push validation gate in the user's working copy. Do not push further code until local API build/tests/lint, frontend build/lint as applicable, and disposable PostgreSQL integration/migration checks have been run successfully. A GitHub-hosted CI result cannot retroactively serve as a pre-push gate.
+- [ ] Resolve overlapping CI workflows and Node-version inconsistency. Current workflow inventory shows `development-validation.yml` uses Node 24, `validate-development.yml` uses Node 24, and `workforce-validation.yml` uses Node 22, while the repository `.nvmrc` specifies Node 22.22.3. Confirm package engine compatibility, then consolidate or clearly partition checks; do not change workflows until the proposed configuration is validated locally.
+- [ ] Make CI a reliable release gate: ensure required checks are configured/enforced on the existing `development` branch. Branch protection was previously observed disabled; recheck through an authorized owner/admin route. Do not claim required checks are enforced.
 - [ ] Complete route-to-service authorization inventory and isolated negative tests.
-- [ ] Confirm the Render runtime PostgreSQL role without exposing credentials; Render service metadata/logs do not reveal the connected DB role. Current live Neon inspection shows no public RLS policies and the inspected owner role bypasses RLS. [Tenant-isolation remediation design](https://github.com/pestria72-code/Omega-Solutions/blob/development/docs/TENANT_ISOLATION_REMEDIATION.md) documents the required pooled-connection-safe approach; no shared role or policy changes were made.
+- [ ] Confirm the Render runtime PostgreSQL role without exposing credentials; do not alter Render. The 2026-10-29 read-only Neon catalog inspection found 55 public tables with RLS enabled but zero policies; inspected owner role bypassed RLS. This does not establish which role the API runtime uses.
 - [ ] Design and test a least-privilege tenant-isolation approach on an isolated/disposable database before any shared-database changes.
-- [ ] Address branch protection / required checks; current `development` branch remains unprotected.
+- [ ] Reconcile the shared development database migration ledger/schema safely using an isolated schema clone; do not run catch-up migrations or mutate shared Neon as part of this audit.
 
-**Last completed task:** Full development validation passed on `9c748e574fe57afdc3965370eda177e4a7fb95f2` in [run 40907213680](https://github.com/pestria72-code/Omega-Solutions/actions/runs/40907213680). Fresh read-only catalog comparison against development Neon reconfirmed 48 ledger entries/18 gaps and found partial object presence plus specific gaps: two expected POS open-shift uniqueness indexes absent; tax-treatment columns absent from invoice, quotation, and supplier-bill lines; credit-note original-line/tax columns absent; supplier-invoice uniqueness index absent. `average_unit_cost` column/index exist, but the historical valuation anomaly remains open. No shared rows or schema were changed.  
-**Next task:** (1) Inspect the validation run triggered by the latest docs-only commit; (2) complete exact object/constraint/grant comparison for all 18 missing migration ledger files on an isolated schema clone, including the FK delete-action mismatch in migration 024; (3) verify Render runtime role and run non-owner tenant-isolation negatives in disposable PostgreSQL; (4) configure branch protection/required checks through owner/admin settings. Keep shared Neon unchanged.  
-**Current branch:** `development` (existing branch only).  
-**Reviewed source HEAD recorded by this map:** `3ff399e72abf58468c41dd82945b59ce19c1da34` (2026-10-29); this tracker edit will itself advance the branch HEAD. Work remains on the existing `development` branch only.
+**Last completed task:** The two purchasing test mocks were corrected in commit `453cf0d7`; all three applicable GitHub Actions workflows passed on that exact commit (run IDs above). No production, Vercel, Render configuration, or shared business data was intentionally changed by this checkpoint.
+
+**Next task:** Establish a repeatable local pre-push gate, then address CI workflow overlap/Node consistency without triggering external side effects. After CI governance is reliable, resume P0 tenant-isolation work: identify the actual API runtime DB role, map company/branch context through services and pooled transactions, and prove cross-tenant denial using disposable PostgreSQL. Keep shared Neon unchanged.
+
+**Current branch:** `development` (existing branch only). No new branches.
+
 **Production status:** NOT APPROVED; P0 tenant-isolation and governance blockers remain.
 
 ## Status legend
