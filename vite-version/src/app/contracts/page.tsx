@@ -96,7 +96,7 @@ export default function ContractsPage(){
   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total contracts</CardTitle></CardHeader><CardContent><div className="text-2xl font-semibold">{contracts.length}</div></CardContent></Card>
    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Active contracts</CardTitle></CardHeader><CardContent><div className="text-2xl font-semibold">{contracts.filter(c=>c.status==="active").length}</div></CardContent></Card>
-   <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Ending in 60 days</CardTitle></CardHeader><CardContent><div className="text-2xl font-semibold">{contracts.filter(c=>c.status==="active"&&c.end_date>=today&&c.end_date<=new Date(Date.now()+60*86400000).toISOString().slice(0,10)).length}</div></CardContent></Card>
+   <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Ending in 60 days</CardTitle></CardHeader><CardContent><div className="text-2xl font-semibold">{contracts.filter(c=>c.status==="active"&&c.end_date>=today&&c.end_date<=sixtyDaysFromToday).length}</div></CardContent></Card>
    <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Open obligations</CardTitle></CardHeader><CardContent><div className="text-2xl font-semibold">{contracts.reduce((sum,c)=>sum+Number(c.open_obligations||0),0)}</div></CardContent></Card>
   </div>
   {showForm&&<Card><CardHeader><CardTitle>{editingId?"Edit draft contract":"Create a contract"}</CardTitle></CardHeader><CardContent className="space-y-5">
