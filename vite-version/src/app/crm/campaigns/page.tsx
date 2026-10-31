@@ -42,7 +42,7 @@ export default function CrmCampaignsPage(){
   catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load campaigns.")}
   finally{setLoading(false)}
  },[])
- React.useEffect(()=>{void Promise.resolve().then(load)},[load])
+ React.useEffect(()=>{let active=true;void Promise.all([api.get<Campaign[]>("/crm/campaigns?limit=100&offset=0"),api.get<Lead[]>("/crm/leads"),api.get<Segment[]>("/crm/segments")]).then(result=>{if(active){setCampaigns(result[0]);setHasMore(result[0].length===100);setLeads(result[1]);setSegments(result[2]);}}).catch(e=>{if(active)setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load campaigns.");}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[])
 
  async function loadMore(){
   if(loadingMore||!hasMore)return
