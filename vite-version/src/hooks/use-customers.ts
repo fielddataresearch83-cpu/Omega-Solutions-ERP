@@ -10,16 +10,21 @@ export function useCustomers() {
   const refetch = React.useCallback(() => {
     setLoading(true)
     setError(null)
-    api
+    return api
       .get<CustomerRow[]>("/customers")
-      .then(setCustomers)
-      .catch((err: { message?: string }) => setError(err.message ?? "Failed to load customers"))
+      .then((rows) => { setCustomers(rows); return rows })
+      .catch((err: { message?: string }) => { setError(err.message ?? "Failed to load customers"); throw err })
       .finally(() => setLoading(false))
   }, [])
 
   React.useEffect(() => {
-    refetch()
-  }, [refetch])
+    let active = true
+    api.get<CustomerRow[]>("/customers")
+      .then((rows) => { if (active) setCustomers(rows) })
+      .catch((err: { message?: string }) => { if (active) setError(err.message ?? "Failed to load customers") })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
 
   return { customers, loading, error, refetch }
 }
