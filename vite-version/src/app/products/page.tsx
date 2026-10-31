@@ -80,7 +80,7 @@ export default function ProductsPage() {
   const selectProductImage = (file: File | null) => {
     if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current)
     imagePreviewUrlRef.current = null
-    selectProductImage(file)
+    setSelectedImage(file)
     if (file) {
       const url = URL.createObjectURL(file)
       imagePreviewUrlRef.current = url
