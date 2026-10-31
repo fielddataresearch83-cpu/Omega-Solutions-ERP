@@ -31,6 +31,8 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: vite-version/package-lock.json
+      - name: Use npm 11.6.0 for stable peer dependency resolution
+        run: npm install --global npm@11.6.0
       - name: Validate E2E API target and mutation safety
         shell: bash
         run: |
