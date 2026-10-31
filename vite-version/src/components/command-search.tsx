@@ -33,23 +33,11 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
 
   React.useEffect(() => {
     const term = query.trim()
+    if (term.length < 2 || !open) return
     let cancelled = false
-    if (term.length < 2) {
-      void Promise.resolve().then(() => {
-        if (cancelled) return
-        setResults([])
-        setSearchError("")
-        setIsSearching(false)
-      })
-      return () => { cancelled = true }
-    }
-
-    void Promise.resolve().then(() => {
-      if (cancelled) return
+    const timeout = window.setTimeout(async () => {
       setIsSearching(true)
       setSearchError("")
-    })
-    const timeout = window.setTimeout(async () => {
       try {
         const found = await api.get<SearchResult[]>(`/search?q=${encodeURIComponent(term)}`)
         if (!cancelled) setResults(Array.isArray(found) ? found : [])
@@ -62,32 +50,36 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
         if (!cancelled) setIsSearching(false)
       }
     }, 250)
-
     return () => {
       cancelled = true
       window.clearTimeout(timeout)
     }
-  }, [query])
+  }, [query, open])
 
-  React.useEffect(() => {
-    let cancelled = false
-    if (!open) {
-      void Promise.resolve().then(() => {
-        if (cancelled) return
-        setQuery("")
-        setResults([])
-        setSearchError("")
-        setIsSearching(false)
-      })
+  const handleQueryChange = (value: string) => {
+    setQuery(value)
+    if (value.trim().length < 2) {
+      setResults([])
+      setSearchError("")
+      setIsSearching(false)
     }
-    return () => { cancelled = true }
-  }, [open])
+  }
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setQuery("")
+      setResults([])
+      setSearchError("")
+      setIsSearching(false)
+    }
+    onOpenChange(nextOpen)
+  }
 
   const handleSelect = (url: string) => {
     navigate(url)
     setQuery("")
     setResults([])
-    onOpenChange(false)
+    handleOpenChange(false)
   }
 
   const term = query.trim()
@@ -95,7 +87,7 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
   return (
     <CommandDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       title="Search Omega Solutions"
       description="Search company records you have permission to access"
       className="sm:max-w-[640px]"
@@ -105,7 +97,7 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
           placeholder="Search customers, products, invoices…"
           autoFocus
           value={query}
-          onValueChange={setQuery}
+          onValueChange={handleQueryChange}
         />
         <CommandList className="max-h-[400px]">
           {term.length < 2 ? (
