@@ -8,17 +8,25 @@ export function useCompany(companyId: string | null) {
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    if (!companyId) {
-      setCompany(null)
-      return
-    }
-    setLoading(true)
-    setError(null)
-    api
-      .get<CompanyRow>(`/companies/${companyId}`)
-      .then(setCompany)
-      .catch((err: { message?: string }) => setError(err.message ?? "Failed to load company"))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (!companyId) {
+        if (!cancelled) setCompany(null)
+        return null
+      }
+      if (!cancelled) {
+        setLoading(true)
+        setError(null)
+      }
+      return api.get<CompanyRow>(`/companies/${companyId}`)
+    }).then((result) => {
+      if (!cancelled && result) setCompany(result)
+    }).catch((err: { message?: string }) => {
+      if (!cancelled) setError(err.message ?? "Failed to load company")
+    }).finally(() => {
+      if (!cancelled && companyId) setLoading(false)
+    })
+    return () => { cancelled = true }
   }, [companyId])
 
   return { company, loading, error }
@@ -30,12 +38,21 @@ export function useMyCompany() {
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    setLoading(true)
-    api
-      .get<CompanyRow>("/companies/me")
-      .then(setCompany)
-      .catch((err: { message?: string }) => setError(err.message ?? "Failed to load company"))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    void Promise.resolve().then(() => {
+      if (!cancelled) {
+        setLoading(true)
+        setError(null)
+      }
+      return api.get<CompanyRow>("/companies/me")
+    }).then((result) => {
+      if (!cancelled) setCompany(result)
+    }).catch((err: { message?: string }) => {
+      if (!cancelled) setError(err.message ?? "Failed to load company")
+    }).finally(() => {
+      if (!cancelled) setLoading(false)
+    })
+    return () => { cancelled = true }
   }, [])
 
   return { company, loading, error }
@@ -61,7 +78,7 @@ export function useBranches(companyId: string | null) {
   }, [companyId])
 
   React.useEffect(() => {
-    refetch()
+    void Promise.resolve().then(refetch)
   }, [refetch])
 
   return { branches, loading, error, refetch }

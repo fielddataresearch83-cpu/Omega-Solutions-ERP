@@ -19,7 +19,7 @@ export default function ExpensesPage(){
  const [rows,setRows]=React.useState<Expense[]>([]);const [loading,setLoading]=React.useState(true);const [saving,setSaving]=React.useState(false);
  const [error,setError]=React.useState<string|null>(null);const [formError,setFormError]=React.useState<string|null>(null);const [form,setForm]=React.useState(blank);
  const load=React.useCallback(async()=>{setLoading(true);setError(null);try{setRows(await api.get<Expense[]>("/expenses"));}catch(e){setError(message(e));}finally{setLoading(false);}},[]);
- React.useEffect(()=>{void load();},[load]);
+ React.useEffect(()=>{void Promise.resolve().then(load);},[load]);
  async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setSaving(true);setFormError(null);try{await api.post("/expenses",{...form,amount:Number(form.amount),reference:form.reference.trim()||undefined});setForm({...blank,expenseDate:form.expenseDate});await load();}catch(e){setFormError(message(e));}finally{setSaving(false);}}
  return <BaseLayout><div className="flex flex-col gap-6 px-4 lg:px-6">
   <PageHeader title="Expenses" description="Record business expenses and post balanced entries to the general ledger."/>

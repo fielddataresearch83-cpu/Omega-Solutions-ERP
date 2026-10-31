@@ -46,7 +46,7 @@ export default function AuditLogsPage() {
     }
   }, [])
 
-  React.useEffect(() => { void load() }, [load])
+  React.useEffect(() => { void Promise.resolve().then(load) }, [load])
 
   return (
     <BaseLayout>

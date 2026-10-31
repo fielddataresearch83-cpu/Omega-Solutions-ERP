@@ -34,7 +34,7 @@ export default function ChartOfAccountsPage(){
   try{const [a,j,p,r]=await Promise.all([api.get<Account[]>("/accounting/accounts"),api.get<Journal[]>("/accounting/journals"),api.get<PayablesReconciliation>("/accounting/reconciliation/payables"),api.get<ReceivablesReconciliation>("/accounting/reconciliation/receivables")]);setAccounts(a);setJournals(j);setPayables(p);setReceivables(r)}
   catch(e){setError(errorText(e))}finally{setLoading(false)}
  },[]);
- React.useEffect(()=>{void refresh()},[refresh]);
+ React.useEffect(()=>{void Promise.resolve().then(refresh)},[refresh]);
  const create=async()=>{
   if(!code.trim()||!name.trim()){setError("Enter an account code and name.");return}
   setSaving(true);setError("");
