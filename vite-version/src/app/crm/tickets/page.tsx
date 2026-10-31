@@ -47,7 +47,7 @@ export default function CrmTicketsPage(){
   }catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load support tickets.")}
   finally{setLoading(false)}
  },[search,status,priority])
- React.useEffect(()=>{void Promise.resolve().then(load)},[load])
+ React.useEffect(()=>{let active=true;const p=new URLSearchParams();if(status!=="all")p.set("status",status);if(priority!=="all")p.set("priority",priority);if(search.trim())p.set("search",search.trim());p.set("limit","100");p.set("offset","0");void Promise.all([api.get<Ticket[]>("/crm/tickets?"+p.toString()),api.get<Customer[]>("/crm/customers"),api.get<Lead[]>("/crm/leads"),api.get<Assignee[]>("/crm/assignees")]).then(r=>{if(active){setTickets(r[0]);setHasMore(r[0].length===100);setCustomers(r[1]);setLeads(r[2]);setAssignees(r[3]);}}).catch(e=>{if(active)setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load support tickets.");}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[search,status,priority])
 
  async function loadMore(){
   if(loadingMore||!hasMore)return
