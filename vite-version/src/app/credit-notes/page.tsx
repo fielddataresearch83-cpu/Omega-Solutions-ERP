@@ -51,7 +51,7 @@ export default function CreditNotesPage() {
     } catch (e) { setError(message(e)); }
     finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  React.useEffect(() => { let active=true; void Promise.all([api.get<InvoiceApiRow[]>("/invoices"),api.get<CreditNote[]>("/credit-notes")]).then(([invoiceRows,creditRows])=>{if(active){setInvoices(invoiceRows);setNotes(creditRows);}}).catch(e=>{if(active)setError(message(e));}).finally(()=>{if(active)setLoading(false);}); return()=>{active=false;}; }, []);
 
   const eligibleInvoices = invoices.filter(i => !["draft", "cancelled"].includes(i.status));
   const selectedInvoice = eligibleInvoices.find(i => i.id === invoiceId);
