@@ -31,7 +31,7 @@ export default function CrmSegmentsPage(){
   catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load customer segments.")}
   finally{setLoading(false)}
  },[])
- React.useEffect(()=>{void Promise.resolve().then(load)},[load])
+ React.useEffect(()=>{let active=true;void Promise.all([api.get<Segment[]>("/crm/segments"),api.get<Lead[]>("/crm/leads"),api.get<Customer[]>("/crm/customers")]).then(r=>{if(active){setSegments(r[0]);setLeads(r[1]);setCustomers(r[2]);}}).catch(e=>{if(active)setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load customer segments.");}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[])
  async function save(){
   if(!form.name.trim()){setError("Segment name is required.");return}
   setSaving(true);setError(null)
