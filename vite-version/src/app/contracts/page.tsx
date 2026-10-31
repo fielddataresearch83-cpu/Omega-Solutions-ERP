@@ -19,7 +19,7 @@ const statusLabels:Record<string,string>={draft:"Draft",pending_approval:"Pendin
 function message(e:unknown){return e&&typeof e==="object"&&"message" in e?String((e as {message:unknown}).message):"Something went wrong. Please try again."}
 const today = new Date().toISOString().slice(0,10)
 const future = new Date(Date.now()+365*86400000).toISOString().slice(0,10)
-const sixtyDaysFromToday = sixtyDaysFromToday
+const sixtyDaysFromToday = new Date(Date.now()+60*86400000).toISOString().slice(0,10)
 const blankItem = ():ContractItem=>({description:"",itemType:"material",productId:"",quantity:"1",unit:"unit",unitPrice:"0",frequency:"monthly"})
 export default function ContractsPage(){
  const [contracts,setContracts]=React.useState<Contract[]>([])
