@@ -116,7 +116,7 @@ export class CreditNotesService {
     const reference = dto.reference.trim();
     if (!Number.isFinite(amount) || amount <= 0) throw new BadRequestException('Refund amount must be greater than zero.');
     if (!reference) throw new BadRequestException('A refund transaction reference is required.');
-    const refund = await this.db.transaction(async client => {
+    await this.db.transaction(async client => {
       const balanceResult = await client.query<{
         id: string; customer_id: string; credit_note_id: string; credit_amount: string | number; refunded_amount: string | number;
       }>(
