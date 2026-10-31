@@ -1,0 +1,66 @@
+name: Generate safe dependency remediation locks
+
+on:
+  push:
+    branches: [development]
+    paths:
+      - ".github/workflows/dependency-lock-remediation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout development
+        uses: actions/checkout@v4
+        with:
+          ref: development
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Apply non-breaking API lockfile security updates
+        working-directory: api
+        run: npm audit fix --package-lock-only --no-fund || true
+
+      - name: Apply non-breaking frontend lockfile security updates
+        working-directory: vite-version
+        run: npm audit fix --package-lock-only --no-fund || true
+
+      - name: Validate API after lockfile updates
+        working-directory: api
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          npm test
+          npm run lint
+
+      - name: Validate frontend after lockfile updates
+        working-directory: vite-version
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          npm run lint
+
+      - name: Capture remaining dependency audit findings
+        run: |
+          mkdir -p dependency-audit
+          (cd api && npm audit --json > ../dependency-audit/api-audit.json) || true
+          (cd vite-version && npm audit --json > ../dependency-audit/frontend-audit.json) || true
+
+      - name: Upload generated lockfiles and audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-lock-remediation
+          path: |
+            api/package-lock.json
+            vite-version/package-lock.json
+            dependency-audit/*.json
+          if-no-files-found: error
+          retention-days: 3
