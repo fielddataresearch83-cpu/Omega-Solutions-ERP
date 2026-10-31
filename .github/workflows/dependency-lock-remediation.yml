@@ -24,21 +24,21 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Install API dependencies before remediation
-        working-directory: api
-        run: npm ci --no-audit --no-fund
-
-      - name: Apply compatible API security updates
+      - name: Regenerate API dependency lockfile
         working-directory: api
         run: npm install --package-lock-only --no-audit --no-fund
 
-      - name: Install frontend dependencies before remediation
-        working-directory: vite-version
+      - name: Install API dependencies after lockfile update
+        working-directory: api
         run: npm ci --no-audit --no-fund
 
-      - name: Apply compatible frontend security updates
+      - name: Regenerate frontend dependency lockfile
         working-directory: vite-version
-        run: npm audit fix --no-fund || true
+        run: npm install --package-lock-only --no-audit --no-fund
+
+      - name: Install frontend dependencies after lockfile update
+        working-directory: vite-version
+        run: npm ci --no-audit --no-fund
 
       - name: Validate API after lockfile updates
         working-directory: api
