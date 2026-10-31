@@ -131,7 +131,7 @@ describe('ProductsService initial stock', () => {
 
   it('does not place branch-bound opening stock in another branch warehouse or create an unassigned warehouse', async () => {
     memberships.getMembership.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-1', role: 'staff' });
-    client.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+    client.query.mockImplementation(async (sql: string, _params?: unknown[]) => {
       if (sql.includes('SELECT id FROM products WHERE company_id')) return { rows: [], rowCount: 0 };
       if (sql.includes('INSERT INTO products')) {
         return { rows: [{ id: 'product-1', company_id: 'company-1', sku: dto.sku, name: dto.name }], rowCount: 1 };
