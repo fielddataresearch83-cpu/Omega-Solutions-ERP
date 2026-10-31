@@ -28,35 +28,29 @@ export function ProtectedLayout() {
   const { user, loading } = useAuth()
   const location = useLocation()
   const [access, setAccess] = useState<SubscriptionAccess | null>(null)
-  const [accessLoaded, setAccessLoaded] = useState(false)
-  const [accessError, setAccessError] = useState(false)
+  const [loadedRequestKey, setLoadedRequestKey] = useState("")
+  const [errorRequestKey, setErrorRequestKey] = useState("")
   const [accessRetry, setAccessRetry] = useState(0)
+  const requestKey = user ? `${user.userId}:${user.companyId}:${accessRetry}` : ""
 
   useEffect(() => {
     if (!user) return
-    let cancelled = false
-    void Promise.resolve().then(() => {
-      if (cancelled) return null
-      setAccessLoaded(false)
-      setAccessError(false)
-      return api.get<SubscriptionAccess>("/subscriptions/current")
-    }).then((result) => { if (!cancelled && result) setAccess(result) })
-      .catch(() => {
-        if (!cancelled) {
-          setAccess(null)
-          setAccessError(true)
-        }
-      })
-      .finally(() => { if (!cancelled) setAccessLoaded(true) })
-    return () => { cancelled = true }
-  }, [user, accessRetry])
+    let active = true
+    void api.get<SubscriptionAccess>("/subscriptions/current")
+      .then((result) => { if (active) { setAccess(result); setLoadedRequestKey(requestKey); setErrorRequestKey("") } })
+      .catch(() => { if (active) { setAccess(null); setErrorRequestKey(requestKey) } })
+    return () => { active = false }
+  }, [user?.userId, user?.companyId, accessRetry])
 
+  const accessLoaded = Boolean(requestKey) && loadedRequestKey === requestKey
+  const accessError = Boolean(requestKey) && errorRequestKey === requestKey
+  const currentAccess = accessLoaded ? access : null
   const required = requiredModule(location.pathname)
-  const hasSubscription = !!access?.subscription
+  const hasSubscription = !!currentAccess?.subscription
   const moduleAllowed = required === "core" ||
-    (!!access?.subscription &&
-      ["active", "trialing"].includes(access.subscription.status) &&
-      access.modules?.[required] === true)
+    (!!currentAccess?.subscription &&
+      ["active", "trialing"].includes(currentAccess.subscription.status) &&
+      currentAccess.modules?.[required] === true)
 
   if (loading) {
     return (
