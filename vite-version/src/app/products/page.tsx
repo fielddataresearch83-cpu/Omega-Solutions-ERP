@@ -76,23 +76,23 @@ export default function ProductsPage() {
   })
   const [formErrors, setFormErrors] = React.useState<Record<string, string>>({})
 
-  React.useEffect(() => {
-    let active = true
-    let url: string | undefined
-    void Promise.resolve().then(() => {
-      if (!active) return
-      if (!selectedImage) {
-        setImagePreview(null)
-        return
-      }
-      url = URL.createObjectURL(selectedImage)
+  const imagePreviewUrlRef = React.useRef<string | null>(null)
+  const selectProductImage = (file: File | null) => {
+    if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current)
+    imagePreviewUrlRef.current = null
+    selectProductImage(file)
+    if (file) {
+      const url = URL.createObjectURL(file)
+      imagePreviewUrlRef.current = url
       setImagePreview(url)
-    })
-    return () => {
-      active = false
-      if (url) URL.revokeObjectURL(url)
+    } else {
+      setImagePreview(null)
     }
-  }, [selectedImage])
+  }
+
+  React.useEffect(() => () => {
+    if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current)
+  }, [])
 
   const categories = React.useMemo(() => {
     const set = new Set<string>()
@@ -364,7 +364,7 @@ export default function ProductsPage() {
               <p className="text-xs text-muted-foreground">Choose a JPEG, PNG, or WebP photo up to 5 MB. Uploaded photos are stored privately and shown securely in your company catalog.</p>
               {(selectedImage || formData.imageUrl || editingProduct?.image_url) && <div className="flex flex-wrap gap-2">
                 {formData.imageUrl && !selectedImage && <Button type="button" variant="outline" size="sm" onClick={() => setFormData((current) => ({ ...current, imageUrl: "" }))}><X className="size-3.5" /> Clear image URL</Button>}
-                {selectedImage && <Button type="button" variant="outline" size="sm" onClick={() => setSelectedImage(null)}><X className="size-3.5" /> Cancel selected photo</Button>}
+                {selectedImage && <Button type="button" variant="outline" size="sm" onClick={() => selectProductImage(null)}><X className="size-3.5" /> Cancel selected photo</Button>}
                 {!selectedImage && editingProduct?.image_url && <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={async () => {
                   setSubmitting(true)
                   setFormError(null)
