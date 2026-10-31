@@ -48,7 +48,7 @@ export default function ReportsPage() {
     catch (e) { setError(errorMessage(e)); }
     finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const filtered = React.useMemo(() => invoices.filter((invoice) => {
     const date = String(invoice.issue_date).slice(0, 10);

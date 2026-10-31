@@ -46,7 +46,7 @@ export default function QuotationsPage() {
     catch (e) { setError(messageOf(e)); }
     finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void refresh(); }, [refresh]);
+  React.useEffect(() => { void Promise.resolve().then(refresh); }, [refresh]);
   React.useEffect(() => {
     if (customersLoading || typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);

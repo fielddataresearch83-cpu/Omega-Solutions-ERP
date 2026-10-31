@@ -57,7 +57,7 @@ export default function PurchaseOrdersPage(){
   }catch(e){setError(messageOf(e))}
   finally{setLoading(false)}
  },[]);
- React.useEffect(()=>{void refresh()},[refresh]);
+ React.useEffect(()=>{void Promise.resolve().then(refresh)},[refresh]);
  const updateLine=(index:number,key:keyof Line,value:string)=>{
   setLines(current=>current.map((line,i)=>i===index?{...line,[key]:value}:line));
   if(key==="productId"){const product=products.find(p=>p.id===value);if(product)setLines(current=>current.map((line,i)=>i===index?{...line,productId:value,unitCost:String(product.cost_price??0)}:line))}

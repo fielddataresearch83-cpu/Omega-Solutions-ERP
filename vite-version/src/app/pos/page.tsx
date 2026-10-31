@@ -77,7 +77,7 @@ export default function PosPage() {
     }catch(e){setError((e as {message?:string}).message??"Could not load POS data.")}
     finally{setLoading(false)}
   },[])
-  React.useEffect(()=>{void load()},[load])
+  React.useEffect(()=>{void Promise.resolve().then(load)},[load])
   React.useEffect(()=>{
     let active=true
     const url="/pos/products?"+(warehouseId?"warehouseId="+encodeURIComponent(warehouseId)+"&":"")+"search="+encodeURIComponent(search)
