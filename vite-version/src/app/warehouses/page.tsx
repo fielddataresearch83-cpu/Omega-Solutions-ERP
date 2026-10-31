@@ -29,7 +29,7 @@ export default function WarehousesPage() {
     catch (e) { setError((e as {message?:string}).message ?? "Could not load warehouses.") }
     finally { setLoading(false) }
   },[])
-  React.useEffect(()=>{void Promise.resolve().then(load)},[load])
+  React.useEffect(()=>{let active=true;void api.get<Warehouse[]>("/inventory/warehouses").then(result=>{if(active)setWarehouses(result);}).catch(e=>{if(active)setError((e as {message?:string}).message??"Could not load warehouses.");}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[])
   function openCreate() {
     setEditingId(null);setForm(emptyForm);setError(null);setShowForm(v=>!v)
   }
