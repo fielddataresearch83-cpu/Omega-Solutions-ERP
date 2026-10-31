@@ -76,7 +76,7 @@ export default function CrmPage() {
   } catch(e) {setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load CRM data.")}
   finally {setLoading(false)}
  },[search,tab,leadStatus,opportunityStage,activityPending])
- React.useEffect(()=>{void Promise.resolve().then(load)},[load])
+ React.useEffect(()=>{let active=true;const leadParams=new URLSearchParams();if(search.trim())leadParams.set("search",search.trim());if(leadStatus!=="all")leadParams.set("status",leadStatus);const oppParams=new URLSearchParams();if(search.trim())oppParams.set("search",search.trim());if(opportunityStage!=="all")oppParams.set("stage",opportunityStage);void Promise.all([api.get<Lead[]>("/crm/leads?limit=100&offset=0"+(tab==="leads"&&leadParams.size?"&"+leadParams.toString():"")),api.get<Customer[]>("/crm/customers"),api.get<Opportunity[]>("/crm/opportunities?limit=100&offset=0"+(tab==="opportunities"&&oppParams.size?"&"+oppParams.toString():"")),api.get<Activity[]>("/crm/activities?pending="+(activityPending?"true":"false")+"&limit=100&offset=0"),api.get<Pipeline>("/crm/pipeline")]).then(results=>{if(active){setLeads(results[0]);setHasMoreLeads(results[0].length===100);setCustomers(results[1]);setOpportunities(results[2]);setHasMoreOpportunities(results[2].length===100);setActivities(results[3]);setHasMoreActivities(results[3].length===100);setPipeline(results[4]);}}).catch(e=>{if(active)setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load CRM data.");}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[search,tab,leadStatus,opportunityStage,activityPending])
 
  async function loadMore(){
   if(loadingMore)return
