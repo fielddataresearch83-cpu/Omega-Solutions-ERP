@@ -34,13 +34,13 @@ export function ProtectedLayout() {
   const requestKey = user ? `${user.userId}:${user.companyId}:${accessRetry}` : ""
 
   useEffect(() => {
-    if (!user) return
+    if (!requestKey) return
     let active = true
     void api.get<SubscriptionAccess>("/subscriptions/current")
       .then((result) => { if (active) { setAccess(result); setLoadedRequestKey(requestKey); setErrorRequestKey("") } })
       .catch(() => { if (active) { setAccess(null); setErrorRequestKey(requestKey) } })
     return () => { active = false }
-  }, [user?.userId, user?.companyId, accessRetry])
+  }, [requestKey])
 
   const accessLoaded = Boolean(requestKey) && loadedRequestKey === requestKey
   const accessError = Boolean(requestKey) && errorRequestKey === requestKey
