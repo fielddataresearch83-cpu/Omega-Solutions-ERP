@@ -50,6 +50,7 @@ jobs:
           cache-dependency-path: |
             api/package-lock.json
             vite-version/package-lock.json
+            .github/workflows/validate-development.yml
       - name: Install API dependencies
         working-directory: api
         run: npm ci
@@ -94,7 +95,9 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: api/package-lock.json
+          cache-dependency-path: |
+            api/package-lock.json
+            .github/workflows/validate-development.yml
       - name: Install API dependencies
         working-directory: api
         run: npm ci

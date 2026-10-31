@@ -50,7 +50,9 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: api/package-lock.json
+          cache-dependency-path: |
+            api/package-lock.json
+            .github/workflows/postgres-transaction-integration.yml
       - name: Install API dependencies
         working-directory: api
         run: npm ci

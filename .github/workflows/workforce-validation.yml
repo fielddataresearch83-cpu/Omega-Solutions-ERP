@@ -31,7 +31,9 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: api/package-lock.json
+          cache-dependency-path: |
+            api/package-lock.json
+            .github/workflows/workforce-validation.yml
       - name: Install dependencies
         run: npm ci
       - name: Build API
