@@ -42,7 +42,7 @@ async function neonRequest(path: string, body?: unknown): Promise<NeonResponse> 
     });
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error("Account verification is taking too long. Your invitation has not been accepted yet. Please retry.");
+      throw new Error("Account verification is taking too long. Your invitation has not been accepted yet. Please retry.", { cause: error });
     }
     throw error;
   } finally {
@@ -50,18 +50,19 @@ async function neonRequest(path: string, body?: unknown): Promise<NeonResponse> 
   }
 
   const raw = await response.text();
-  let result: NeonResponse = {};
-  try {
-    const parsed: unknown = raw ? JSON.parse(raw) : {};
-    // Some auth endpoints (notably an unauthenticated /get-session) can return JSON null.
-    // Normalize that response before reading error/message fields so the invitation page
-    // can show the intended sign-in guidance instead of crashing on null.error.
-    result = parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed as NeonResponse
-      : {};
-  } catch {
-    throw new Error("The email authentication service returned an invalid response. Please try again.");
-  }
+  const result: NeonResponse = (() => {
+    try {
+      const parsed: unknown = raw ? JSON.parse(raw) : {};
+      // Some auth endpoints (notably an unauthenticated /get-session) can return JSON null.
+      // Normalize that response before reading error/message fields so the invitation page
+      // can show the intended sign-in guidance instead of crashing on null.error.
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? parsed as NeonResponse
+        : {};
+    } catch (error) {
+      throw new Error("The email authentication service returned an invalid response. Please try again.", { cause: error });
+    }
+  })();
 
   if (!response.ok || result.error) {
     throw new Error(result.message || result.error || "Email authentication failed. Check your details and try again.");
