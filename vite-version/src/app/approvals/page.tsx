@@ -13,7 +13,7 @@ function errorText(e:unknown){return e&&typeof e==="object"&&"message" in e?Stri
 export default function ApprovalsPage(){
  const [rows,setRows]=React.useState<Approval[]>([]);const [note,setNote]=React.useState("");const [loading,setLoading]=React.useState(true);const [busy,setBusy]=React.useState("");const [error,setError]=React.useState("");
  const refresh=React.useCallback(async()=>{setLoading(true);setError("");try{setRows(await api.get<Approval[]>("/approvals"));}catch(e){setError(errorText(e));}finally{setLoading(false);}},[]);
- React.useEffect(()=>{void Promise.resolve().then(refresh)},[refresh]);
+ React.useEffect(()=>{let active=true;void api.get<Approval[]>("/approvals").then(result=>{if(active)setRows(result);}).catch(e=>{if(active)setError(errorText(e));}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[]);
  const decide=async(id:string,decision:"approve"|"reject")=>{setBusy(id);setError("");try{await api.post("/approvals/"+id+"/"+decision,{note:note.trim()||undefined});setNote("");await refresh();}catch(e){setError(errorText(e));}finally{setBusy("");}};
  return <BaseLayout><div className="flex flex-col gap-5 px-4 lg:px-6">
   <PageHeader title="Approval Inbox" description="Review requests submitted by other users. Requesters cannot approve or reject their own requests." action={<Button variant="outline" onClick={()=>void refresh()} disabled={loading}><RefreshCw className="mr-2 size-4"/>Refresh</Button>}/>
