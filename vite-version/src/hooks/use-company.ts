@@ -4,32 +4,20 @@ import { api } from "@/lib/api-client"
 
 export function useCompany(companyId: string | null) {
   const [company, setCompany] = React.useState<CompanyRow | null>(null)
-  const [loading, setLoading] = React.useState(false)
+  const [loading, setLoading] = React.useState(Boolean(companyId))
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    let cancelled = false
-    void Promise.resolve().then(() => {
-      if (!companyId) {
-        if (!cancelled) setCompany(null)
-        return null
-      }
-      if (!cancelled) {
-        setLoading(true)
-        setError(null)
-      }
-      return api.get<CompanyRow>(`/companies/${companyId}`)
-    }).then((result) => {
-      if (!cancelled && result) setCompany(result)
-    }).catch((err: { message?: string }) => {
-      if (!cancelled) setError(err.message ?? "Failed to load company")
-    }).finally(() => {
-      if (!cancelled && companyId) setLoading(false)
-    })
-    return () => { cancelled = true }
+    if (!companyId) return
+    let active = true
+    void api.get<CompanyRow>(`/companies/${companyId}`)
+      .then((result) => { if (active) setCompany(result) })
+      .catch((err: { message?: string }) => { if (active) setError(err.message ?? "Failed to load company") })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [companyId])
 
-  return { company, loading, error }
+  return { company: companyId && company?.id === companyId ? company : null, loading: Boolean(companyId) && (loading || company?.id !== companyId), error }
 }
 
 export function useMyCompany() {
@@ -38,21 +26,12 @@ export function useMyCompany() {
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
-    let cancelled = false
-    void Promise.resolve().then(() => {
-      if (!cancelled) {
-        setLoading(true)
-        setError(null)
-      }
-      return api.get<CompanyRow>("/companies/me")
-    }).then((result) => {
-      if (!cancelled) setCompany(result)
-    }).catch((err: { message?: string }) => {
-      if (!cancelled) setError(err.message ?? "Failed to load company")
-    }).finally(() => {
-      if (!cancelled) setLoading(false)
-    })
-    return () => { cancelled = true }
+    let active = true
+    void api.get<CompanyRow>("/companies/me")
+      .then((result) => { if (active) setCompany(result) })
+      .catch((err: { message?: string }) => { if (active) setError(err.message ?? "Failed to load company") })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [])
 
   return { company, loading, error }
@@ -60,28 +39,31 @@ export function useMyCompany() {
 
 export function useBranches(companyId: string | null) {
   const [branches, setBranches] = React.useState<BranchRow[]>([])
-  const [loading, setLoading] = React.useState(false)
+  const [loadedCompanyId, setLoadedCompanyId] = React.useState<string | null>(null)
+  const [loading, setLoading] = React.useState(Boolean(companyId))
   const [error, setError] = React.useState<string | null>(null)
 
   const refetch = React.useCallback(() => {
-    if (!companyId) {
-      setBranches([])
-      return
-    }
+    if (!companyId) return Promise.resolve([])
     setLoading(true)
     setError(null)
-    api
-      .get<BranchRow[]>(`/companies/${companyId}/branches`)
-      .then(setBranches)
-      .catch((err: { message?: string }) => setError(err.message ?? "Failed to load branches"))
+    return api.get<BranchRow[]>(`/companies/${companyId}/branches`)
+      .then((result) => { setBranches(result); setLoadedCompanyId(companyId); return result })
+      .catch((err: { message?: string }) => { setError(err.message ?? "Failed to load branches"); throw err })
       .finally(() => setLoading(false))
   }, [companyId])
 
   React.useEffect(() => {
-    void Promise.resolve().then(refetch)
-  }, [refetch])
+    if (!companyId) return
+    let active = true
+    void api.get<BranchRow[]>(`/companies/${companyId}/branches`)
+      .then((result) => { if (active) { setBranches(result); setLoadedCompanyId(companyId) } })
+      .catch((err: { message?: string }) => { if (active) setError(err.message ?? "Failed to load branches") })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [companyId])
 
-  return { branches, loading, error, refetch }
+  return { branches: loadedCompanyId === companyId ? branches : [], loading: Boolean(companyId) && (loading || loadedCompanyId !== companyId), error, refetch }
 }
 
 export function createBranch(companyId: string, data: { name: string; code?: string; city?: string; phone?: string; email?: string }) {
