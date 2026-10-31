@@ -141,9 +141,13 @@ export default function Page() {
   React.useEffect(() => {
     if (authLoading || companyLoading || !user) return
     let cancelled = false
-    setDashboard((current) => ({ ...current, loading: true, error: null }))
-    api.get<DashboardSummary>("/dashboard/summary")
+    void Promise.resolve().then(() => {
+      if (cancelled) return null
+      setDashboard((current) => ({ ...current, loading: true, error: null }))
+      return api.get<DashboardSummary>("/dashboard/summary")
+    })
       .then((data) => {
+        if (!data) return
         if (!cancelled) setDashboard({ data, loading: false, error: null })
       })
       .catch((error: { message?: string }) => {

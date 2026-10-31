@@ -33,16 +33,22 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
 
   React.useEffect(() => {
     const term = query.trim()
+    let cancelled = false
     if (term.length < 2) {
-      setResults([])
-      setSearchError("")
-      setIsSearching(false)
-      return
+      void Promise.resolve().then(() => {
+        if (cancelled) return
+        setResults([])
+        setSearchError("")
+        setIsSearching(false)
+      })
+      return () => { cancelled = true }
     }
 
-    let cancelled = false
-    setIsSearching(true)
-    setSearchError("")
+    void Promise.resolve().then(() => {
+      if (cancelled) return
+      setIsSearching(true)
+      setSearchError("")
+    })
     const timeout = window.setTimeout(async () => {
       try {
         const found = await api.get<SearchResult[]>(`/search?q=${encodeURIComponent(term)}`)

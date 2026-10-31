@@ -42,14 +42,12 @@ function applyPreferences(preferences: AppearancePreferences) {
 
 export default function AppearanceSettings() {
   const { theme, setTheme } = useTheme()
-  const [preferences, setPreferences] = useState<AppearancePreferences>(defaults)
+  const [preferences, setPreferences] = useState<AppearancePreferences>(() => readPreferences())
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    const loaded = readPreferences()
-    setPreferences(loaded)
-    applyPreferences(loaded)
-  }, [])
+    applyPreferences(preferences)
+  }, [preferences])
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
