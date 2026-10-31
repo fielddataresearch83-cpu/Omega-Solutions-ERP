@@ -43,27 +43,18 @@ export function NavUser() {
   const { user, logout, switchCompany } = useAuth()
   const navigate = useNavigate()
   const [companies, setCompanies] = useState<CompanyMembership[]>([])
-  const [companiesLoading, setCompaniesLoading] = useState(false)
+  const [companiesLoading, setCompaniesLoading] = useState(true)
   const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null)
   const [companyError, setCompanyError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user?.userId) return
-    let cancelled = false
-    void Promise.resolve().then(() => {
-      if (cancelled) return null
-      setCompaniesLoading(true)
-      return api.get<CompanyMembership[]>("/auth/companies")
-    }).then((items) => {
-        if (!cancelled) setCompanies(Array.isArray(items) ? items : [])
-      })
-      .catch(() => {
-        if (!cancelled) setCompanyError("Company list could not be loaded.")
-      })
-      .finally(() => {
-        if (!cancelled) setCompaniesLoading(false)
-      })
-    return () => { cancelled = true }
+    let active = true
+    void api.get<CompanyMembership[]>("/auth/companies")
+      .then((items) => { if (active) setCompanies(Array.isArray(items) ? items : []) })
+      .catch(() => { if (active) setCompanyError("Company list could not be loaded.") })
+      .finally(() => { if (active) setCompaniesLoading(false) })
+    return () => { active = false }
   }, [user?.userId, user?.companyId])
 
   if (!user) return null
