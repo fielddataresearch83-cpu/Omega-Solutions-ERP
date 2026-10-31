@@ -35,7 +35,7 @@ export default function SalesOrdersPage() {
     catch (e) { setError(messageOf(e)); }
     finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void refresh(); }, [refresh]);
+  React.useEffect(() => { void Promise.resolve().then(refresh); }, [refresh]);
 
   const changeStatus = async (order: SalesOrder, status: SalesOrderStatus) => {
     setBusyId(order.id); setError("");

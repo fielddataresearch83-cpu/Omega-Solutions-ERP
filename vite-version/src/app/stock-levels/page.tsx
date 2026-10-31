@@ -33,7 +33,7 @@ export default function StockLevelsPage(){
     }catch(e){setError((e as {message?:string}).message??"Could not load inventory balances.")}
     finally{setLoading(false)}
   },[])
-  React.useEffect(()=>{void load()},[load])
+  React.useEffect(()=>{void Promise.resolve().then(load)},[load])
   const filtered=rows.filter(r=>{
     const q=search.toLowerCase()
     const matches=!q||r.product_name.toLowerCase().includes(q)||r.sku.toLowerCase().includes(q)||r.warehouse_name.toLowerCase().includes(q)

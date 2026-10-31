@@ -30,7 +30,7 @@ export default function StockMovementsPage(){
     catch(e){setError((e as {message?:string}).message??"Could not load stock ledger.")}
     finally{setLoading(false)}
   },[])
-  React.useEffect(()=>{void load()},[load])
+  React.useEffect(()=>{void Promise.resolve().then(load)},[load])
   const stockProducts=products.filter(p=>p.is_active&&!p.is_service)
   async function submit(event:React.FormEvent<HTMLFormElement>){
     event.preventDefault();setSaving(true);setError(null)

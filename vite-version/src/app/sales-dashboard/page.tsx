@@ -57,7 +57,7 @@ export default function SalesDashboardPage() {
     } catch (err) { setError(message(err)); }
     finally { setLoading(false); }
   }, [canViewTeam]);
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const activeCustomers = data.customers.filter((customer) => customer.is_active);
   const activeProducts = data.products.filter((product) => product.is_active && !product.is_service);
