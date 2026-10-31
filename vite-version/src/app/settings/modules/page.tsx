@@ -42,17 +42,6 @@ export default function ModulesSettingsPage() {
   const [notice, setNotice] = React.useState<string | null>(null)
   const [requesting, setRequesting] = React.useState<string | null>(null)
 
-  const loadCatalogue = React.useCallback(async () => {
-    setError(null)
-    try {
-      setCatalogue(await api.get<Catalogue>("/subscriptions/modules"))
-    } catch (err) {
-      setError((err as { message?: string }).message ?? "Could not load module availability.")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
   React.useEffect(() => { let active=true; void api.get<Catalogue>("/subscriptions/modules").then(result=>{if(active)setCatalogue(result);}).catch(err=>{if(active)setError((err as {message?:string}).message??"Could not load module availability.");}).finally(()=>{if(active)setLoading(false);}); return()=>{active=false;}; }, [])
 
   const requestModule = async (moduleCode: string) => {
