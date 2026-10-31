@@ -30,7 +30,7 @@ describe('ProductsService initial stock', () => {
 
   beforeEach(async () => {
     client = {
-      query: vi.fn(async (sql: string, params?: unknown[]) => {
+      query: vi.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes('SELECT id FROM products WHERE company_id')) {
           return { rows: [], rowCount: 0 };
         }
