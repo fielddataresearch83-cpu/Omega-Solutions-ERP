@@ -30,7 +30,7 @@ jobs:
 
       - name: Apply compatible API security updates
         working-directory: api
-        run: npm audit fix --no-fund || true
+        run: npm install --package-lock-only --no-audit --no-fund
 
       - name: Install frontend dependencies before remediation
         working-directory: vite-version
