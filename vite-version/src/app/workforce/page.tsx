@@ -68,7 +68,7 @@ export default function WorkforcePage() {
     setLoading(false);
   }, [from, to]);
 
-  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  React.useEffect(() => { let active=true; const attendanceQuery=new URLSearchParams();if(from)attendanceQuery.set("from",from);if(to)attendanceQuery.set("to",to);const suffix=attendanceQuery.size?`?${attendanceQuery.toString()}`:"";void Promise.allSettled([api.get<Employee[]>("/employees"),api.get<Site[]>("/client-sites"),api.get<Assignment[]>("/employee-assignments"),api.get<Attendance[]>(`/attendance${suffix}`)]).then(results=>{if(!active)return;const messages:string[]=[];if(results[0].status==="fulfilled")setEmployees(results[0].value);else messages.push(`Employees: ${errorMessage(results[0].reason)}`);if(results[1].status==="fulfilled")setSites(results[1].value);else messages.push(`Sites: ${errorMessage(results[1].reason)}`);if(results[2].status==="fulfilled")setAssignments(results[2].value);else messages.push(`Assignments: ${errorMessage(results[2].reason)}`);if(results[3].status==="fulfilled")setAttendance(results[3].value);else messages.push(`Attendance: ${errorMessage(results[3].reason)}`);setError(messages.length?messages.join(" · "):null);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};}, [from,to]);
 
   const loadMonthlyImports = React.useCallback(async () => {
     try { setMonthlyImports(await api.get<MonthlyImport[]>(`/attendance/monthly-imports?period=${encodeURIComponent(importPeriod)}`)); }
