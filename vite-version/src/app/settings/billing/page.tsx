@@ -114,15 +114,14 @@ export default function BillingSettings() {
   }, [])
 
   React.useEffect(() => {
-    let cancelled = false
-    void Promise.resolve().then(() => {
+    const timeout = window.setTimeout(() => {
       const reference = new URLSearchParams(window.location.search).get("reference")
-      if (!reference || cancelled) return
+      if (!reference) return
       setPaymentReference(reference)
       window.history.replaceState({}, "", window.location.pathname)
-      return checkPaymentStatus(reference)
-    })
-    return () => { cancelled = true }
+      void checkPaymentStatus(reference)
+    }, 0)
+    return () => window.clearTimeout(timeout)
   }, [checkPaymentStatus])
 
   const handleModuleSelect = async (moduleCode: string) => {
