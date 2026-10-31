@@ -76,7 +76,7 @@ export default function PosPage() {
       setWarehouseId(assignment?.warehouse_id ?? activeWarehouses[0]?.id ?? "")
     }catch(e){setError((e as {message?:string}).message??"Could not load POS data.")}
     finally{setLoading(false)}
-  },[])
+  },[canViewTeam])
   React.useEffect(()=>{void Promise.resolve().then(load)},[load])
   React.useEffect(()=>{
     let active=true

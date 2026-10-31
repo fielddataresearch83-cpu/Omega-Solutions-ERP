@@ -25,6 +25,13 @@ function errorText(e: unknown) {
   return e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : "Request failed. Please try again.";
 }
 export default function UsersRolesPage() {
+  const [now, setNow] = React.useState(0);
+  React.useEffect(() => {
+    const update = () => setNow(now);
+    const timeout = window.setTimeout(update, 0);
+    const interval = window.setInterval(update, 60_000);
+    return () => { window.clearTimeout(timeout); window.clearInterval(interval); };
+  }, []);
   const { user } = useAuth();
   const [members, setMembers] = React.useState<Member[]>([]);
   const [roleInfo, setRoleInfo] = React.useState<RoleInfo[]>([]);
@@ -122,7 +129,7 @@ export default function UsersRolesPage() {
         <div className="flex items-end"><Button type="submit" disabled={invitationLoading||!inviteEmail.trim()}><MailPlus className="mr-2 size-4"/>{invitationLoading?"Working…":"Send invitation"}</Button></div>
       </form>
       {invitationError && <p className="text-sm text-muted-foreground">Invitation history is currently unavailable: {invitationError}. Confirm the development database migration and Neon Auth configuration.</p>}
-      {invitations.length>0 && <div className="space-y-2">{invitations.map(i=><div key={i.id} className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="break-all text-sm font-medium">{i.email}</p><p className="text-xs text-muted-foreground">{title(i.role)} · {i.accepted_at?"Accepted":i.revoked_at?"Revoked":new Date(i.expires_at).getTime()<=Date.now()?"Expired":"Pending"} · Expires {new Date(i.expires_at).toLocaleDateString()}</p></div>{!i.accepted_at&&!i.revoked_at&&new Date(i.expires_at).getTime()>Date.now()&&<Button type="button" variant="outline" size="sm" disabled={invitationLoading} onClick={()=>void revokeInvitation(i)}><Ban className="mr-2 size-4"/>Revoke</Button>}</div>)}</div>}
+      {invitations.length>0 && <div className="space-y-2">{invitations.map(i=><div key={i.id} className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="break-all text-sm font-medium">{i.email}</p><p className="text-xs text-muted-foreground">{title(i.role)} · {i.accepted_at?"Accepted":i.revoked_at?"Revoked":new Date(i.expires_at).getTime()<=now?"Expired":"Pending"} · Expires {new Date(i.expires_at).toLocaleDateString()}</p></div>{!i.accepted_at&&!i.revoked_at&&new Date(i.expires_at).getTime()>now&&<Button type="button" variant="outline" size="sm" disabled={invitationLoading} onClick={()=>void revokeInvitation(i)}><Ban className="mr-2 size-4"/>Revoke</Button>}</div>)}</div>}
     </CardContent></Card>}
     <Card><CardHeader><CardTitle className="flex items-center gap-2"><Shield className="size-4"/>Role permissions</CardTitle><CardDescription>These are the permissions assigned to each system role in the backend. API endpoints enforce them on every request.</CardDescription></CardHeader><CardContent>
       {!canManage ? <p className="text-sm text-muted-foreground">Owner or admin access is required to view the full role catalog.</p>

@@ -54,7 +54,7 @@ export default function SettingsPage() {
   const [mfaBusy, setMfaBusy] = React.useState(false)
   const apiBase = import.meta.env.VITE_API_BASE_URL ?? "https://omega-solutions-api.onrender.com/api"
 
-  const mfaRequest = async (path: string, body?: unknown) => {
+  const mfaRequest = React.useCallback(async (path: string, body?: unknown) => {
     const token = getAccessToken()
     if (!token) throw new Error("Please sign in again to manage account security.")
     const response = await fetch(apiBase + path, {
@@ -65,13 +65,15 @@ export default function SettingsPage() {
     const data = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(data.message || "Could not update MFA settings.")
     return data
-  }
+  }, [apiBase])
 
   React.useEffect(() => {
-    mfaRequest("/auth/mfa/status")
-      .then((data) => setMfaEnabled(Boolean(data.enabled)))
-      .catch((err) => setMfaError(err instanceof Error ? err.message : "Could not load MFA status."))
-  }, [])
+    let active = true
+    void Promise.resolve().then(() => mfaRequest("/auth/mfa/status"))
+      .then((data) => { if (active) setMfaEnabled(Boolean(data.enabled)) })
+      .catch((err) => { if (active) setMfaError(err instanceof Error ? err.message : "Could not load MFA status.") })
+    return () => { active = false }
+  }, [mfaRequest])
 
   const handleSave = () => {
     localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
