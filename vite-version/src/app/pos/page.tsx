@@ -77,7 +77,7 @@ export default function PosPage() {
     }catch(e){setError((e as {message?:string}).message??"Could not load POS data.")}
     finally{setLoading(false)}
   },[canViewTeam])
-  React.useEffect(()=>{void Promise.resolve().then(load)},[load])
+  React.useEffect(()=>{let active=true;void Promise.all([api.get<Register[]>("/pos/registers"),api.get<Shift|null>("/pos/shifts/current"),canViewTeam?api.get<Warehouse[]>("/inventory/warehouses"):Promise.resolve([] as Warehouse[]),api.get<Customer[]>("/customers"),api.get<Record<string,unknown>[]>("/pos/sales?limit=10"),api.get<{warehouse_id:string;warehouse_code:string;warehouse_name:string}|null>("/pos/salesperson-assignment/me")]).then(([regs,current,warehouseRows,customerRows,saleRows,assignment])=>{if(!active)return;const activeWarehouses=canViewTeam?warehouseRows.filter(w=>w.is_active):assignment?[{id:assignment.warehouse_id,code:assignment.warehouse_code,name:assignment.warehouse_name,is_active:true}]:[];setRegisters(regs);setShift(current);setWarehouses(activeWarehouses);setCustomers(customerRows.filter(c=>c.is_active));setSales(saleRows);setRegisterId(current?.register_id??regs.find(r=>r.is_active&&!r.open_shift_id)?.id??"");setWarehouseId(assignment?.warehouse_id??activeWarehouses[0]?.id??"");}).catch(e=>{if(active)setError((e as {message?:string}).message??"Could not load POS data.");}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[canViewTeam])
   React.useEffect(()=>{
     let active=true
     const url="/pos/products?"+(warehouseId?"warehouseId="+encodeURIComponent(warehouseId)+"&":"")+"search="+encodeURIComponent(search)
