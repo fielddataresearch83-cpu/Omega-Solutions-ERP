@@ -60,7 +60,7 @@ export class RequisitionsService {
   }
   async submit(user: AuthenticatedUser, id: string) {
     const membership = await this.companyFor(user);
-    const result = await this.db.transaction(async client => {
+    await this.db.transaction(async client => {
       const found = await client.query('SELECT * FROM requisitions WHERE company_id=$1 AND id=$2 FOR UPDATE', [membership.companyId, id]);
       const row = found.rows[0];
       if (!row) throw new NotFoundException('Requisition not found.');
