@@ -159,7 +159,7 @@ export default function Page() {
         }
       })
     return () => { active = false }
-  }, [authLoading, companyLoading, user?.userId, company?.id, retryKey])
+  }, [authLoading, companyLoading, user?.userId, company?.id, retryKey, requestKey])
 
   const canUseModule = (moduleCode: string) => {
     if (dashboardLoading || !dashboard.data) return false
