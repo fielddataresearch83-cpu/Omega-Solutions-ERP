@@ -35,7 +35,7 @@ export default function SalesOrdersPage() {
     catch (e) { setError(messageOf(e)); }
     finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void Promise.resolve().then(refresh); }, [refresh]);
+  React.useEffect(() => { let active=true; void Promise.all([api.get<SalesOrder[]>("/sales-orders"),api.get<Warehouse[]>("/inventory/warehouses")]).then(([nextOrders,nextWarehouses])=>{if(active){setOrders(nextOrders);const activeWarehouses=nextWarehouses.filter(warehouse=>warehouse.is_active);setWarehouses(activeWarehouses);setFulfillmentWarehouseId(current=>activeWarehouses.some(warehouse=>warehouse.id===current)?current:activeWarehouses[0]?.id??"");}}).catch(e=>{if(active)setError(messageOf(e));}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};}, []);
 
   const changeStatus = async (order: SalesOrder, status: SalesOrderStatus) => {
     setBusyId(order.id); setError("");
