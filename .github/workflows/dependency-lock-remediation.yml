@@ -26,7 +26,7 @@ jobs:
 
       - name: Regenerate API dependency lockfile
         working-directory: api
-        run: npm install --package-lock-only --no-audit --no-fund
+        run: rm -f package-lock.json && npm install --package-lock-only --no-audit --no-fund
 
       - name: Install API dependencies after lockfile update
         working-directory: api
@@ -34,7 +34,7 @@ jobs:
 
       - name: Regenerate frontend dependency lockfile
         working-directory: vite-version
-        run: npm install --package-lock-only --no-audit --no-fund
+        run: rm -f package-lock.json && npm install --package-lock-only --no-audit --no-fund
 
       - name: Install frontend dependencies after lockfile update
         working-directory: vite-version
