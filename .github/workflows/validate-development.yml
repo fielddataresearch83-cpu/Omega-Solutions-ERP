@@ -51,6 +51,8 @@ jobs:
             api/package-lock.json
             vite-version/package-lock.json
             .github/workflows/validate-development.yml
+      - name: Use npm 11.6.0 for stable peer resolution
+        run: npm install --global npm@11.6.0
       - name: Install API dependencies
         working-directory: api
         run: |
@@ -112,6 +114,8 @@ jobs:
           cache-dependency-path: |
             api/package-lock.json
             .github/workflows/validate-development.yml
+      - name: Use npm 11.6.0 for stable peer resolution
+        run: npm install --global npm@11.6.0
       - name: Install API dependencies
         working-directory: api
         run: |

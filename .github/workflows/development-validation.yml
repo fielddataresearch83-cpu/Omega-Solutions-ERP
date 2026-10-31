@@ -50,6 +50,8 @@ jobs:
             vite-version/package-lock.json
             .github/workflows/development-validation.yml
 
+      - name: Use npm 11.6.0 for stable peer resolution
+        run: npm install --global npm@11.6.0
       - name: Build API
         working-directory: api
         run: |
