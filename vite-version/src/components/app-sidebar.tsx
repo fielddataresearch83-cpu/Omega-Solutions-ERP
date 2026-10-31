@@ -156,10 +156,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   React.useEffect(() => {
     if (!company?.id) return
     let cancelled = false
-    setAccessLoaded(false)
-    api.get<SubscriptionAccess>("/subscriptions/modules")
-      .then((result) => {
-        if (!cancelled) setAccess(result)
+    void Promise.resolve().then(() => {
+      if (cancelled) return null
+      setAccessLoaded(false)
+      return api.get<SubscriptionAccess>("/subscriptions/modules")
+    }).then((result) => {
+        if (!cancelled && result) setAccess(result)
       })
       .catch(() => {
         // Fail closed in the navigation when subscription data cannot be loaded.

@@ -50,9 +50,11 @@ export function NavUser() {
   useEffect(() => {
     if (!user) return
     let cancelled = false
-    setCompaniesLoading(true)
-    api.get<CompanyMembership[]>("/auth/companies")
-      .then((items) => {
+    void Promise.resolve().then(() => {
+      if (cancelled) return null
+      setCompaniesLoading(true)
+      return api.get<CompanyMembership[]>("/auth/companies")
+    }).then((items) => {
         if (!cancelled) setCompanies(Array.isArray(items) ? items : [])
       })
       .catch(() => {

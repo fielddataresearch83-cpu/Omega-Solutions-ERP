@@ -101,32 +101,34 @@ export function SiteHeader() {
     }
   }, [])
 
-  React.useEffect(() => { void loadNotifications() }, [loadNotifications])
+  React.useEffect(() => { void Promise.resolve().then(loadNotifications) }, [loadNotifications])
 
   React.useEffect(() => {
     let cancelled = false
-    if (!user?.userId) {
-      setCompanies([])
-      setCompanyError("")
-      return
-    }
-    setCompanyLoading(true)
-    api.get<{ id: string; name: string; role: string; branchId: string | null }[]>("/auth/companies")
-      .then((items) => {
-        if (!cancelled) {
-          setCompanies(items)
-          setCompanyError("")
-        }
-      })
-      .catch((error) => {
+    void Promise.resolve().then(() => {
+      if (!user?.userId) {
         if (!cancelled) {
           setCompanies([])
-          setCompanyError(error instanceof Error ? error.message : (error as { message?: string })?.message ?? "Companies could not be loaded.")
+          setCompanyError("")
+          setCompanyLoading(false)
         }
-      })
-      .finally(() => {
-        if (!cancelled) setCompanyLoading(false)
-      })
+        return null
+      }
+      if (!cancelled) setCompanyLoading(true)
+      return api.get<{ id: string; name: string; role: string; branchId: string | null }[]>("/auth/companies")
+    }).then((items) => {
+      if (!cancelled && items) {
+        setCompanies(items)
+        setCompanyError("")
+      }
+    }).catch((error) => {
+      if (!cancelled) {
+        setCompanies([])
+        setCompanyError(error instanceof Error ? error.message : (error as { message?: string })?.message ?? "Companies could not be loaded.")
+      }
+    }).finally(() => {
+      if (!cancelled) setCompanyLoading(false)
+    })
     return () => { cancelled = true }
   }, [user?.userId, user?.companyId])
 

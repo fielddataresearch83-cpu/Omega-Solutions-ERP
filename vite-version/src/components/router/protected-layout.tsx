@@ -35,10 +35,12 @@ export function ProtectedLayout() {
   useEffect(() => {
     if (!user) return
     let cancelled = false
-    setAccessLoaded(false)
-    setAccessError(false)
-    api.get<SubscriptionAccess>("/subscriptions/current")
-      .then((result) => { if (!cancelled) setAccess(result) })
+    void Promise.resolve().then(() => {
+      if (cancelled) return null
+      setAccessLoaded(false)
+      setAccessError(false)
+      return api.get<SubscriptionAccess>("/subscriptions/current")
+    }).then((result) => { if (!cancelled && result) setAccess(result) })
       .catch(() => {
         if (!cancelled) {
           setAccess(null)
