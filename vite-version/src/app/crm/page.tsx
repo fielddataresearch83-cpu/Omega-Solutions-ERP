@@ -29,7 +29,7 @@ const badge = (value:string) => <span className={"inline-flex rounded-full px-2.
 export default function CrmPage() {
  const [now, setNow] = React.useState(0)
  React.useEffect(() => {
-  const update = () => setNow(now)
+  const update = () => setNow(Date.now())
   const timeout = window.setTimeout(update, 0)
   const interval = window.setInterval(update, 60_000)
   return () => { window.clearTimeout(timeout); window.clearInterval(interval) }
