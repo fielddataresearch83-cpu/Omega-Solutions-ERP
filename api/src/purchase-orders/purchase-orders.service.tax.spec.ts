@@ -31,7 +31,7 @@ describe('PurchaseOrdersService configured tax policy', () => {
       }),
     };
     const memberships = { getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null }) };
-    const audit = { log: vi.fn().mockResolvedValue(undefined) };
+    const audit = { log: vi.fn().mockResolvedValue(undefined), logInTransaction: vi.fn().mockResolvedValue(undefined) };
     const accounting = { ensureDefaults: vi.fn().mockResolvedValue(undefined) };
     return { service: new PurchaseOrdersService(db as any, memberships as any, audit as any, accounting as any), calls, client };
   }
