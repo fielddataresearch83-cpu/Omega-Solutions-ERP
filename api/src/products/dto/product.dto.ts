@@ -8,7 +8,6 @@ import {
   MaxLength,
   Max,
   Min,
-  IsNotEmpty,
 } from 'class-validator';
 
 export type ProductTaxTreatment = 'legacy' | 'standard' | 'zero_rated' | 'exempt' | 'out_of_scope';
