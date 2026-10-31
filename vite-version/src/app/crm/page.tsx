@@ -69,7 +69,7 @@ export default function CrmPage() {
   } catch(e) {setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load CRM data.")}
   finally {setLoading(false)}
  },[search,tab,leadStatus,opportunityStage,activityPending])
- React.useEffect(()=>{void load()},[load])
+ React.useEffect(()=>{void Promise.resolve().then(load)},[load])
 
  async function loadMore(){
   if(loadingMore)return

@@ -31,7 +31,7 @@ export default function CrmSegmentsPage(){
   catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load customer segments.")}
   finally{setLoading(false)}
  },[])
- React.useEffect(()=>{void load()},[load])
+ React.useEffect(()=>{void Promise.resolve().then(load)},[load])
  async function save(){
   if(!form.name.trim()){setError("Segment name is required.");return}
   setSaving(true);setError(null)

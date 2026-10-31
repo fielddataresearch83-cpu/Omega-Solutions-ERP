@@ -51,7 +51,7 @@ export default function CreditNotesPage() {
     } catch (e) { setError(message(e)); }
     finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const eligibleInvoices = invoices.filter(i => !["draft", "cancelled"].includes(i.status));
   const selectedInvoice = eligibleInvoices.find(i => i.id === invoiceId);

@@ -42,7 +42,7 @@ export default function CrmCampaignsPage(){
   catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load campaigns.")}
   finally{setLoading(false)}
  },[])
- React.useEffect(()=>{void load()},[load])
+ React.useEffect(()=>{void Promise.resolve().then(load)},[load])
 
  async function loadMore(){
   if(loadingMore||!hasMore)return

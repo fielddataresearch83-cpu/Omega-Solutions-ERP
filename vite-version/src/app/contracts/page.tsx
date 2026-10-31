@@ -54,7 +54,7 @@ export default function ContractsPage(){
      setContracts(results[0]);setCustomers(results[1]);setSuppliers(results[2]);setProducts(results[3].filter(p=>p.is_active!==false))
    }catch(e){setError(message(e))}finally{setLoading(false)}
  },[])
- React.useEffect(()=>{void refresh()},[refresh])
+ React.useEffect(()=>{void Promise.resolve().then(refresh)},[refresh])
  React.useEffect(()=>{setPartyId("")},[type])
  const create=async()=>{
    if(!title.trim()||(!editingId&&!partyId)||!startDate||!endDate||endDate<startDate){setError("Enter a contract title, counterparty and valid dates.");return}
