@@ -54,7 +54,7 @@ export default function ContractsPage(){
      setContracts(results[0]);setCustomers(results[1]);setSuppliers(results[2]);setProducts(results[3].filter(p=>p.is_active!==false))
    }catch(e){setError(message(e))}finally{setLoading(false)}
  },[])
- React.useEffect(()=>{void Promise.resolve().then(refresh)},[refresh])
+ React.useEffect(()=>{let active=true;void Promise.all([api.get<Contract[]>("/contracts"),api.get<Party[]>("/customers"),api.get<Party[]>("/suppliers"),api.get<Product[]>("/products")]).then(results=>{if(active){setContracts(results[0]);setCustomers(results[1]);setSuppliers(results[2]);setProducts(results[3].filter(p=>p.is_active!==false));}}).catch(e=>{if(active)setError(message(e));}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[])
  React.useEffect(()=>{let active=true;void Promise.resolve().then(()=>{if(active)setPartyId("")});return()=>{active=false}},[type])
  const create=async()=>{
    if(!title.trim()||(!editingId&&!partyId)||!startDate||!endDate||endDate<startDate){setError("Enter a contract title, counterparty and valid dates.");return}
@@ -102,7 +102,7 @@ export default function ContractsPage(){
   {showForm&&<Card><CardHeader><CardTitle>{editingId?"Edit draft contract":"Create a contract"}</CardTitle></CardHeader><CardContent className="space-y-5">
    <div className="grid gap-4 sm:grid-cols-2">
     <div className="space-y-2"><Label>Contract title *</Label><Input value={title} onChange={e=>setTitle(e.target.value)} placeholder="e.g. Office cleaning services"/></div>
-    {!editingId&&<><div className="space-y-2"><Label>Contract type *</Label><select className="h-9 w-full rounded-md border bg-background px-3 text-sm" value={type} onChange={e=>setType(e.target.value as "customer"|"supplier")}><option value="customer">Customer contract — services we deliver</option><option value="supplier">Supplier contract — materials we buy</option></select></div>
+    {!editingId&&<><div className="space-y-2"><Label>Contract type *</Label><select className="h-9 w-full rounded-md border bg-background px-3 text-sm" value={type} onChange={e=>{setType(e.target.value as "customer"|"supplier");setPartyId("")}}><option value="customer">Customer contract — services we deliver</option><option value="supplier">Supplier contract — materials we buy</option></select></div>
     <div className="space-y-2"><Label>{type==="customer"?"Customer":"Supplier"} *</Label><select className="h-9 w-full rounded-md border bg-background px-3 text-sm" value={partyId} onChange={e=>setPartyId(e.target.value)}><option value="">Select {type==="customer"?"customer":"supplier"}</option>{(type==="customer"?customers:suppliers).map(p=><option key={p.id} value={p.id}>{p.name||p.company_name||p.id}</option>)}</select></div></>}
     <div className="space-y-2"><Label>Contract value (KES)</Label><Input type="number" min="0" value={value} onChange={e=>setValue(e.target.value)}/></div>
     <div className="space-y-2"><Label>Start date *</Label><Input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}/></div>
