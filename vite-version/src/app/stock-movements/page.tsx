@@ -30,7 +30,7 @@ export default function StockMovementsPage(){
     catch(e){setError((e as {message?:string}).message??"Could not load stock ledger.")}
     finally{setLoading(false)}
   },[])
-  React.useEffect(()=>{void Promise.resolve().then(load)},[load])
+  React.useEffect(()=>{let active=true;void Promise.all([api.get<Warehouse[]>("/inventory/warehouses"),api.get<Movement[]>("/inventory/movements?limit=150")]).then(([w,m])=>{if(active){setWarehouses(w.filter(x=>x.is_active));setMovements(m);}}).catch(e=>{if(active)setError((e as {message?:string}).message??"Could not load stock ledger.");}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[])
   const stockProducts=products.filter(p=>p.is_active&&!p.is_service)
   async function submit(event:React.FormEvent<HTMLFormElement>){
     event.preventDefault();setSaving(true);setError(null)
