@@ -50,7 +50,7 @@ export default function UsersRolesPage() {
   const role = user?.role;
   const companyId = user?.companyId;
   const canManage = role === "owner" || role === "admin";
-  const refresh = React.useCallback(async () => {
+  const refresh = async () => {
     setLoading(true); setError(""); setNotice("");
     try {
       const rows = await api.get<Member[]>("/users-roles");
@@ -72,7 +72,7 @@ export default function UsersRolesPage() {
       }
     } catch (e) { setError(errorText(e)); }
     finally { setLoading(false); }
-  }, [role, companyId]);
+  };
   React.useEffect(() => {
     if (!role) return
     let active = true
