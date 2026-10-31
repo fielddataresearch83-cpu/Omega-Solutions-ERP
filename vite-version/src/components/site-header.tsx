@@ -65,11 +65,12 @@ export function SiteHeader() {
   const { user, switchCompany } = useAuth()
   const [searchOpen, setSearchOpen] = React.useState(false)
   const [notifications, setNotifications] = React.useState<{ id: string; title: string; message: string; time: string; read: boolean; href?: string | null }[]>([])
-  const [notificationsLoading, setNotificationsLoading] = React.useState(false)
+  const [notificationsLoading, setNotificationsLoading] = React.useState(true)
   const [notificationsError, setNotificationsError] = React.useState("")
   const [unreadCount, setUnreadCount] = React.useState(0)
   const [companies, setCompanies] = React.useState<{ id: string; name: string; role: string; branchId: string | null }[]>([])
-  const [companyLoading, setCompanyLoading] = React.useState(false)
+  const [companiesLoadedFor, setCompaniesLoadedFor] = React.useState("")
+  const companyLoading = Boolean(user?.userId) && companiesLoadedFor !== user?.userId
   const [companyError, setCompanyError] = React.useState("")
   const [switchingCompanyId, setSwitchingCompanyId] = React.useState<string | null>(null)
 
@@ -101,35 +102,48 @@ export function SiteHeader() {
     }
   }, [])
 
-  React.useEffect(() => { void Promise.resolve().then(loadNotifications) }, [loadNotifications])
+  React.useEffect(() => {
+    let active = true
+    const requestId = ++loadRequestId.current
+    void api.get<{ items: { id: string; title: string; message: string; href?: string | null; read_at: string | null; created_at: string }[]; unreadCount: number }>("/notifications")
+      .then((data) => {
+        if (!active || requestId !== loadRequestId.current) return
+        setNotifications(data.items.map((n) => ({
+          id: n.id, title: n.title, message: n.message,
+          time: new Date(n.created_at).toLocaleString(), read: Boolean(n.read_at), href: n.href,
+        })))
+        setUnreadCount(data.unreadCount ?? 0)
+        setNotificationsError("")
+      })
+      .catch((error) => {
+        if (!active || requestId !== loadRequestId.current) return
+        setNotifications([])
+        setUnreadCount(0)
+        setNotificationsError(error instanceof Error ? error.message : (error as { message?: string })?.message ?? "Notifications could not be loaded.")
+      })
+      .finally(() => { if (active && requestId === loadRequestId.current) setNotificationsLoading(false) })
+    return () => { active = false }
+  }, [])
 
   React.useEffect(() => {
-    let cancelled = false
-    void Promise.resolve().then(() => {
-      if (!user?.userId) {
-        if (!cancelled) {
-          setCompanies([])
+    if (!user?.userId) return
+    let active = true
+    void api.get<{ id: string; name: string; role: string; branchId: string | null }[]>("/auth/companies")
+      .then((items) => {
+        if (active) {
+          setCompanies(items)
           setCompanyError("")
-          setCompanyLoading(false)
+          setCompaniesLoadedFor(user.userId)
         }
-        return null
-      }
-      if (!cancelled) setCompanyLoading(true)
-      return api.get<{ id: string; name: string; role: string; branchId: string | null }[]>("/auth/companies")
-    }).then((items) => {
-      if (!cancelled && items) {
-        setCompanies(items)
-        setCompanyError("")
-      }
-    }).catch((error) => {
-      if (!cancelled) {
-        setCompanies([])
-        setCompanyError(error instanceof Error ? error.message : (error as { message?: string })?.message ?? "Companies could not be loaded.")
-      }
-    }).finally(() => {
-      if (!cancelled) setCompanyLoading(false)
-    })
-    return () => { cancelled = true }
+      })
+      .catch((error) => {
+        if (active) {
+          setCompanies([])
+          setCompanyError(error instanceof Error ? error.message : (error as { message?: string })?.message ?? "Companies could not be loaded.")
+          setCompaniesLoadedFor(user.userId)
+        }
+      })
+    return () => { active = false }
   }, [user?.userId, user?.companyId])
 
   const changeCompany = async (companyId: string) => {
