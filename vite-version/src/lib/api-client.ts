@@ -20,6 +20,8 @@ export function getRefreshToken(): string | null {
 }
 
 export function setTokens(accessToken: string, _refreshToken?: string): void {
+  // The legacy argument is intentionally ignored; refresh credentials are cookie-only.
+  void _refreshToken;
   accessTokenInMemory = accessToken;
   // Clean up credentials persisted by older versions; access and refresh tokens
   // must not be stored in browser-readable persistent storage.
