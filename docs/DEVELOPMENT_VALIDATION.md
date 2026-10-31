@@ -1,64 +1,54 @@
-# Local development and pre-push validation
+# Cloud-based development and validation
 
-This repository uses the existing `development` branch only. Do not create test or feature branches. Never point local test commands at production or shared Neon business databases.
+Omega development is validated in GitHub Actions. A developer workstation is **not required** to build or test the project.
 
-## One-time setup on Windows PowerShell
+The only development branch is `development`. Do not create test or feature branches. Never point tests or migrations at production or the shared Neon business database.
 
-1. Pull the latest commit on the existing branch:
+## Automatic validation
 
-   ```powershell
-   git checkout development
-   git pull --ff-only origin development
-   ```
+The `Development validation` workflow runs on every push to `development`, on pull requests targeting `development`, and daily at 06:00 East Africa Time (03:00 UTC). It can also be started manually from the GitHub Actions tab.
 
-2. Use the exact Node version in `.nvmrc`:
+It performs:
 
-   ```powershell
-   node --version
-   # Required: v22.22.3
-   ```
+- Node.js setup using the repository's exact `.nvmrc` version.
+- API dependency installation, production build, purchase-order approval regression tests, full API tests, and API lint.
+- A disposable PostgreSQL 16 service for PostgreSQL-backed MFA tests. The database exists only for the workflow run.
+- Frontend dependency installation, production build, and ESLint.
+- API and frontend dependency vulnerability reports.
 
-3. Install dependencies if needed:
+The `Validate Omega development` workflow runs clean-install migration, schema assertion, migration idempotency, and migration safety-guard tests against a separate disposable PostgreSQL database. It runs on relevant code changes, daily at 07:00 East Africa Time (04:00 UTC), and on manual dispatch.
 
-   ```powershell
-   npm ci --prefix api
-   npm ci --prefix vite-version
-   ```
+The workforce API and PostgreSQL transaction workflows provide additional focused regression coverage. All GitHub Actions workflows use the Node version in `.nvmrc` to avoid runtime drift.
 
-4. Create a dedicated disposable local PostgreSQL database for MFA integration tests. Example using the local PostgreSQL role `omega_local`:
+## Safety boundaries
 
-   ```powershell
-   createdb -U omega_local omega_pre_push_test
-   $env:MFA_TEST_DATABASE_URL = "postgres://omega_local:YOUR_LOCAL_PASSWORD@127.0.0.1:5432/omega_pre_push_test"
-   ```
+- CI uses temporary PostgreSQL service containers; it does not use shared Neon or production data.
+- Automated validation does not deploy to or reconfigure Render or Vercel.
+- No workflow in this validation path automatically deploys production.
+- Migration tests run only against disposable CI databases. They do not reconcile or repair the shared database ledger.
+- Workflows that create persistent records in shared development services are not part of this automatic validation path and must remain manual/explicitly authorized.
 
-   Replace the placeholder locally; never commit credentials. The hook rejects non-local database hosts. Do not use Neon, production, or a database containing business records.
+## Local development
 
-5. Install the hook in this clone:
+Local Node/PostgreSQL setup and the optional local pre-push hook are not required for this cloud-first workflow. GitHub Actions is the authoritative automated validation environment. Developers may still use local tools if they choose, but local checks do not replace the cloud results.
 
-   ```powershell
-   node scripts/install-pre-push-hook.mjs
-   git config --get core.hooksPath
-   # Expected: .githooks
-   ```
+## Required-check enforcement
 
-The Git hook setting is local to this clone. Install it once in each clone.
+The repository's `development` branch is currently **not protected**. A green workflow run provides evidence, but does not by itself prevent a direct push.
 
-## Checks performed before every push
+To enforce the gate, enable a GitHub branch ruleset for `development` and require the relevant status checks after their names have appeared in a successful run. Do not require checks from manual/live workflows. Keep production deployment and shared-database changes behind separate explicit approval.
 
-- Exact Node version: `v22.22.3`.
-- Current branch is the existing `development` branch.
-- `MFA_TEST_DATABASE_URL` exists and points to localhost/127.0.0.1/::1.
-- API build, complete API test suite, and API lint.
-- Frontend production build and frontend lint.
-- `git diff --check` across the commits being pushed.
+## Current known debt
 
-Any failed check blocks the push. Fix the failure and retry; do not bypass the hook with `--no-verify`. After a push is permitted locally, wait for all applicable GitHub Actions runs on that exact commit to complete successfully before starting another change.
+- Frontend ESLint has previously been reported with 71 errors and 5 warnings. The frontend lint step is now part of the main cloud validation and will fail until those issues are resolved.
+- Dependency audit steps currently report findings without failing the workflow. Review and triage the reports before promoting them to blocking security gates.
+- Passing CI proves only the checks that actually ran; it is not proof that every tenant, permission, financial, or production-readiness requirement has been satisfied.
 
-## Known limitations and outstanding CI work
+## Operating procedure
 
-- The hook does not deploy or call Render/Vercel and does not access shared Neon.
-- Clean-install migration and disposable PostgreSQL migration-guard checks remain in GitHub Actions; this hook does not run migration commands against a database.
-- The previous local audit reported 71 frontend lint errors and 5 warnings. Until those are resolved, the hook is expected to block pushes. That is intentional.
-- GitHub Actions workflows still overlap and use different Node versions. This hook does not replace CI; workflow consolidation and branch required-check enforcement remain open tasks.
-- A local hook can be bypassed by changing Git configuration or using `--no-verify`; it is a developer-side safety gate, not server-side branch protection. Required checks still need to be enforced in GitHub settings.
+1. Make changes only on the existing `development` branch in this private repository.
+2. Push the change to GitHub.
+3. Wait for all applicable automated checks to finish on the exact commit.
+4. Inspect failures and fix them before treating the change as validated.
+5. Record the run URL and commit SHA in the production-readiness map.
+6. Keep production release, live smoke tests that write records, and shared Neon schema/data changes separate from routine CI.

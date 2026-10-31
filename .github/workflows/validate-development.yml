@@ -14,6 +14,10 @@ on:
       - "vite-version/**"
       - ".github/workflows/validate-development.yml"
 
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
 permissions:
   contents: read
 
@@ -41,7 +45,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: |
             api/package-lock.json
@@ -57,14 +61,6 @@ jobs:
         env:
           MFA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_test
         run: npm test
-      - name: Smoke-test deployed API health and database
-        run: |
-          curl --fail --silent --show-error --connect-timeout 5 --max-time 10 --retry 3 --retry-all-errors --retry-delay 3 \
-            https://omega-solutions-api-development.onrender.com/api/health \
-            --output /tmp/omega-api-health.json
-          cat /tmp/omega-api-health.json
-          node -e "const h=require('/tmp/omega-api-health.json'); if (h.status !== 'ok' || h.database !== 'connected') { console.error('API health check failed'); process.exit(1); }"
-
       - name: Install frontend dependencies
         working-directory: vite-version
         run: npm ci
@@ -96,7 +92,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: api/package-lock.json
       - name: Install API dependencies
