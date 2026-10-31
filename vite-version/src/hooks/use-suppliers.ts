@@ -10,16 +10,21 @@ export function useSuppliers() {
   const refetch = React.useCallback(() => {
     setLoading(true)
     setError(null)
-    api
+    return api
       .get<SupplierRow[]>("/suppliers")
-      .then(setSuppliers)
-      .catch((err: { message?: string }) => setError(err.message ?? "Failed to load suppliers"))
+      .then((rows) => { setSuppliers(rows); return rows })
+      .catch((err: { message?: string }) => { setError(err.message ?? "Failed to load suppliers"); throw err })
       .finally(() => setLoading(false))
   }, [])
 
   React.useEffect(() => {
-    refetch()
-  }, [refetch])
+    let active = true
+    api.get<SupplierRow[]>("/suppliers")
+      .then((rows) => { if (active) setSuppliers(rows) })
+      .catch((err: { message?: string }) => { if (active) setError(err.message ?? "Failed to load suppliers") })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
 
   return { suppliers, loading, error, refetch }
 }
