@@ -48,6 +48,7 @@ jobs:
           cache-dependency-path: |
             api/package-lock.json
             vite-version/package-lock.json
+            .github/workflows/development-validation.yml
 
       - name: Build API
         working-directory: api
