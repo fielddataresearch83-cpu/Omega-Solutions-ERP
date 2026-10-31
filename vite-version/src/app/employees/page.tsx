@@ -25,7 +25,7 @@ export default function EmployeesPage(){
  const [savingNationalId,setSavingNationalId]=React.useState<string|null>(null);
  const [idMessage,setIdMessage]=React.useState<string|null>(null);
  const load=React.useCallback(async()=>{setLoading(true);setError(null);try{setRows(await api.get<Employee[]>("/employees"));}catch(e){setError(message(e));}finally{setLoading(false);}},[]);
- React.useEffect(()=>{void Promise.resolve().then(load);},[load]);
+ React.useEffect(()=>{let active=true;void api.get<Employee[]>("/employees").then(result=>{if(active)setRows(result);}).catch(e=>{if(active)setError(message(e));}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[]);
  async function saveNationalId(employeeId:string){
   setSavingNationalId(employeeId);setFormError(null);setIdMessage(null);
   try{const result=await api.patch<{nationalIdMasked:string}>(`/employees/${employeeId}/national-id`,{nationalId:nationalIds[employeeId]||""});setNationalIds({...nationalIds,[employeeId]:""});setIdMessage(`National ID saved for this employee (${result.nationalIdMasked}).`);}
