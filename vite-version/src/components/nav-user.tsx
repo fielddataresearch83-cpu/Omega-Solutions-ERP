@@ -48,7 +48,7 @@ export function NavUser() {
   const [companyError, setCompanyError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) return
+    if (!user?.userId) return
     let cancelled = false
     void Promise.resolve().then(() => {
       if (cancelled) return null

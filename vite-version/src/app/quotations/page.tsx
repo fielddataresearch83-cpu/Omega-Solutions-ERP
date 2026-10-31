@@ -48,20 +48,24 @@ export default function QuotationsPage() {
   }, []);
   React.useEffect(() => { void Promise.resolve().then(refresh); }, [refresh]);
   React.useEffect(() => {
-    if (customersLoading || typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const requestedCustomerId = params.get("customerId");
-    if (!requestedCustomerId) return;
-    const customer = customers.find((item) => item.id === requestedCustomerId && item.is_active);
-    if (!customer) {
-      setFormError("The customer linked to this opportunity is unavailable or inactive. Choose an active customer instead.");
-      setFormOpen(true);
-      return;
-    }
-    setCustomerId(customer.id);
-    const opportunity = params.get("opportunity")?.trim();
-    if (opportunity) setNotes((current) => current || `Opportunity: ${opportunity}`);
-    setFormOpen(true);
+    let active = true
+    void Promise.resolve().then(() => {
+      if (!active || customersLoading || typeof window === "undefined") return
+      const params = new URLSearchParams(window.location.search)
+      const requestedCustomerId = params.get("customerId")
+      if (!requestedCustomerId) return
+      const customer = customers.find((item) => item.id === requestedCustomerId && item.is_active)
+      if (!customer) {
+        setFormError("The customer linked to this opportunity is unavailable or inactive. Choose an active customer instead.")
+        setFormOpen(true)
+        return
+      }
+      setCustomerId(customer.id)
+      const opportunity = params.get("opportunity")?.trim()
+      if (opportunity) setNotes((current) => current || `Opportunity: ${opportunity}`)
+      setFormOpen(true)
+    })
+    return () => { active = false }
   }, [customers, customersLoading]);
 
 

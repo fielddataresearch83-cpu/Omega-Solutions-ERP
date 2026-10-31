@@ -139,7 +139,7 @@ export default function Page() {
   }>({ data: null, loading: true, error: null })
 
   React.useEffect(() => {
-    if (authLoading || companyLoading || !user) return
+    if (authLoading || companyLoading || !user?.userId) return
     let cancelled = false
     void Promise.resolve().then(() => {
       if (cancelled) return null

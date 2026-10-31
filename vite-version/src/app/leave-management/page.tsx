@@ -20,7 +20,7 @@ export default function LeaveManagementPage(){
  const [loading,setLoading]=React.useState(true);const [saving,setSaving]=React.useState(false);const [busyId,setBusyId]=React.useState<string|null>(null);
  const [error,setError]=React.useState<string|null>(null);const [formError,setFormError]=React.useState<string|null>(null);const [form,setForm]=React.useState(blank);
  const load=React.useCallback(async()=>{setLoading(true);setError(null);try{const [e,l]=await Promise.all([api.get<Employee[]>("/employees"),api.get<Leave[]>("/employees/leave-requests")]);setEmployees(e);setRows(l);setForm(f=>({...f,employeeId:f.employeeId||e[0]?.id||""}));}catch(e){setError(message(e));}finally{setLoading(false);}},[]);
- React.useEffect(()=>{void load();},[load]);
+ React.useEffect(()=>{void Promise.resolve().then(load);},[load]);
  async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setSaving(true);setFormError(null);try{await api.post("/employees/leave-requests",{...form,reason:form.reason.trim()||undefined});setForm(f=>({...blank,employeeId:f.employeeId}));await load();}catch(e){setFormError(message(e));}finally{setSaving(false);}}
  async function review(id:string,status:"approved"|"rejected"){setBusyId(id);setError(null);try{await api.patch(`/employees/leave-requests/${id}/review`,{status});await load();}catch(e){setError(message(e));}finally{setBusyId(null);}}
  return <BaseLayout><div className="flex flex-col gap-6 px-4 lg:px-6">

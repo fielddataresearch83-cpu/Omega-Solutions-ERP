@@ -77,10 +77,21 @@ export default function ProductsPage() {
   const [formErrors, setFormErrors] = React.useState<Record<string, string>>({})
 
   React.useEffect(() => {
-    if (!selectedImage) { setImagePreview(null); return }
-    const url = URL.createObjectURL(selectedImage)
-    setImagePreview(url)
-    return () => URL.revokeObjectURL(url)
+    let active = true
+    let url: string | undefined
+    void Promise.resolve().then(() => {
+      if (!active) return
+      if (!selectedImage) {
+        setImagePreview(null)
+        return
+      }
+      url = URL.createObjectURL(selectedImage)
+      setImagePreview(url)
+    })
+    return () => {
+      active = false
+      if (url) URL.revokeObjectURL(url)
+    }
   }, [selectedImage])
 
   const categories = React.useMemo(() => {

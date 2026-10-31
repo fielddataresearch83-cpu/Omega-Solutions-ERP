@@ -70,12 +70,17 @@ export function CommandSearch({ open, onOpenChange }: CommandSearchProps) {
   }, [query])
 
   React.useEffect(() => {
+    let cancelled = false
     if (!open) {
-      setQuery("")
-      setResults([])
-      setSearchError("")
-      setIsSearching(false)
+      void Promise.resolve().then(() => {
+        if (cancelled) return
+        setQuery("")
+        setResults([])
+        setSearchError("")
+        setIsSearching(false)
+      })
     }
+    return () => { cancelled = true }
   }, [open])
 
   const handleSelect = (url: string) => {
