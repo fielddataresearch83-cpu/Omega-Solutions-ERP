@@ -47,13 +47,15 @@ export default function UsersRolesPage() {
   const [inviteBranchId, setInviteBranchId] = React.useState("");
   const [invitationLoading, setInvitationLoading] = React.useState(false);
   const [invitationError, setInvitationError] = React.useState("");
-  const canManage = user?.role === "owner" || user?.role === "admin";
+  const role = user?.role;
+  const companyId = user?.companyId;
+  const canManage = role === "owner" || role === "admin";
   const refresh = React.useCallback(async () => {
     setLoading(true); setError(""); setNotice("");
     try {
       const rows = await api.get<Member[]>("/users-roles");
       setMembers(rows);
-      if (canManage) {
+      if (role === "owner" || role === "admin") {
         try { setRoleInfo(await api.get<RoleInfo[]>("/users-roles/roles")); }
         catch { setRoleInfo([]); }
         try {
@@ -63,14 +65,14 @@ export default function UsersRolesPage() {
           setInvitations([]);
           setInvitationError(errorText(e));
         }
-        if (user?.companyId) {
-          try { setBranches((await api.get<Branch[]>("/companies/" + user.companyId + "/branches")).filter(b => b.is_active)); }
+        if (companyId) {
+          try { setBranches((await api.get<Branch[]>("/companies/" + companyId + "/branches")).filter(b => b.is_active)); }
           catch { setBranches([]); }
         }
       }
     } catch (e) { setError(errorText(e)); }
     finally { setLoading(false); }
-  }, [canManage, user?.companyId]);
+  }, [role, companyId]);
   React.useEffect(() => { void Promise.resolve().then(refresh); }, [refresh]);
   const changeRole = async (member: Member, role: Role) => {
     if (role === member.role) return;
