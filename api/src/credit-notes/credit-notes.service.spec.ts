@@ -258,7 +258,7 @@ describe('CreditNotesService', () => {
       }),
       transaction: vi.fn(async (callback: (client: unknown) => Promise<unknown>) => callback(client)),
     };
-    const audit = { log: vi.fn().mockResolvedValue(undefined) };
+    const audit = { log: vi.fn().mockResolvedValue(undefined), logInTransaction: vi.fn().mockResolvedValue(undefined) };
     const accounting = { ensureDefaults: vi.fn().mockResolvedValue(undefined) };
     const memberships = { getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-a', branchId: null, role: 'owner' }), getMembership: vi.fn() };
     const service = new CreditNotesService(
