@@ -71,6 +71,7 @@ export function SiteHeader() {
   const [companies, setCompanies] = React.useState<{ id: string; name: string; role: string; branchId: string | null }[]>([])
   const [companiesLoadedFor, setCompaniesLoadedFor] = React.useState("")
   const companyLoading = Boolean(user?.userId) && companiesLoadedFor !== user?.userId
+  const visibleCompanies = companiesLoadedFor === user?.userId ? companies : []
   const [companyError, setCompanyError] = React.useState("")
   const [switchingCompanyId, setSwitchingCompanyId] = React.useState<string | null>(null)
 
@@ -219,7 +220,7 @@ export function SiteHeader() {
                   <Button variant="outline" className="max-w-56 gap-2 cursor-pointer" disabled={companyLoading || !user?.userId}>
                     <Building2 className="size-4 shrink-0" />
                     <span className="hidden truncate sm:inline">
-                      {companies.find((company) => company.id === user?.companyId)?.name ?? (companyLoading ? "Loading company…" : "Company")}
+                      {visibleCompanies.find((company) => company.id === user?.companyId)?.name ?? (companyLoading ? "Loading company…" : "Company")}
                     </span>
                     <ChevronsUpDown className="size-3.5 shrink-0 opacity-60" />
                   </Button>
@@ -232,7 +233,7 @@ export function SiteHeader() {
                 <DropdownMenuSeparator />
                 {companyError && <div role="alert" className="px-2 py-2 text-xs text-destructive">{companyError}</div>}
                 {companyLoading && <div className="px-2 py-2 text-sm text-muted-foreground">Loading companies…</div>}
-                {!companyLoading && companies.map((company) => (
+                {!companyLoading && visibleCompanies.map((company) => (
                   <DropdownMenuItem
                     key={company.id}
                     disabled={Boolean(switchingCompanyId)}
@@ -249,7 +250,7 @@ export function SiteHeader() {
                       : company.id === user?.companyId ? <Check className="size-4 text-primary" /> : null}
                   </DropdownMenuItem>
                 ))}
-                {!companyLoading && companies.length === 0 && !companyError && (
+                {!companyLoading && visibleCompanies.length === 0 && !companyError && (
                   <div className="px-2 py-3 text-sm text-muted-foreground">No active company memberships found.</div>
                 )}
               </DropdownMenuContent>
