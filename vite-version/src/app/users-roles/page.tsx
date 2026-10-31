@@ -64,7 +64,7 @@ export default function UsersRolesPage() {
     } catch (e) { setError(errorText(e)); }
     finally { setLoading(false); }
   }, [canManage, user?.companyId]);
-  React.useEffect(() => { void refresh(); }, [refresh]);
+  React.useEffect(() => { void Promise.resolve().then(refresh); }, [refresh]);
   const changeRole = async (member: Member, role: Role) => {
     if (role === member.role) return;
     setSaving(member.membership_id); setError(""); setNotice("");

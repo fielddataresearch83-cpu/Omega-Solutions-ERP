@@ -29,7 +29,7 @@ export default function WarehousesPage() {
     catch (e) { setError((e as {message?:string}).message ?? "Could not load warehouses.") }
     finally { setLoading(false) }
   },[])
-  React.useEffect(()=>{void load()},[load])
+  React.useEffect(()=>{void Promise.resolve().then(load)},[load])
   function openCreate() {
     setEditingId(null);setForm(emptyForm);setError(null);setShowForm(v=>!v)
   }

@@ -68,13 +68,13 @@ export default function WorkforcePage() {
     setLoading(false);
   }, [from, to]);
 
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const loadMonthlyImports = React.useCallback(async () => {
     try { setMonthlyImports(await api.get<MonthlyImport[]>(`/attendance/monthly-imports?period=${encodeURIComponent(importPeriod)}`)); }
     catch (e) { setImportError(errorMessage(e)); }
   }, [importPeriod]);
-  React.useEffect(() => { void loadMonthlyImports(); }, [loadMonthlyImports]);
+  React.useEffect(() => { void Promise.resolve().then(loadMonthlyImports); }, [loadMonthlyImports]);
 
   function parseChecklistCsv(text: string) {
     const records: string[][] = [];

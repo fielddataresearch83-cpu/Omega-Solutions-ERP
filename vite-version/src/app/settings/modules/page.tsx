@@ -53,7 +53,7 @@ export default function ModulesSettingsPage() {
     }
   }, [])
 
-  React.useEffect(() => { void loadCatalogue() }, [loadCatalogue])
+  React.useEffect(() => { void Promise.resolve().then(loadCatalogue) }, [loadCatalogue])
 
   const requestModule = async (moduleCode: string) => {
     setRequesting(moduleCode)

@@ -53,7 +53,7 @@ export default function SupplierBillsPage(){
    setSupplierId(current=>current||s.find(x=>x.is_active&&x.status==="active")?.id||"");
   }catch(e){setError(messageOf(e))}finally{setLoading(false)}
  },[]);
- React.useEffect(()=>{void refresh()},[refresh]);
+ React.useEffect(()=>{void Promise.resolve().then(refresh)},[refresh]);
  const chooseOrder=async(id:string)=>{
   setPurchaseOrderId(id);
   if(!id){setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16",taxTreatment:"legacy"}]);return}
