@@ -528,7 +528,7 @@ export class InvoicesService {
   ): Promise<InvoiceRow> {
     const membership = await this.membershipFor(user);
     await this.assertBranchInvoiceAccess(membership, invoiceId);
-    const payment = await this.db.transaction(async (client) => {
+    await this.db.transaction(async (client) => {
       const result = await client.query<InvoicePaymentRow>(
         `SELECT id, invoice_id, amount, method, reference, paid_at, notes, created_at, status, verified_at, reconciled_at, reconciliation_reference
          FROM invoice_payments WHERE id=$1 AND invoice_id=$2 AND company_id=$3 FOR UPDATE`,
@@ -557,7 +557,7 @@ export class InvoicesService {
     await this.assertBranchInvoiceAccess(membership, invoiceId);
     const reference = statementReference.trim();
     if (!reference) throw new BadRequestException('Bank statement reference is required.');
-    const payment = await this.db.transaction(async (client) => {
+    await this.db.transaction(async (client) => {
       const result = await client.query<InvoicePaymentRow>(
         `SELECT id, invoice_id, amount, method, reference, paid_at, notes, created_at, status, verified_at, reconciled_at, reconciliation_reference
          FROM invoice_payments
