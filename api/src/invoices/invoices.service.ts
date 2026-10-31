@@ -295,7 +295,7 @@ export class InvoicesService {
       throw new BadRequestException('Payment amount must be greater than zero.');
     }
 
-    const payment = await this.db.transaction(async (client) => {
+    await this.db.transaction(async (client) => {
       const result = await client.query<{
         status: InvoiceStatus;
         total: string | number;
@@ -345,7 +345,7 @@ export class InvoicesService {
   ): Promise<InvoiceRow> {
     const membership = await this.membershipFor(user);
     await this.assertBranchInvoiceAccess(membership, invoiceId);
-    const confirmed = await this.db.transaction(async (client) => {
+    await this.db.transaction(async (client) => {
       // Lock the invoice before the payment row. Payment reporting and credit notes
       // use this same invoice-first order, avoiding a payment↔invoice deadlock.
       const invoiceResult = await client.query<{
