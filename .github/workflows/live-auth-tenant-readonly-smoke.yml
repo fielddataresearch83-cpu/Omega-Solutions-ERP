@@ -1,31 +1,20 @@
-name: Read-only development tenant isolation smoke
+name: Manual development tenant isolation smoke (creates auth sessions)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - development
-    paths:
-      - '.github/workflows/live-auth-tenant-readonly-smoke.yml'
-      - 'api/scripts/live-auth-tenant-readonly-smoke.mjs'
-      - 'api/src/auth/**'
-      - 'api/src/memberships/**'
-      - 'api/src/companies/**'
-      - 'api/src/branches/**'
-      - 'api/src/users-roles/**'
-      - 'api/src/customers/**'
-      - 'api/src/products/**'
-      - 'api/src/migrations/**'
-      - 'api/src/suppliers/**'
-      - 'api/src/invoices/**'
-      - 'api/src/subscriptions/**'
-      - 'api/src/rbac/**'
+    inputs:
+      acknowledge_auth_session_creation:
+        description: "I understand sign-in and token exchange create development authentication session records."
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   tenant-isolation:
+    if: ${{ inputs.acknowledge_auth_session_creation == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -39,7 +28,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify read-only cross-company isolation
+      - name: Verify business-data isolation (authentication sessions are created)
         env:
           OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
           OMEGA_SECURITY_TEST_A_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}

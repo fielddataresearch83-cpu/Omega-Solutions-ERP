@@ -222,7 +222,7 @@ async function main() {
   await request("GET", "/auth/me", undefined, undefined, [401, 403]);
   checks.push("protected profile endpoint rejects unauthenticated requests");
 
-  console.log(JSON.stringify({ result: failures.length ? "FAIL" : "PASS", mode: "read-only", api: base, checks, failures }, null, 2));
+  console.log(JSON.stringify({ result: failures.length ? "FAIL" : "PASS", mode: "read-only-business-data", authenticationSideEffects: "sign-in and token exchange create authentication session records", api: base, checks, failures }, null, 2));
   if (failures.length) throw new Error(`Read-only tenant smoke found ${failures.length} endpoint/resource failure(s).`);
 }
 main().catch(error => {
