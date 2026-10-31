@@ -151,28 +151,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
   const isSalesperson = user?.role === "salesperson"
   const [access, setAccess] = React.useState<SubscriptionAccess | null>(null)
-  const [accessLoaded, setAccessLoaded] = React.useState(false)
+  const [loadedCompanyId, setLoadedCompanyId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (!company?.id) return
-    let cancelled = false
-    void Promise.resolve().then(() => {
-      if (cancelled) return null
-      setAccessLoaded(false)
-      return api.get<SubscriptionAccess>("/subscriptions/modules")
-    }).then((result) => {
-        if (!cancelled && result) setAccess(result)
-      })
+    let active = true
+    void api.get<SubscriptionAccess>("/subscriptions/modules")
+      .then((result) => { if (active) { setAccess(result); setLoadedCompanyId(company.id) } })
       .catch(() => {
         // Fail closed in the navigation when subscription data cannot be loaded.
-        if (!cancelled) setAccess({ subscription: { status: "unknown" }, modules: {} })
+        if (active) { setAccess({ subscription: { status: "unknown" }, modules: {} }); setLoadedCompanyId(company.id) }
       })
-      .finally(() => {
-        if (!cancelled) setAccessLoaded(true)
-      })
-    return () => { cancelled = true }
+    return () => { active = false }
   }, [company?.id])
 
+  const accessLoaded = Boolean(company?.id) && loadedCompanyId === company?.id
   const canShowModule = (moduleCode: string) => {
     if (!accessLoaded) return moduleCode === "core"
     if (moduleCode === "core") return true
