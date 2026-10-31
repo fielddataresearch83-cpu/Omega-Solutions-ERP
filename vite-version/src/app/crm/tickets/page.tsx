@@ -47,7 +47,7 @@ export default function CrmTicketsPage(){
   }catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load support tickets.")}
   finally{setLoading(false)}
  },[search,status,priority])
- React.useEffect(()=>{void load()},[load])
+ React.useEffect(()=>{void Promise.resolve().then(load)},[load])
 
  async function loadMore(){
   if(loadingMore||!hasMore)return

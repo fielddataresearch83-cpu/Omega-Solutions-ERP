@@ -116,7 +116,7 @@ export default function InvoicesPage() {
     catch (error) { setLoadError(errorMessage(error)); }
     finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void refreshInvoices(); }, [refreshInvoices]);
+  React.useEffect(() => { void Promise.resolve().then(refreshInvoices); }, [refreshInvoices]);
 
   const filtered = invoices.filter((invoice) => {
     const query = search.trim().toLowerCase();

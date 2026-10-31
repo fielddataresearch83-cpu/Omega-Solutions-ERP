@@ -65,7 +65,7 @@ export default function PaymentsPage() {
     } catch (err) { setError(errorMessage(err)); }
     finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const startMpesaPayment = async () => {
     const amount = Number(mpesaAmount);
