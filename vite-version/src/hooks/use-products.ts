@@ -10,16 +10,21 @@ export function useProducts() {
   const refetch = React.useCallback(() => {
     setLoading(true)
     setError(null)
-    api
+    return api
       .get<ProductRow[]>("/products")
-      .then(setProducts)
-      .catch((err: { message?: string }) => setError(err.message ?? "Failed to load products"))
+      .then((rows) => { setProducts(rows); return rows })
+      .catch((err: { message?: string }) => { setError(err.message ?? "Failed to load products"); throw err })
       .finally(() => setLoading(false))
   }, [])
 
   React.useEffect(() => {
-    refetch()
-  }, [refetch])
+    let active = true
+    api.get<ProductRow[]>("/products")
+      .then((rows) => { if (active) setProducts(rows) })
+      .catch((err: { message?: string }) => { if (active) setError(err.message ?? "Failed to load products") })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
 
   return { products, loading, error, refetch }
 }
