@@ -27,7 +27,7 @@ function errorText(e: unknown) {
 export default function UsersRolesPage() {
   const [now, setNow] = React.useState(0);
   React.useEffect(() => {
-    const update = () => setNow(Date.now());
+    const update = () => setNow(now);
     const timeout = window.setTimeout(update, 0);
     const interval = window.setInterval(update, 60_000);
     return () => { window.clearTimeout(timeout); window.clearInterval(interval); };
@@ -73,7 +73,20 @@ export default function UsersRolesPage() {
     } catch (e) { setError(errorText(e)); }
     finally { setLoading(false); }
   }, [role, companyId]);
-  React.useEffect(() => { void Promise.resolve().then(refresh); }, [refresh]);
+  React.useEffect(() => {
+    if (!role) return
+    let active = true
+    void api.get<Member[]>("/users-roles").then((rows) => {
+      if (!active) return
+      setMembers(rows)
+      if (role === "owner" || role === "admin") {
+        void api.get<RoleInfo[]>("/users-roles/roles").then((items) => { if (active) setRoleInfo(items) }).catch(() => { if (active) setRoleInfo([]) })
+        void api.get<Invitation[]>("/users-roles/invitations").then((items) => { if (active) { setInvitations(items); setInvitationError("") } }).catch((e) => { if (active) { setInvitations([]); setInvitationError(errorText(e)) } })
+        if (companyId) void api.get<Branch[]>("/companies/" + companyId + "/branches").then((items) => { if (active) setBranches(items.filter(b => b.is_active)) }).catch(() => { if (active) setBranches([]) })
+      }
+    }).catch((e) => { if (active) setError(errorText(e)) }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [role, companyId]);
   const changeRole = async (member: Member, role: Role) => {
     if (role === member.role) return;
     setSaving(member.membership_id); setError(""); setNotice("");
