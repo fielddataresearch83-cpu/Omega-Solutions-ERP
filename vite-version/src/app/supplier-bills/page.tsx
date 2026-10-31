@@ -53,7 +53,7 @@ export default function SupplierBillsPage(){
    setSupplierId(current=>current||s.find(x=>x.is_active&&x.status==="active")?.id||"");
   }catch(e){setError(messageOf(e))}finally{setLoading(false)}
  },[]);
- React.useEffect(()=>{void Promise.resolve().then(refresh)},[refresh]);
+ React.useEffect(()=>{let active=true;void Promise.all([api.get<Bill[]>("/supplier-bills"),api.get<Supplier[]>("/suppliers"),api.get<PO[]>("/purchase-orders")]).then(([b,s,p])=>{if(active){setBills(b);setSuppliers(s.filter(x=>x.is_active&&x.status==="active"));setOrders(p.filter(x=>["ordered","partially_received","received"].includes(x.status)));setSupplierId(current=>current||s.find(x=>x.is_active&&x.status==="active")?.id||"");}}).catch(e=>{if(active)setError(messageOf(e));}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[]);
  const chooseOrder=async(id:string)=>{
   setPurchaseOrderId(id);
   if(!id){setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16",taxTreatment:"legacy"}]);return}
