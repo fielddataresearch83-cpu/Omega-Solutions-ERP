@@ -7,7 +7,7 @@ on:
       - ".github/workflows/dependency-lock-remediation.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   remediate:
@@ -24,13 +24,21 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Apply non-breaking API lockfile security updates
+      - name: Install API dependencies before remediation
         working-directory: api
-        run: npm audit fix --package-lock-only --no-fund || true
+        run: npm ci --no-audit --no-fund
 
-      - name: Apply non-breaking frontend lockfile security updates
+      - name: Apply compatible API security updates
+        working-directory: api
+        run: npm audit fix --no-fund || true
+
+      - name: Install frontend dependencies before remediation
         working-directory: vite-version
-        run: npm audit fix --package-lock-only --no-fund || true
+        run: npm ci --no-audit --no-fund
+
+      - name: Apply compatible frontend security updates
+        working-directory: vite-version
+        run: npm audit fix --no-fund || true
 
       - name: Validate API after lockfile updates
         working-directory: api
@@ -46,6 +54,19 @@ jobs:
           npm ci --no-audit --no-fund
           npm run build
           npm run lint
+
+      - name: Commit validated dependency lockfile updates
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/package-lock.json vite-version/package-lock.json
+          if git diff --cached --quiet; then
+            echo "No dependency lockfile changes to commit."
+          else
+            git commit -m "chore(deps): apply validated compatible security updates"
+            git push origin HEAD:development
+          fi
 
       - name: Capture remaining dependency audit findings
         run: |
