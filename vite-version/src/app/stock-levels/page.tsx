@@ -33,7 +33,7 @@ export default function StockLevelsPage(){
     }catch(e){setError((e as {message?:string}).message??"Could not load inventory balances.")}
     finally{setLoading(false)}
   },[])
-  React.useEffect(()=>{void Promise.resolve().then(load)},[load])
+  React.useEffect(()=>{let active=true;void Promise.all([api.get<StockRow[]>("/inventory/stock"),api.get<Summary>("/inventory/summary"),api.get<Warehouse[]>("/inventory/warehouses")]).then(([stock,snapshot,locations])=>{if(active){setRows(stock);setSummary(snapshot);setWarehouses(locations);}}).catch(e=>{if(active)setError((e as {message?:string}).message??"Could not load inventory balances.");}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[])
   const filtered=rows.filter(r=>{
     const q=search.toLowerCase()
     const matches=!q||r.product_name.toLowerCase().includes(q)||r.sku.toLowerCase().includes(q)||r.warehouse_name.toLowerCase().includes(q)
