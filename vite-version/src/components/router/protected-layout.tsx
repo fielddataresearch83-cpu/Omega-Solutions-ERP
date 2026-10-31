@@ -68,7 +68,15 @@ export function ProtectedLayout() {
     return <Navigate to="/sales-dashboard" replace />
   }
 
-  if (accessLoaded && accessError) {
+  if (!accessLoaded && !accessError) {
+    return (
+      <div className="flex min-h-svh items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    )
+  }
+
+  if (accessError) {
     return (
       <div className="flex min-h-svh items-center justify-center px-4 py-10">
         <div className="w-full max-w-md rounded-xl border bg-card p-6 text-card-foreground shadow-sm">
