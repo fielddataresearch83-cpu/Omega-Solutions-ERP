@@ -5,6 +5,8 @@ on:
     branches: [development]
     paths:
       - ".github/workflows/dependency-lock-remediation.yml"
+      - "api/package.json"
+      - "vite-version/package.json"
 
 permissions:
   contents: write
