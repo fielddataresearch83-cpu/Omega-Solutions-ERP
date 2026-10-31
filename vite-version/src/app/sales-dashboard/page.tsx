@@ -57,7 +57,7 @@ export default function SalesDashboardPage() {
     } catch (err) { setError(message(err)); }
     finally { setLoading(false); }
   }, [canViewTeam]);
-  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  React.useEffect(() => { let active=true; void Promise.all([canViewTeam?api.get<InvoiceApiRow[]>("/invoices"):Promise.resolve([] as InvoiceApiRow[]),canViewTeam?api.get<CustomerRow[]>("/customers"):Promise.resolve([] as CustomerRow[]),canViewTeam?api.get<ProductRow[]>("/products"):Promise.resolve([] as ProductRow[]),canViewTeam?api.get<TeamMember[]>("/invoices/team-summary"):Promise.resolve([] as TeamMember[]),canViewTeam?Promise.resolve(null):api.get<SalespersonAssignment>("/pos/salesperson-assignment/me")]).then(([invoices,customers,products,teamSummary,salespersonAssignment])=>{if(active){setData({invoices,customers,products});setTeam(teamSummary);setAssignment(salespersonAssignment);}}).catch(err=>{if(active)setError(message(err));}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};}, [canViewTeam]);
 
   const activeCustomers = data.customers.filter((customer) => customer.is_active);
   const activeProducts = data.products.filter((product) => product.is_active && !product.is_service);
