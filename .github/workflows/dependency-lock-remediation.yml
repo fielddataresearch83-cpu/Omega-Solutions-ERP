@@ -28,7 +28,7 @@ jobs:
 
       - name: Regenerate API dependency lockfile
         working-directory: api
-        run: rm -f package-lock.json && npm install --package-lock-only --no-audit --no-fund
+        run: rm -f package-lock.json && (npm install --package-lock-only --no-audit --no-fund || { cat /home/runner/.npm/_logs/*debug-0.log; exit 1; })
 
       - name: Install API dependencies after lockfile update
         working-directory: api
