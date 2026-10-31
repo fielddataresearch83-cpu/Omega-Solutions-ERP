@@ -57,7 +57,7 @@ export default function PurchaseOrdersPage(){
   }catch(e){setError(messageOf(e))}
   finally{setLoading(false)}
  },[]);
- React.useEffect(()=>{void Promise.resolve().then(refresh)},[refresh]);
+ React.useEffect(()=>{let active=true;void Promise.all([api.get<PurchaseOrder[]>("/purchase-orders"),api.get<Supplier[]>("/suppliers"),api.get<Product[]>("/products"),api.get<Warehouse[]>("/inventory/warehouses")]).then(([po,sup,prod,wh])=>{if(active){setOrders(po);setSuppliers(sup.filter(s=>s.is_active&&s.status==="active"));setProducts(prod.filter(p=>p.is_active&&!p.is_service));setWarehouses(wh.filter(w=>w.is_active));setSupplierId(current=>current||sup.find(s=>s.is_active&&s.status==="active")?.id||"");setReceiveWarehouse(current=>wh.some(w=>w.id===current&&w.is_active)?current:wh.find(w=>w.is_active)?.id||"");}}).catch(e=>{if(active)setError(messageOf(e));}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[]);
  const updateLine=(index:number,key:keyof Line,value:string)=>{
   setLines(current=>current.map((line,i)=>i===index?{...line,[key]:value}:line));
   if(key==="productId"){const product=products.find(p=>p.id===value);if(product)setLines(current=>current.map((line,i)=>i===index?{...line,productId:value,unitCost:String(product.cost_price??0)}:line))}
