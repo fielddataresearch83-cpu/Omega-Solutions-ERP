@@ -138,32 +138,31 @@ export default function Page() {
     error: string | null
   }>({ data: null, loading: true, error: null })
 
+  const requestKey = `${user?.userId ?? ""}:${company?.id ?? ""}:${retryKey}`
+  const [loadedRequestKey, setLoadedRequestKey] = React.useState("")
+  const dashboardLoading = authLoading || companyLoading || !user?.userId || loadedRequestKey !== requestKey
+
   React.useEffect(() => {
     if (authLoading || companyLoading || !user?.userId) return
-    let cancelled = false
-    void Promise.resolve().then(() => {
-      if (cancelled) return null
-      setDashboard((current) => ({ ...current, loading: true, error: null }))
-      return api.get<DashboardSummary>("/dashboard/summary")
-    })
+    let active = true
+    void api.get<DashboardSummary>("/dashboard/summary")
       .then((data) => {
-        if (!data) return
-        if (!cancelled) setDashboard({ data, loading: false, error: null })
-      })
-      .catch((error: { message?: string }) => {
-        if (!cancelled) {
-          setDashboard({
-            data: null,
-            loading: false,
-            error: error.message ?? "Could not load dashboard summary.",
-          })
+        if (active) {
+          setDashboard({ data, loading: false, error: null })
+          setLoadedRequestKey(requestKey)
         }
       })
-    return () => { cancelled = true }
+      .catch((error: { message?: string }) => {
+        if (active) {
+          setDashboard({ data: null, loading: false, error: error.message ?? "Could not load dashboard summary." })
+          setLoadedRequestKey(requestKey)
+        }
+      })
+    return () => { active = false }
   }, [authLoading, companyLoading, user?.userId, company?.id, retryKey])
 
   const canUseModule = (moduleCode: string) => {
-    if (dashboard.loading || !dashboard.data) return false
+    if (dashboardLoading || !dashboard.data) return false
     // Fail closed: optional modules require an active subscription and an explicit API entitlement.
     if (!dashboard.data.subscription || !["active", "trialing"].includes(dashboard.data.subscription.status)) return false
     return dashboard.data.modules?.[moduleCode] === true
@@ -174,7 +173,7 @@ export default function Page() {
     permissions.has("suppliers:read") && Boolean(dashboard.data?.suppliers)
   const canReadProducts = canUseModule("inventory") && permissions.has("products:read") && Boolean(dashboard.data?.inventory)
 
-  const loading = authLoading || companyLoading || dashboard.loading
+  const loading = authLoading || companyLoading || dashboardLoading
   const activeProducts = dashboard.data?.inventory?.activeProducts ?? 0
   const lowStockCount = dashboard.data?.inventory?.lowStock ?? 0
   const lowStockProducts = dashboard.data?.inventory?.lowStockProducts ?? []
