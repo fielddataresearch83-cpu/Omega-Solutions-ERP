@@ -65,7 +65,7 @@ export default function PaymentsPage() {
     } catch (err) { setError(errorMessage(err)); }
     finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  React.useEffect(() => { let active=true; void api.get<InvoiceApiRow[]>("/invoices").then(async invoices=>{if(!active)return;setInvoiceCount(invoices.length);const eligible=invoices.filter(invoice=>["sent","overdue","partially_paid"].includes(invoice.status)&&Number(invoice.total)-Number(invoice.amount_paid)-Number(invoice.credited_amount??0)>0);setEligibleInvoices(eligible);setMpesaInvoiceId(current=>eligible.some(invoice=>invoice.id===current)?current:(eligible[0]?.id??""));const details=await Promise.all(invoices.map(invoice=>api.get<InvoiceApiRow>(`/invoices/${invoice.id}`)));if(!active)return;const rows=details.flatMap(invoice=>(invoice.payments??[]).map(payment=>({...payment,invoice_number:invoice.invoice_number,customer_name:invoice.customer_name})));rows.sort((a,b)=>new Date(b.paid_at||b.created_at).getTime()-new Date(a.paid_at||a.created_at).getTime());setPayments(rows);}).catch(err=>{if(active)setError(errorMessage(err));}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};}, []);
 
   const startMpesaPayment = async () => {
     const amount = Number(mpesaAmount);
