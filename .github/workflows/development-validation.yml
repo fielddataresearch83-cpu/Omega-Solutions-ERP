@@ -53,7 +53,13 @@ jobs:
       - name: Build API
         working-directory: api
         run: |
-          npm ci
+          npm ci || {
+            status=$?
+            echo "npm ci failed; recent npm debug log follows:"
+            log_file=$(ls -t "$HOME"/.npm/_logs/*debug-0.log 2>/dev/null | head -n 1)
+            if [ -n "$log_file" ]; then tail -n 120 "$log_file"; fi
+            exit "$status"
+          }
           npm run build
 
       - name: Run purchase-order approval regression tests
@@ -79,7 +85,13 @@ jobs:
       - name: Build frontend
         working-directory: vite-version
         run: |
-          npm ci
+          npm ci || {
+            status=$?
+            echo "npm ci failed; recent npm debug log follows:"
+            log_file=$(ls -t "$HOME"/.npm/_logs/*debug-0.log 2>/dev/null | head -n 1)
+            if [ -n "$log_file" ]; then tail -n 120 "$log_file"; fi
+            exit "$status"
+          }
           npm run build
 
       - name: Lint frontend

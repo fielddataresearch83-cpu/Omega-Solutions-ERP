@@ -53,7 +53,13 @@ jobs:
             .github/workflows/validate-development.yml
       - name: Install API dependencies
         working-directory: api
-        run: npm ci
+        run: npm ci || {
+            status=$?
+            echo "npm ci failed; recent npm debug log follows:"
+            log_file=$(ls -t "$HOME"/.npm/_logs/*debug-0.log 2>/dev/null | head -n 1)
+            if [ -n "$log_file" ]; then tail -n 120 "$log_file"; fi
+            exit "$status"
+          }
       - name: Build API
         working-directory: api
         run: npm run build
@@ -64,7 +70,13 @@ jobs:
         run: npm test
       - name: Install frontend dependencies
         working-directory: vite-version
-        run: npm ci
+        run: npm ci || {
+            status=$?
+            echo "npm ci failed; recent npm debug log follows:"
+            log_file=$(ls -t "$HOME"/.npm/_logs/*debug-0.log 2>/dev/null | head -n 1)
+            if [ -n "$log_file" ]; then tail -n 120 "$log_file"; fi
+            exit "$status"
+          }
       - name: Build frontend
         working-directory: vite-version
         run: npm run build
@@ -100,7 +112,13 @@ jobs:
             .github/workflows/validate-development.yml
       - name: Install API dependencies
         working-directory: api
-        run: npm ci
+        run: npm ci || {
+            status=$?
+            echo "npm ci failed; recent npm debug log follows:"
+            log_file=$(ls -t "$HOME"/.npm/_logs/*debug-0.log 2>/dev/null | head -n 1)
+            if [ -n "$log_file" ]; then tail -n 120 "$log_file"; fi
+            exit "$status"
+          }
       - name: Verify weighted-average cost backfill in an isolated schema
         working-directory: api
         env:
