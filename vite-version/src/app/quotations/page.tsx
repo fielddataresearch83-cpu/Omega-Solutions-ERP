@@ -46,11 +46,10 @@ export default function QuotationsPage() {
     catch (e) { setError(messageOf(e)); }
     finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void Promise.resolve().then(refresh); }, [refresh]);
+  React.useEffect(() => { let active=true; void api.get<Quotation[]>("/quotations").then(result=>{if(active)setQuotations(result);}).catch(e=>{if(active)setError(messageOf(e));}).finally(()=>{if(active)setLoading(false);}); return()=>{active=false;}; }, []);
   React.useEffect(() => {
-    let active = true
-    void Promise.resolve().then(() => {
-      if (!active || customersLoading || typeof window === "undefined") return
+    if (customersLoading || typeof window === "undefined") return
+    const timeout = window.setTimeout(() => {
       const params = new URLSearchParams(window.location.search)
       const requestedCustomerId = params.get("customerId")
       if (!requestedCustomerId) return
@@ -64,8 +63,8 @@ export default function QuotationsPage() {
       const opportunity = params.get("opportunity")?.trim()
       if (opportunity) setNotes((current) => current || `Opportunity: ${opportunity}`)
       setFormOpen(true)
-    })
-    return () => { active = false }
+    }, 0)
+    return () => window.clearTimeout(timeout)
   }, [customers, customersLoading]);
 
 
