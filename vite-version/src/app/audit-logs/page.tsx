@@ -46,7 +46,7 @@ export default function AuditLogsPage() {
     }
   }, [])
 
-  React.useEffect(() => { void Promise.resolve().then(load) }, [load])
+  React.useEffect(() => { let active = true; void api.get<AuditRow[]>("/audit-logs?limit=100").then(result => { if (active) setRows(Array.isArray(result) ? result : []) }).catch(err => { if (active) setError(err instanceof Error ? err.message : (err as { message?: string })?.message ?? "Could not load audit records.") }).finally(() => { if (active) setLoading(false) }); return () => { active = false } }, [])
 
   return (
     <BaseLayout>
