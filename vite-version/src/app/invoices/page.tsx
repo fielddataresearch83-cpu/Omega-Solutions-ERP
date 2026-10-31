@@ -116,7 +116,7 @@ export default function InvoicesPage() {
     catch (error) { setLoadError(errorMessage(error)); }
     finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void Promise.resolve().then(refreshInvoices); }, [refreshInvoices]);
+  React.useEffect(() => { let active=true; void api.get<InvoiceApiRow[]>("/invoices").then(result=>{if(active)setInvoices(result);}).catch(error=>{if(active)setLoadError(errorMessage(error));}).finally(()=>{if(active)setLoading(false);}); return()=>{active=false;}; }, []);
 
   const filtered = invoices.filter((invoice) => {
     const query = search.trim().toLowerCase();
