@@ -168,7 +168,7 @@ export default function ProductsPage() {
           await uploadProductImage(savedProduct.id, selectedImage)
           setSelectedImage(null)
         } catch (imageErr) {
-          throw new Error(`Product details were saved, but the image upload failed: ${imageErr instanceof Error ? imageErr.message : "Please try the upload again."}`)
+          throw new Error(`Product details were saved, but the image upload failed: ${imageErr instanceof Error ? imageErr.message : "Please try the upload again."}`, { cause: imageErr })
         }
       }
       await refetch()
