@@ -9,6 +9,7 @@ on:
       - "api/src/database.service.spec.ts"
       - "api/src/payroll/payroll.service.ts"
       - "api/test/database-transaction.e2e-spec.ts"
+      - "api/test/tenant-rls.e2e-spec.ts"
       - "api/package.json"
       - "api/package-lock.json"
       - ".github/workflows/postgres-transaction-integration.yml"
@@ -62,4 +63,4 @@ jobs:
         working-directory: api
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_transaction_test
-        run: npx vitest run --config ./vitest.config.e2e.ts test/database-transaction.e2e-spec.ts
+        run: npx vitest run --config ./vitest.config.e2e.ts test/database-transaction.e2e-spec.ts test/tenant-rls.e2e-spec.ts
