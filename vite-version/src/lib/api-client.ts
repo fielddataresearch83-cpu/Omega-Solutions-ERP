@@ -1,6 +1,6 @@
-// Use Vercel same-origin routing so preview builds reach the API service
-// without hard-coded Render hosts or public API URL environment variables.
-const BASE_URL = "/api";
+// The frontend and NestJS API are separate Vercel projects.
+// Use the API project's stable deployment hostname; /api is the Nest global prefix.
+const BASE_URL = "https://omega-solutions-erp-pdke.vercel.app/api";
 
 let accessTokenInMemory: string | null = null;
 
