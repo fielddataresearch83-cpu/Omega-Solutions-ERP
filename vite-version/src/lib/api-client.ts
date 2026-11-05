@@ -1,6 +1,6 @@
 // The frontend and NestJS API are separate Vercel projects.
-// Use the API project's stable deployment hostname; /api is the Nest global prefix.
-const BASE_URL = "https://omega-solutions-erp-pdke.vercel.app/api";
+// Use the API project's current stable deployment hostname; /api is the Nest global prefix.
+const BASE_URL = "https://omega-solutions-erp-two.vercel.app/api";
 
 let accessTokenInMemory: string | null = null;
 
