@@ -29,8 +29,8 @@ export interface RegisterResponse {
   userId: string;
 }
 
-// Keep authentication on the same origin as the Vite app and Vercel API service.
-const API_BASE = "/api";
+// Frontend and API are deployed as separate Vercel projects.
+const API_BASE = "https://omega-solutions-erp-pdke.vercel.app/api";
 
 async function readError(res: Response, fallback: string): Promise<Error> {
   const err = await res.json().catch(() => ({ message: fallback }));
