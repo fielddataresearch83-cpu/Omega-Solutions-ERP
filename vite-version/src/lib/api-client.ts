@@ -1,6 +1,6 @@
-// Fail safe to the development API when an environment-specific URL is not supplied.
-// Production builds must explicitly set VITE_API_BASE_URL to the production API.
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://omega-solutions-api-development.onrender.com/api";
+// Use Vercel same-origin routing so preview builds reach the API service
+// without hard-coded Render hosts or public API URL environment variables.
+const BASE_URL = "/api";
 
 let accessTokenInMemory: string | null = null;
 
