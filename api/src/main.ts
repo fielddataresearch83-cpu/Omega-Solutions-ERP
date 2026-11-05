@@ -13,8 +13,8 @@ async function bootstrap() {
   // the rate limiter deliberately never trusts a caller-supplied header directly.
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
-  // Support configured frontend origins and stable Vercel deployment URLs
-  // for this project. Avoid a blanket *.vercel.app allowance.
+  // Allow explicitly configured frontend origins and this project's Vercel
+  // deployment URLs. Do not allow arbitrary *.vercel.app origins.
   const configuredOrigins = [
     ...(process.env.CORS_ORIGINS || '').split(','),
     ...(process.env.CORS_ORIGIN || '').split(','),
@@ -23,8 +23,7 @@ async function bootstrap() {
     configuredOrigins.length ? configuredOrigins : ['http://localhost:5173'],
   );
   const isTrustedVercelOrigin = (origin: string) =>
-    origin === 'https://omega-solutions-nine.vercel.app' ||
-    /^https:\/\/omega-solutions-[a-z0-9-]+-pestria72-2760\.vercel\.app$/.test(origin);
+    /^https:\/\/omega-solutions-erp(?:-[a-z0-9-]+)?\.vercel\.app$/.test(origin);
 
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
