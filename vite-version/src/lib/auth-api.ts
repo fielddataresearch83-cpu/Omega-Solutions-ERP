@@ -29,7 +29,8 @@ export interface RegisterResponse {
   userId: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "https://omega-solutions-api.onrender.com/api";
+// Keep authentication on the same origin as the Vite app and Vercel API service.
+const API_BASE = "/api";
 
 async function readError(res: Response, fallback: string): Promise<Error> {
   const err = await res.json().catch(() => ({ message: fallback }));
