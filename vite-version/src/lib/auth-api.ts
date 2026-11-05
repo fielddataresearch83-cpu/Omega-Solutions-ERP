@@ -29,8 +29,9 @@ export interface RegisterResponse {
   userId: string;
 }
 
-// Frontend and API are deployed as separate Vercel projects.
-const API_BASE = "https://omega-solutions-erp-two.vercel.app/api";
+// Set VITE_API_BASE_URL per Vercel environment. The frontend and NestJS API
+// are separate projects; never assume the frontend domain also serves /api.
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api").replace(/\/+$/, "");
 
 async function readError(res: Response, fallback: string): Promise<Error> {
   const err = await res.json().catch(() => ({ message: fallback }));
