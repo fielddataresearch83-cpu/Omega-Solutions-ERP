@@ -42,7 +42,7 @@ describe('SubscriptionsService missing-plan safeguards', () => {
   });
 
   it('blocks adding branches when no subscription exists', async () => {
-    const service = new SubscriptionsService({ query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }) } as any);
+    const service = new SubscriptionsService({ query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }) } as any, passthroughCache as any);
     await expect(service.assertBranchCapacity('company-legacy')).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
@@ -54,7 +54,7 @@ describe('SubscriptionsService.getModuleCatalogue', () => {
         .mockResolvedValueOnce({ rows: [], rowCount: 0 })
         .mockResolvedValueOnce({ rows: [], rowCount: 0 }),
     };
-    const service = new SubscriptionsService(db as any);
+    const service = new SubscriptionsService(db as any, passthroughCache as any);
     const result = await service.getModuleCatalogue('company-legacy');
     expect(result.accessMode).toBe('subscription_required');
     expect(result.modules.find((module) => module.code === 'core')?.enabled).toBe(true);
