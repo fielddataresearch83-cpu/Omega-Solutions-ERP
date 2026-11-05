@@ -30,7 +30,7 @@ export interface RegisterResponse {
 }
 
 // Frontend and API are deployed as separate Vercel projects.
-const API_BASE = "https://omega-solutions-erp-pdke.vercel.app/api";
+const API_BASE = "https://omega-solutions-erp-two.vercel.app/api";
 
 async function readError(res: Response, fallback: string): Promise<Error> {
   const err = await res.json().catch(() => ({ message: fallback }));
