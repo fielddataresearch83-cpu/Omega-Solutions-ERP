@@ -7,6 +7,7 @@ async function bootstrap() {
     abortOnError: false,
   });
   app.setGlobalPrefix('api');
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   await app.listen(process.env.PORT ?? 3000);
 }
 
