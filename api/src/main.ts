@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module.js';
+import { Pool } from 'pg';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -8,7 +9,20 @@ async function bootstrap() {
     logger.log('Starting Omega API bootstrap');
     const app = await NestFactory.create(AppModule, { rawBody: true, abortOnError: false });
     app.setGlobalPrefix('api');
-    app.getHttpAdapter().getInstance().get('/api/diag', (_req: unknown, res: { json: (value: unknown) => void }) => res.json({ status: 'ok', diagnostic: 'database-module-only' }));
+    app.getHttpAdapter().getInstance().get('/api/diag', async (_req: unknown, res: { status: (code: number) => { json: (value: unknown) => void }; json: (value: unknown) => void }) => {
+      const connectionString = process.env.DATABASE_URL;
+      if (!connectionString) return res.status(503).json({ status: 'missing', variable: 'DATABASE_URL' });
+      let host = 'unparseable';
+      try { host = new URL(connectionString).hostname; } catch {}
+      const pool = new Pool({ connectionString, connectionTimeoutMillis: 8000, ssl: connectionString.includes('neon.tech') ? { rejectUnauthorized: true } : undefined });
+      try {
+        await pool.query('SELECT 1');
+        return res.json({ status: 'ok', databaseUrlPresent: true, host, query: 'SELECT 1 succeeded' });
+      } catch (error) {
+        const e = error as { name?: string; code?: string; message?: string };
+        return res.status(503).json({ status: 'database_error', databaseUrlPresent: true, host, errorName: e.name, errorCode: e.code, errorMessage: e.message?.slice(0, 300) });
+      } finally { await pool.end(); }
+    });
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
     const configuredOrigins = [
       ...(process.env.CORS_ORIGINS || '').split(','),
