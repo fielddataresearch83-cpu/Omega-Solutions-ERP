@@ -10,8 +10,10 @@ export class RedisCacheService {
   private readonly token: string | null;
 
   constructor(config: ConfigService) {
-    const rawUrl = config.get<string>('REDIS_URL');
-    if (!rawUrl) {
+    const rawUrl = config.get<string>('UPSTASH_REDIS_REST_URL');
+    const token = config.get<string>('UPSTASH_REDIS_REST_TOKEN');
+
+    if (!rawUrl || !token) {
       this.endpoint = null;
       this.token = null;
       return;
@@ -19,16 +21,15 @@ export class RedisCacheService {
 
     try {
       const parsed = new URL(rawUrl);
-      if (!['redis:', 'rediss:'].includes(parsed.protocol) || !parsed.hostname || !parsed.password) {
-        throw new Error('REDIS_URL must include a Redis host and password');
+      if (parsed.protocol !== 'https:' || !parsed.hostname || parsed.username || parsed.password) {
+        throw new Error('UPSTASH_REDIS_REST_URL must be a plain HTTPS endpoint');
       }
-      // Upstash exposes its REST API on HTTPS at the same database hostname.
-      this.endpoint = `https://${parsed.hostname}`;
-      this.token = decodeURIComponent(parsed.password);
+      this.endpoint = parsed.origin;
+      this.token = token;
     } catch {
       this.endpoint = null;
       this.token = null;
-      this.logger.warn('Redis caching is disabled because REDIS_URL is invalid.');
+      this.logger.warn('Redis caching is disabled because the Upstash REST configuration is invalid.');
     }
   }
 
