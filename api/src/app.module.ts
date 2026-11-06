@@ -1,5 +1,7 @@
-import { Controller, Get, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AppController } from './app.controller.js';
+import { AppService } from './app.service.js';
 import { DatabaseModule } from './database/database.module.js';
 import { CommonModule } from './common/common.module.js';
 import { AuditModule } from './audit/audit.module.js';
@@ -36,54 +38,17 @@ import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
 import { EntitlementsModule } from './subscriptions/entitlements.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 
-
-@Controller()
-class HealthController {
-  @Get('health')
-  health() {
-    return { status: 'ok', diagnostic: 'remaining-business-modules', timestamp: new Date().toISOString() };
-  }
-}
-
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    DatabaseModule,
-    CommonModule,
-    AuditModule,
-    AuthModule,
-    RbacModule,
-    MembershipsModule,
-    CompaniesModule,
-    BranchesModule,
-    CustomersModule,
-    SuppliersModule,
-    ProductsModule,
-    InvoicesModule,
-    QuotationsModule,
-    SalesOrdersModule,
-    CrmModule,
-    InventoryModule,
-    PurchaseOrdersModule,
-    SupplierBillsModule,
-    AccountingModule,
-    ManufacturingModule,
-    EmployeesModule,
-    ExpensesModule,
-    PayrollModule,
-    WorkforceModule,
-    PosModule,
-    RequisitionsModule,
-    ContractsModule,
-    ApprovalsModule,
-    UsersRolesModule,
-    CreditNotesModule,
-    SearchModule,
-    NotificationsModule,
-    SubscriptionsModule,
-    EntitlementsModule,
-    DashboardModule,
+    ConfigModule.forRoot({ isGlobal: true }), DatabaseModule, CommonModule, AuditModule,
+    AuthModule, RbacModule, MembershipsModule, CompaniesModule, BranchesModule,
+    CustomersModule, SuppliersModule, ProductsModule, InvoicesModule, QuotationsModule,
+    SalesOrdersModule, CrmModule, InventoryModule, PurchaseOrdersModule, SupplierBillsModule,
+    AccountingModule, ManufacturingModule, EmployeesModule, ExpensesModule, PayrollModule,
+    WorkforceModule, PosModule, RequisitionsModule, ContractsModule, ApprovalsModule, UsersRolesModule,
+    CreditNotesModule, SearchModule, NotificationsModule, SubscriptionsModule, EntitlementsModule, DashboardModule,
   ],
-  controllers: [HealthController],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
