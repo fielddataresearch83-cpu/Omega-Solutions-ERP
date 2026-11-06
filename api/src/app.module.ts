@@ -1,4 +1,16 @@
-import { Module } from '@nestjs/common';
+import { Controller, Get, Module } from '@nestjs/common';
 
-@Module({})
+@Controller()
+class HealthController {
+  @Get('health')
+  health() {
+    return {
+      status: 'ok',
+      diagnostic: 'app-module-isolation',
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
+@Module({ controllers: [HealthController] })
 export class AppModule {}
