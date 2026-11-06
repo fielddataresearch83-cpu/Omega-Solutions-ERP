@@ -8,6 +8,7 @@ async function bootstrap() {
     logger.log('Starting Omega API bootstrap');
     const app = await NestFactory.create(AppModule, { rawBody: true, abortOnError: false });
     app.setGlobalPrefix('api');
+    app.getHttpAdapter().getInstance().get('/api/diag', (_req: unknown, res: { json: (value: unknown) => void }) => res.json({ status: 'ok', diagnostic: 'database-module-only' }));
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
     const configuredOrigins = [
       ...(process.env.CORS_ORIGINS || '').split(','),
