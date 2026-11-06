@@ -10,6 +10,7 @@
     "bcrypt@6.0.0": true
   },
   "scripts": {
+    "prebuild": "npm rebuild bcrypt",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
