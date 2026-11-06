@@ -1,14 +1,15 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { RedisCacheService } from './redis-cache.service.js';
 
-const config = (REDIS_URL?: string) => ({
-  get: (key: string) => key === 'REDIS_URL' ? REDIS_URL : undefined,
+const config = (url?: string, token?: string) => ({
+  get: (key: string) => key === 'UPSTASH_REDIS_REST_URL' ? url
+    : key === 'UPSTASH_REDIS_REST_TOKEN' ? token : undefined,
 });
 
 describe('RedisCacheService', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('runs the loader when Redis is not configured', async () => {
+  it('runs the loader when Upstash REST is not configured', async () => {
     const cache = new RedisCacheService(config() as any);
     const loader = vi.fn().mockResolvedValue({ count: 3 });
 
@@ -22,13 +23,13 @@ describe('RedisCacheService', () => {
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     ));
     vi.stubGlobal('fetch', fetchMock);
-    const cache = new RedisCacheService(config('rediss://default:test-token@cache.example.upstash.io:6379') as any);
+    const cache = new RedisCacheService(config('https://cache.example.upstash.io', 'rest-test-token') as any);
     const loader = vi.fn();
 
     await expect(cache.getOrLoad('test:key', 10, loader)).resolves.toEqual({ count: 7 });
     expect(loader).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledOnce();
-    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer test-token');
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe('Bearer rest-test-token');
   });
 
   it('loads from the database and writes the result on a cache miss', async () => {
@@ -36,7 +37,7 @@ describe('RedisCacheService', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ result: null }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ result: 'OK' }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
-    const cache = new RedisCacheService(config('rediss://default:test-token@cache.example.upstash.io:6379') as any);
+    const cache = new RedisCacheService(config('https://cache.example.upstash.io', 'rest-test-token') as any);
     const loader = vi.fn().mockResolvedValue({ count: 4 });
 
     await expect(cache.getOrLoad('test:key', 10, loader)).resolves.toEqual({ count: 4 });
@@ -47,10 +48,18 @@ describe('RedisCacheService', () => {
 
   it('falls back to the database when Redis is unavailable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network unavailable')));
-    const cache = new RedisCacheService(config('rediss://default:test-token@cache.example.upstash.io:6379') as any);
+    const cache = new RedisCacheService(config('https://cache.example.upstash.io', 'rest-test-token') as any);
     const loader = vi.fn().mockResolvedValue({ count: 9 });
 
     await expect(cache.getOrLoad('test:key', 10, loader)).resolves.toEqual({ count: 9 });
+    expect(loader).toHaveBeenCalledOnce();
+  });
+
+  it('disables caching for a non-HTTPS REST endpoint', async () => {
+    const cache = new RedisCacheService(config('http://cache.example.upstash.io', 'rest-test-token') as any);
+    const loader = vi.fn().mockResolvedValue({ count: 5 });
+
+    await expect(cache.getOrLoad('test:key', 10, loader)).resolves.toEqual({ count: 5 });
     expect(loader).toHaveBeenCalledOnce();
   });
 });
