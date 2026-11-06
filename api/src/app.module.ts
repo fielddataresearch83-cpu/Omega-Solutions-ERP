@@ -25,12 +25,23 @@ import { ExpensesModule } from './expenses/expenses.module.js';
 import { PayrollModule } from './payroll/payroll.module.js';
 import { WorkforceModule } from './workforce/workforce.module.js';
 import { PosModule } from './pos/pos.module.js';
+import { RequisitionsModule } from './requisitions/requisitions.module.js';
+import { ContractsModule } from './contracts/contracts.module.js';
+import { ApprovalsModule } from './approvals/approvals.module.js';
+import { UsersRolesModule } from './users-roles/users-roles.module.js';
+import { CreditNotesModule } from './credit-notes/credit-notes.module.js';
+import { SearchModule } from './search/search.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
+import { EntitlementsModule } from './subscriptions/entitlements.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
+
 
 @Controller()
 class HealthController {
   @Get('health')
   health() {
-    return { status: 'ok', diagnostic: 'finance-people-pos-modules', timestamp: new Date().toISOString() };
+    return { status: 'ok', diagnostic: 'remaining-business-modules', timestamp: new Date().toISOString() };
   }
 }
 
@@ -62,6 +73,16 @@ class HealthController {
     PayrollModule,
     WorkforceModule,
     PosModule,
+    RequisitionsModule,
+    ContractsModule,
+    ApprovalsModule,
+    UsersRolesModule,
+    CreditNotesModule,
+    SearchModule,
+    NotificationsModule,
+    SubscriptionsModule,
+    EntitlementsModule,
+    DashboardModule,
   ],
   controllers: [HealthController],
 })
