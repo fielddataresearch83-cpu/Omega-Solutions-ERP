@@ -1,4 +1,6 @@
 import { Controller, Get, Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { DatabaseModule } from './database/database.module.js';
 
 @Controller()
 class HealthController {
@@ -6,11 +8,14 @@ class HealthController {
   health() {
     return {
       status: 'ok',
-      diagnostic: 'app-module-isolation',
+      diagnostic: 'config-and-database-module',
       timestamp: new Date().toISOString(),
     };
   }
 }
 
-@Module({ controllers: [HealthController] })
+@Module({
+  imports: [ConfigModule.forRoot({ isGlobal: true }), DatabaseModule],
+  controllers: [HealthController],
+})
 export class AppModule {}
