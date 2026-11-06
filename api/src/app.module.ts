@@ -18,16 +18,19 @@ import { CrmModule } from './crm/crm.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module.js';
 import { SupplierBillsModule } from './supplier-bills/supplier-bills.module.js';
+import { AccountingModule } from './accounting/accounting.module.js';
+import { ManufacturingModule } from './manufacturing/manufacturing.module.js';
+import { EmployeesModule } from './employees/employees.module.js';
+import { ExpensesModule } from './expenses/expenses.module.js';
+import { PayrollModule } from './payroll/payroll.module.js';
+import { WorkforceModule } from './workforce/workforce.module.js';
+import { PosModule } from './pos/pos.module.js';
 
 @Controller()
 class HealthController {
   @Get('health')
   health() {
-    return {
-      status: 'ok',
-      diagnostic: 'sales-inventory-modules',
-      timestamp: new Date().toISOString(),
-    };
+    return { status: 'ok', diagnostic: 'finance-people-pos-modules', timestamp: new Date().toISOString() };
   }
 }
 
@@ -52,6 +55,13 @@ class HealthController {
     InventoryModule,
     PurchaseOrdersModule,
     SupplierBillsModule,
+    AccountingModule,
+    ManufacturingModule,
+    EmployeesModule,
+    ExpensesModule,
+    PayrollModule,
+    WorkforceModule,
+    PosModule,
   ],
   controllers: [HealthController],
 })
