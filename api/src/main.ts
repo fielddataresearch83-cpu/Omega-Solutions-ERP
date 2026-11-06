@@ -1,54 +1,34 @@
+import 'reflect-metadata';
+import { Controller, Get, Module, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
-import { AppModule } from './app.module.js';
-import { Pool } from 'pg';
+
+@Controller()
+class DiagnosticController {
+  @Get('health')
+  health() {
+    return {
+      status: 'ok',
+      diagnostic: 'minimal-bootstrap-after-empty-app-module',
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
+@Module({ controllers: [DiagnosticController] })
+class DiagnosticModule {}
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  const logger = new Logger('RuntimeIsolation');
   try {
-    logger.log('Starting Omega API bootstrap');
-    const app = await NestFactory.create(AppModule, { rawBody: true, abortOnError: false });
+    const app = await NestFactory.create(DiagnosticModule, { abortOnError: false });
     app.setGlobalPrefix('api');
-    app.getHttpAdapter().getInstance().get('/api/diag', async (_req: unknown, res: { status: (code: number) => { json: (value: unknown) => void }; json: (value: unknown) => void }) => {
-      const connectionString = process.env.DATABASE_URL;
-      if (!connectionString) return res.status(503).json({ status: 'missing', variable: 'DATABASE_URL' });
-      let host = 'unparseable';
-      try { host = new URL(connectionString).hostname; } catch {}
-      const pool = new Pool({ connectionString, connectionTimeoutMillis: 8000, ssl: connectionString.includes('neon.tech') ? { rejectUnauthorized: true } : undefined });
-      try {
-        await pool.query('SELECT 1');
-        return res.json({ status: 'ok', databaseUrlPresent: true, host, query: 'SELECT 1 succeeded' });
-      } catch (error) {
-        const e = error as { name?: string; code?: string; message?: string };
-        return res.status(503).json({ status: 'database_error', databaseUrlPresent: true, host, errorName: e.name, errorCode: e.code, errorMessage: e.message?.slice(0, 300) });
-      } finally { await pool.end(); }
-    });
-    app.getHttpAdapter().getInstance().set('trust proxy', 1);
-    const configuredOrigins = [
-      ...(process.env.CORS_ORIGINS || '').split(','),
-      ...(process.env.CORS_ORIGIN || '').split(','),
-    ].map((origin) => origin.trim()).filter(Boolean);
-    const corsOrigins = new Set(configuredOrigins.length ? configuredOrigins : ['http://localhost:5173']);
-    const isTrustedVercelOrigin = (origin: string) =>
-      /^https:\/\/omega-solutions-erp(?:-[a-z0-9-]+)?\.vercel\.app$/.test(origin);
-    app.enableCors({
-      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-        if (!origin || corsOrigins.has(origin) || isTrustedVercelOrigin(origin)) callback(null, true);
-        else callback(new Error('Origin not allowed by CORS'));
-      },
-      methods: 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-      credentials: true,
-    });
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
-    app.enableShutdownHooks();
-    const port = process.env.PORT ?? 3000;
-    await app.listen(port);
-    logger.log(`Omega API listening on port ${port}`);
+    app.enableCors({ origin: true, methods: 'GET,OPTIONS' });
+    await app.listen(process.env.PORT ?? 3000);
+    logger.log('Minimal NestJS diagnostic server started');
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const stack = error instanceof Error ? error.stack : undefined;
-    logger.error(`Omega API bootstrap failed: ${message}`, stack);
+    logger.error('Minimal NestJS diagnostic startup failed', error instanceof Error ? error.stack : String(error));
     throw error;
   }
 }
-await bootstrap();
+
+bootstrap();
