@@ -13,6 +13,11 @@ export interface LoginResponse {
   };
 }
 
+export interface CompanySelectionRequiredResponse {
+  companySelectionRequired: true;
+  companies: LoginCompanyChoice[];
+}
+
 export interface MfaChallengeResponse {
   mfaRequired: true;
   mfaChallengeToken: string;
@@ -39,12 +44,12 @@ async function readError(res: Response, fallback: string): Promise<Error> {
   return new Error(message || fallback);
 }
 
-export async function login(email: string, password: string): Promise<LoginResponse | MfaChallengeResponse> {
+export async function login(email: string, password: string, companyId?: string): Promise<LoginResponse | MfaChallengeResponse | CompanySelectionRequiredResponse> {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, companyId }),
   });
   if (!res.ok) throw await readError(res, "Invalid credentials");
   return res.json();
