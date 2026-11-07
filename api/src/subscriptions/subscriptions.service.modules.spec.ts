@@ -1,13 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SubscriptionsService } from './subscriptions.service.js';
 
+const passthroughCache = { getOrLoad: (_key: string, _ttl: number, loader: () => Promise<unknown>) => loader() };
+
 function makeService(subscriptionRows: Array<{ status: string; plan_code: string; plan_name: string; modules: string[] }>, overrides: Array<{ module_code: string; enabled: boolean }> = []) {
   const db = {
     query: vi.fn()
       .mockResolvedValueOnce({ rows: subscriptionRows, rowCount: subscriptionRows.length })
       .mockResolvedValueOnce({ rows: overrides, rowCount: overrides.length }),
   };
-  return { service: new SubscriptionsService(db as never), db };
+  return { service: new SubscriptionsService(db as never, passthroughCache as never), db };
 }
 
 describe('SubscriptionsService.getModuleCatalogue', () => {

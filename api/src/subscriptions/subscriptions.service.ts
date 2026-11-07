@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
+import { RedisCacheService } from '../cache/redis-cache.service.js';
 import type { PoolClient } from 'pg';
 
 const MODULE_LABELS: Record<string, string> = {
@@ -37,7 +38,10 @@ const MODULE_CATALOGUE = [
 
 @Injectable()
 export class SubscriptionsService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly cache: RedisCacheService,
+  ) {}
 
   async getPlans() {
     const result = await this.db.query<{
@@ -130,6 +134,16 @@ export class SubscriptionsService {
 
 
   async getModuleCatalogue(companyId: string) {
+    // Company-scoped cache key prevents cross-tenant catalogue reuse. The short
+    // TTL bounds entitlement staleness; authorization and membership checks remain in the caller.
+    return this.cache.getOrLoad(
+      `omega:company-module-catalogue:v1:${companyId}`,
+      5,
+      () => this.buildModuleCatalogue(companyId),
+    );
+  }
+
+  private async buildModuleCatalogue(companyId: string) {
     const subscriptionResult = await this.db.query<{
       status: string;
       plan_code: string;

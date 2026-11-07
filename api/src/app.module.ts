@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { RedisCacheModule } from './cache/redis-cache.module.js';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -40,7 +41,7 @@ import { DashboardModule } from './dashboard/dashboard.module.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }), DatabaseModule, CommonModule, AuditModule,
+    ConfigModule.forRoot({ isGlobal: true }), RedisCacheModule, DatabaseModule, CommonModule, AuditModule,
     AuthModule, RbacModule, MembershipsModule, CompaniesModule, BranchesModule,
     CustomersModule, SuppliersModule, ProductsModule, InvoicesModule, QuotationsModule,
     SalesOrdersModule, CrmModule, InventoryModule, PurchaseOrdersModule, SupplierBillsModule,
