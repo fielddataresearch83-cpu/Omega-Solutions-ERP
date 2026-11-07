@@ -34,6 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [companyChoices, setCompanyChoices] = React.useState<LoginCompanyChoice[]>([]);
   const [pendingIdentityToken, setPendingIdentityToken] = React.useState<string | null>(null);
   const [pendingIdentityEmail, setPendingIdentityEmail] = React.useState<string | null>(null);
+  const [pendingLegacyCredentials, setPendingLegacyCredentials] = React.useState<{ email: string; password: string } | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -82,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCompanyChoices([]);
     setPendingIdentityToken(null);
     setPendingIdentityEmail(null);
+    setPendingLegacyCredentials(null);
 
     if (import.meta.env.VITE_NEON_AUTH_URL) {
       const token = await signInWithNeon(email, password);
@@ -101,23 +103,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // authentication/preflight failure must not silently fall back to another
     // password verifier.
     const result = await login(email, password);
+    if ("companySelectionRequired" in result) {
+      setPendingLegacyCredentials({ email, password });
+      setCompanyChoices(result.companies);
+      return;
+    }
     await applyOmegaSession(result);
   }, [applyOmegaSession]);
 
   const selectLoginCompany = React.useCallback(async (companyId: string) => {
-    if (!pendingIdentityToken || !pendingIdentityEmail) throw new Error("Your sign-in has expired. Please sign in again.");
     if (!companyChoices.some((company) => company.id === companyId)) throw new Error("Choose one of your listed active companies.");
+    if (pendingLegacyCredentials) {
+      const result = await login(pendingLegacyCredentials.email, pendingLegacyCredentials.password, companyId);
+      if ("companySelectionRequired" in result) throw new Error("Please select one of the listed companies.");
+      setCompanyChoices([]);
+      setPendingLegacyCredentials(null);
+      await applyOmegaSession(result);
+      return;
+    }
+    if (!pendingIdentityToken || !pendingIdentityEmail) throw new Error("Your sign-in has expired. Please sign in again.");
     const result = await exchangeNeonToken(pendingIdentityToken, pendingIdentityEmail, undefined, undefined, companyId);
     setCompanyChoices([]);
     setPendingIdentityToken(null);
     setPendingIdentityEmail(null);
     await applyOmegaSession(result);
-  }, [pendingIdentityToken, pendingIdentityEmail, companyChoices, applyOmegaSession]);
+  }, [pendingLegacyCredentials, pendingIdentityToken, pendingIdentityEmail, companyChoices, applyOmegaSession]);
 
   const cancelLoginCompanySelection = React.useCallback(() => {
     setCompanyChoices([]);
     setPendingIdentityToken(null);
     setPendingIdentityEmail(null);
+    setPendingLegacyCredentials(null);
     setError(null);
   }, []);
 
