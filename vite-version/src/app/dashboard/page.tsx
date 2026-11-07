@@ -92,13 +92,13 @@ function MetricCard({
   }
 
   return (
-    <Card className="group min-w-0 overflow-hidden rounded-2xl border-border/80 bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-input hover:shadow-lg hover:shadow-foreground/5 dark:hover:border-border dark:hover:shadow-black/20">
+    <Card className="group relative min-w-0 overflow-hidden rounded-2xl border-border/80 bg-card shadow-[0_3px_14px_rgb(15_23_42/0.045)] transition-all duration-200 hover:-translate-y-0.5 hover:border-input hover:shadow-lg hover:shadow-foreground/5 dark:hover:border-border dark:hover:shadow-black/20">
       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-3 pt-4">
         <div className="min-w-0 space-y-2">
           <CardDescription className="text-xs font-semibold tracking-wide text-muted-foreground">{label}</CardDescription>
-          <CardTitle className="break-words text-[1.65rem] font-extrabold tracking-[-0.035em] text-card-foreground sm:text-[1.8rem]">{value}</CardTitle>
+          <CardTitle className="break-words text-[1.8rem] font-extrabold tracking-[-0.045em] text-card-foreground sm:text-[1.95rem]">{value}</CardTitle>
         </div>
-        <div className={"flex size-10 shrink-0 items-center justify-center rounded-xl ring-1 transition duration-200 group-hover:scale-105 " + tones[tone]}>
+        <div className={"flex size-11 shrink-0 items-center justify-center rounded-2xl ring-1 transition duration-200 group-hover:scale-105 " + tones[tone]}>
           <Icon className="size-5" strokeWidth={1.9} aria-hidden="true" />
         </div>
       </CardHeader>
@@ -208,18 +208,18 @@ export default function Page() {
 
   return (
     <BaseLayout>
-      <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-5 px-4 py-3 sm:px-6 lg:px-8">
-        <section className="relative isolate overflow-hidden rounded-2xl border border-border/80 bg-card px-5 py-5 shadow-sm shadow-foreground/[0.025] dark:border-border dark:bg-card sm:px-7 sm:py-6">
-          <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 size-72 rounded-full bg-primary/10 blur-3xl dark:bg-primary/10" />
-          <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 right-1/4 -z-10 size-56 rounded-full bg-chart-2/[0.08] blur-3xl" />
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-4 py-4 sm:gap-7 sm:px-6 lg:px-8">
+        <section className="relative isolate overflow-hidden rounded-[1.6rem] border border-primary/15 bg-gradient-to-br from-card via-card to-primary/[0.075] px-5 py-6 shadow-[0_8px_30px_rgb(15_23_42/0.045)] dark:to-primary/[0.12] sm:px-8 sm:py-7">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-24 -z-10 size-80 rounded-full bg-primary/15 blur-3xl" />
+          <div aria-hidden="true" className="pointer-events-none absolute bottom-0 right-1/3 -z-10 h-1 w-2/5 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-bold tracking-[0.16em] text-primary">
                 <span className="size-1.5 rounded-full bg-primary shadow-[0_0_9px_color-mix(in_oklch,var(--primary)_75%,transparent)]" />
-                BUSINESS OVERVIEW
+                YOUR BUSINESS AT A GLANCE
               </div>
-              <h1 className="text-[1.65rem] font-extrabold tracking-[-0.035em] text-foreground sm:text-[2rem]">
-                One platform for your business.
+              <h1 className="text-3xl font-extrabold tracking-[-0.045em] text-foreground sm:text-[2.35rem]">
+                Welcome to your workspace.
               </h1>
               <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted-foreground">
                 {companyLoading
@@ -264,13 +264,13 @@ export default function Page() {
         )}
 
         <section aria-label="Business summary">
-          <SectionHeading title="At a glance" detail="Live figures from your current company records" />
+          <SectionHeading title="Business snapshot" detail="A live view of the records you can access in this company" />
           {loading ? (
             <div className="flex min-h-44 items-center justify-center rounded-xl border border-border bg-card dark:border-border dark:bg-card">
               <LoadingSpinner />
             </div>
           ) : (
-            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {canReadCustomers && (
                 <MetricCard label="Customers" value={formatNumber(dashboard.data?.customers?.count ?? 0)} detail="Customer directory" icon={Users} href="/customers" tone="emerald" />
               )}
@@ -294,7 +294,7 @@ export default function Page() {
 
         {canReadSales && (
           <section className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.85fr)]" aria-label="Sales and invoices">
-            <Card className="min-w-0 overflow-hidden rounded-xl border-border bg-card shadow-sm dark:border-border dark:bg-card">
+            <Card className="min-w-0 overflow-hidden rounded-2xl border-border/80 bg-card shadow-[0_4px_20px_rgb(15_23_42/0.035)] dark:border-border dark:bg-card">
               <CardHeader className="flex flex-col gap-3 space-y-0 pb-0 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
@@ -317,7 +317,7 @@ export default function Page() {
                     <p className="text-xs text-muted-foreground">Invoice totals will appear here when records are available.</p>
                   </div>
                 ) : (
-                  <div className="h-[230px] w-full" role="img" aria-label="Monthly invoice totals chart">
+                  <div className="h-[250px] w-full" role="img" aria-label="Monthly invoice totals chart">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={invoiceTrend} margin={{ top: 14, right: 8, bottom: 0, left: -12 }}>
                         <defs>
@@ -368,7 +368,7 @@ export default function Page() {
               </CardContent>
             </Card>
 
-            <Card className="min-w-0 rounded-xl border-border bg-card shadow-sm dark:border-border dark:bg-card">
+            <Card className="min-w-0 rounded-2xl border-border/80 bg-card shadow-[0_4px_20px_rgb(15_23_42/0.035)] dark:border-border dark:bg-card">
               <CardHeader className="space-y-1">
                 <CardTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
                   <CalendarClock className="size-4 text-warning dark:text-warning" /> Overdue invoices
@@ -408,7 +408,7 @@ export default function Page() {
 
         <section aria-label="Financial balances" className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
           {canReadCustomers && dashboard.data?.customers && (
-            <Card className="relative overflow-hidden rounded-xl border border-primary/15 bg-card shadow-sm dark:bg-card">
+            <Card className="relative overflow-hidden rounded-2xl border border-primary/15 bg-card shadow-[0_4px_20px_rgb(15_23_42/0.035)] dark:bg-card">
               <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-primary/[0.08] blur-3xl" />
               <CardHeader className="relative flex flex-row items-start justify-between gap-3 space-y-0">
                 <div className="space-y-2">
@@ -424,7 +424,7 @@ export default function Page() {
             </Card>
           )}
           {canReadProcurement && dashboard.data?.suppliers && (
-            <Card className="relative overflow-hidden rounded-xl border border-warning/15 bg-card shadow-sm dark:bg-card">
+            <Card className="relative overflow-hidden rounded-2xl border border-warning/15 bg-card shadow-[0_4px_20px_rgb(15_23_42/0.035)] dark:bg-card">
               <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-warning/[0.08] blur-3xl" />
               <CardHeader className="relative flex flex-row items-start justify-between gap-3 space-y-0">
                 <div className="space-y-2">
@@ -443,7 +443,7 @@ export default function Page() {
 
         {canReadProducts && (
           <section className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.85fr)]" aria-label="Inventory and quick actions">
-            <Card className="min-w-0 rounded-xl border-border bg-card shadow-sm dark:border-border dark:bg-card">
+            <Card className="min-w-0 rounded-2xl border-border/80 bg-card shadow-[0_4px_20px_rgb(15_23_42/0.035)] dark:border-border dark:bg-card">
               <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
                 <div>
                   <CardTitle className="flex items-center gap-2 text-sm font-bold text-foreground"><Package className="size-4 text-primary" /> Stock requiring attention</CardTitle>
@@ -485,7 +485,7 @@ export default function Page() {
               </CardContent>
             </Card>
 
-            <Card className="min-w-0 rounded-xl border-border bg-card shadow-sm dark:border-border dark:bg-card">
+            <Card className="min-w-0 rounded-2xl border-border/80 bg-card shadow-[0_4px_20px_rgb(15_23_42/0.035)] dark:border-border dark:bg-card">
               <CardHeader>
                 <CardTitle className="text-sm font-bold text-foreground">Quick actions</CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">Jump straight into common tasks</CardDescription>
