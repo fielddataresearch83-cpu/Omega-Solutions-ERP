@@ -17,12 +17,9 @@ async function bootstrap() {
   const corsOrigins = new Set(
     configuredOrigins.length ? configuredOrigins : ['http://localhost:5173'],
   );
-  const isTrustedVercelOrigin = (origin: string) =>
-    /^https:\/\/omega-solutions-erp(?:-[a-z0-9-]+)?\.vercel\.app$/.test(origin);
-
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (!origin || corsOrigins.has(origin) || isTrustedVercelOrigin(origin)) {
+      if (!origin || corsOrigins.has(origin)) {
         callback(null, true);
         return;
       }
