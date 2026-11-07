@@ -92,17 +92,17 @@ function MetricCard({
   }
 
   return (
-    <Card className="group min-w-0 overflow-hidden rounded-xl border-border bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-input hover:shadow-lg hover:shadow-foreground/5 dark:hover:border-border dark:hover:shadow-black/20">
-      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-3 pt-5">
+    <Card className="group min-w-0 overflow-hidden rounded-2xl border-border/80 bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-input hover:shadow-lg hover:shadow-foreground/5 dark:hover:border-border dark:hover:shadow-black/20">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-3 pt-4">
         <div className="min-w-0 space-y-2">
           <CardDescription className="text-xs font-semibold tracking-wide text-muted-foreground">{label}</CardDescription>
-          <CardTitle className="break-words text-2xl font-extrabold tracking-tight text-card-foreground sm:text-[28px]">{value}</CardTitle>
+          <CardTitle className="break-words text-[1.65rem] font-extrabold tracking-[-0.035em] text-card-foreground sm:text-[1.8rem]">{value}</CardTitle>
         </div>
-        <div className={"flex size-11 shrink-0 items-center justify-center rounded-full ring-1 transition duration-200 group-hover:scale-105 " + tones[tone]}>
+        <div className={"flex size-10 shrink-0 items-center justify-center rounded-xl ring-1 transition duration-200 group-hover:scale-105 " + tones[tone]}>
           <Icon className="size-5" strokeWidth={1.9} aria-hidden="true" />
         </div>
       </CardHeader>
-      <CardContent className="flex min-h-11 items-center justify-between gap-2 border-t border-border pt-3 dark:border-border">
+      <CardContent className="flex min-h-10 items-center justify-between gap-2 border-t border-border pt-2.5 dark:border-border">
         <span className="min-w-0 text-xs leading-relaxed text-muted-foreground">{detail}</span>
         <Link
           to={href}
@@ -208,20 +208,20 @@ export default function Page() {
 
   return (
     <BaseLayout>
-      <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-7 px-4 py-3 sm:px-6 lg:px-8">
-        <section className="relative isolate overflow-hidden rounded-xl border border-border bg-card px-5 py-6 shadow-sm dark:border-border dark:bg-card sm:px-7 sm:py-8">
+      <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-5 px-4 py-3 sm:px-6 lg:px-8">
+        <section className="relative isolate overflow-hidden rounded-2xl border border-border/80 bg-card px-5 py-5 shadow-sm shadow-foreground/[0.025] dark:border-border dark:bg-card sm:px-7 sm:py-6">
           <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 -z-10 size-72 rounded-full bg-primary/10 blur-3xl dark:bg-primary/10" />
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 right-1/4 -z-10 size-56 rounded-full bg-chart-2/[0.08] blur-3xl" />
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-[10px] font-bold tracking-[0.16em] text-primary">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-bold tracking-[0.16em] text-primary">
                 <span className="size-1.5 rounded-full bg-primary shadow-[0_0_9px_color-mix(in_oklch,var(--primary)_75%,transparent)]" />
                 BUSINESS OVERVIEW
               </div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+              <h1 className="text-[1.65rem] font-extrabold tracking-[-0.035em] text-foreground sm:text-[2rem]">
                 One platform for your business.
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              <p className="mt-2 max-w-2xl text-[13px] leading-6 text-muted-foreground">
                 {companyLoading
                   ? "Loading your business workspace…"
                   : company
@@ -270,7 +270,7 @@ export default function Page() {
               <LoadingSpinner />
             </div>
           ) : (
-            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {canReadCustomers && (
                 <MetricCard label="Customers" value={formatNumber(dashboard.data?.customers?.count ?? 0)} detail="Customer directory" icon={Users} href="/customers" tone="emerald" />
               )}
@@ -293,7 +293,7 @@ export default function Page() {
         </section>
 
         {canReadSales && (
-          <section className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.85fr)]" aria-label="Sales and invoices">
+          <section className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.85fr)]" aria-label="Sales and invoices">
             <Card className="min-w-0 overflow-hidden rounded-xl border-border bg-card shadow-sm dark:border-border dark:bg-card">
               <CardHeader className="flex flex-col gap-3 space-y-0 pb-0 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -317,7 +317,7 @@ export default function Page() {
                     <p className="text-xs text-muted-foreground">Invoice totals will appear here when records are available.</p>
                   </div>
                 ) : (
-                  <div className="h-[260px] w-full" role="img" aria-label="Monthly invoice totals chart">
+                  <div className="h-[230px] w-full" role="img" aria-label="Monthly invoice totals chart">
                     <ResponsiveContainer width="100%" height="100%">
                       <ComposedChart data={invoiceTrend} margin={{ top: 14, right: 8, bottom: 0, left: -12 }}>
                         <defs>
@@ -377,7 +377,7 @@ export default function Page() {
               </CardHeader>
               <CardContent>
                 {overdueInvoices.length === 0 ? (
-                  <div className="flex min-h-36 flex-col items-center justify-center gap-2 text-center">
+                  <div className="flex min-h-28 flex-col items-center justify-center gap-2 text-center">
                     <CheckCircle2 className="size-6 text-primary" />
                     <p className="text-sm font-semibold text-foreground">No overdue invoices returned</p>
                     <p className="text-xs leading-relaxed text-muted-foreground">There are no overdue balances in the records available to this account.</p>
@@ -442,7 +442,7 @@ export default function Page() {
         </section>
 
         {canReadProducts && (
-          <section className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.85fr)]" aria-label="Inventory and quick actions">
+          <section className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(280px,0.85fr)]" aria-label="Inventory and quick actions">
             <Card className="min-w-0 rounded-xl border-border bg-card shadow-sm dark:border-border dark:bg-card">
               <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
                 <div>
@@ -453,7 +453,7 @@ export default function Page() {
               </CardHeader>
               <CardContent>
                 {lowStockCount === 0 ? (
-                  <div className="flex min-h-28 items-center gap-3 rounded-xl bg-primary/[0.05] px-4 py-5 text-sm text-muted-foreground">
+                  <div className="flex min-h-20 items-center gap-3 rounded-xl bg-primary/[0.05] px-4 py-4 text-sm text-muted-foreground">
                     <CheckCircle2 className="size-5 shrink-0 text-primary" />
                     No low-stock products in the records currently available.
                   </div>
@@ -492,28 +492,28 @@ export default function Page() {
               </CardHeader>
               <CardContent className="divide-y divide-border dark:divide-border">
                 {canReadSales && (
-                  <Link to="/invoices" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
+                  <Link to="/invoices" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><ReceiptText className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Sales invoices</span><span className="mt-1 block text-[11px] text-muted-foreground">Review and manage customer billing</span></span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
                   </Link>
                 )}
                 {canReadCustomers && (
-                  <Link to="/customers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
+                  <Link to="/customers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-chart-2/10 text-chart-2 dark:text-chart-2"><Users className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Manage customers</span><span className="mt-1 block text-[11px] text-muted-foreground">Open your customer directory</span></span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
                   </Link>
                 )}
                 {canReadProcurement && (
-                  <Link to="/suppliers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
+                  <Link to="/suppliers" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-warning/10 text-warning dark:text-warning"><BriefcaseBusiness className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Manage suppliers</span><span className="mt-1 block text-[11px] text-muted-foreground">Review supplier records and balances</span></span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
                   </Link>
                 )}
                 {canReadProducts && (
-                  <Link to="/products" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-3.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
+                  <Link to="/products" className="group -mx-2 flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-muted dark:hover:bg-card/[0.035]">
                     <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-chart-4/10 text-chart-4 dark:text-chart-4"><Boxes className="size-[18px]" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Product catalogue</span><span className="mt-1 block text-[11px] text-muted-foreground">Check products and stock levels</span></span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" />
