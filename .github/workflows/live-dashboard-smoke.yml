@@ -26,7 +26,8 @@ jobs:
           node-version: 24
       - name: Verify authenticated dashboard and module catalogue without changing business data
         env:
-          OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
+          OMEGA_API_URL: https://omega-solutions-erp-9k9s-git-development-coll5.vercel.app/api
+          OMEGA_SECURITY_TEST_ORIGIN: https://omega-solutions-erp-git-development-coll5.vercel.app
           OMEGA_DASHBOARD_TEST_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
           OMEGA_DASHBOARD_TEST_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_A_PASSWORD }}
           OMEGA_DASHBOARD_TEST_COMPANY_ID: ${{ secrets.OMEGA_SECURITY_TEST_A_COMPANY_ID }}
