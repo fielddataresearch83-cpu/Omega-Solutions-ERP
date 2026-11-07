@@ -1,4 +1,4 @@
-const base = (process.env.OMEGA_API_URL || "https://omega-solutions-api-development.onrender.com/api").replace(/\/$/, "");
+const base = (process.env.OMEGA_API_URL || "https://omega-solutions-erp-9k9s-git-development-coll5.vercel.app/api").replace(/\/$/, "");
 const email = process.env.OMEGA_DASHBOARD_TEST_EMAIL || process.env.OMEGA_SECURITY_TEST_A_EMAIL;
 const password = process.env.OMEGA_DASHBOARD_TEST_PASSWORD || process.env.OMEGA_SECURITY_TEST_A_PASSWORD;
 if (![email, password].every(v => typeof v === "string" && v.trim())) {
@@ -23,7 +23,7 @@ async function api(method, path, token, body) {
 }
 async function login() {
   const authBase = (process.env.NEON_AUTH_BASE_URL || "https://ep-fragrant-bird-b4hie5sp.neonauth.c-6.us-east-2.aws.neon.tech/neondb/auth").replace(/\/$/, "");
-  const origin = (process.env.OMEGA_SECURITY_TEST_ORIGIN || "https://omega-solutions-git-development-pestria72-2760.vercel.app").replace(/\/$/, "");
+  const origin = (process.env.OMEGA_SECURITY_TEST_ORIGIN || "https://omega-solutions-erp-git-development-coll5.vercel.app").replace(/\/$/, "");
   const response = await fetch(authBase + "/sign-in/email", {
     method: "POST",
     headers: { "content-type": "application/json", origin, referer: origin + "/login" },
