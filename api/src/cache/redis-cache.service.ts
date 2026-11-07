@@ -20,7 +20,7 @@ export class RedisCacheService {
         if (parsed.protocol !== 'https:' || !parsed.hostname || parsed.username || parsed.password) {
           throw new Error('Invalid Upstash REST URL');
         }
-        this.endpoint = parsed.origin;
+        this.endpoint = parsed.toString();
         this.token = restToken;
         return;
       }
@@ -33,7 +33,7 @@ export class RedisCacheService {
         if (parsed.protocol !== 'rediss:' || !parsed.hostname || !parsed.password) {
           throw new Error('REDIS_URL must be a TLS Redis connection string');
         }
-        this.endpoint = `https://${parsed.hostname}`;
+        this.endpoint = new URL('/', `https://${parsed.hostname}`).toString();
         this.token = decodeURIComponent(parsed.password);
         return;
       }
