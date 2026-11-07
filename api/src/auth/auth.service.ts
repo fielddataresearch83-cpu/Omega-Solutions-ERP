@@ -294,7 +294,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto): Promise<(TokenPair & { user: Omit<AuthenticatedUser, 'permissions'> }) | { mfaRequired: true; mfaChallengeToken: string }> {
+  async login(dto: LoginDto): Promise<(TokenPair & { user: Omit<AuthenticatedUser, 'permissions'> }) | { mfaRequired: true; mfaChallengeToken: string } | { companySelectionRequired: true; companies: Array<{ id: string; name: string; role: string; branchId: string | null }> }> {
     const result = await this.db.query<{
       id: string;
       email: string;
@@ -318,6 +318,15 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.password_hash);
     if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Verify credentials before disclosing any company memberships. Do not issue
+    // tokens until the user explicitly chooses one active company.
+    if (!dto.companyId) {
+      const companies = await this.getActiveCompanies(user.id);
+      if (companies.length > 1) {
+        return { companySelectionRequired: true, companies };
+      }
     }
 
     const membership = await this.getUserMembership(user.id, dto.companyId);
