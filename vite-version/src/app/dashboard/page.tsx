@@ -145,7 +145,7 @@ export default function Page() {
     error: string | null
   }>({ data: null, loading: true, error: null })
 
-  const requestKey = \`\${user?.userId ?? ""}:\${company?.id ?? ""}:\${retryKey}\`
+  const requestKey = `${user?.userId ?? ""}:${company?.id ?? ""}:${retryKey}`
   const [loadedRequestKey, setLoadedRequestKey] = React.useState("")
   const dashboardLoading = authLoading || companyLoading || !user?.userId || loadedRequestKey !== requestKey
 
