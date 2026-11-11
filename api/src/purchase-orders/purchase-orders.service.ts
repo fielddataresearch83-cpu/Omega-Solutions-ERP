@@ -7,7 +7,7 @@ import { AccountingService } from '../accounting/accounting.service.js';
 import type { PoolClient } from 'pg';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import { readCompanyTaxPolicy, resolveTaxTreatment } from '../tax/tax-policy.js';
-import type { CreatePurchaseOrderDto, ReceivePurchaseOrderDto, UpdatePurchaseOrderStatusDto } from './dto/purchase-order.dto.js';
+import type { CreatePurchaseOrderDto, CreatePurchaseOrderFromRequisitionDto, ReceivePurchaseOrderDto, UpdatePurchaseOrderStatusDto } from './dto/purchase-order.dto.js';
 
 @Injectable()
 export class PurchaseOrdersService {
@@ -81,6 +81,83 @@ export class PurchaseOrdersService {
     });
     return this.getById(user,id);
   }
+  async createFromRequisition(user: AuthenticatedUser, dto: CreatePurchaseOrderFromRequisitionDto) {
+    const membership = await this.companyFor(user);
+    this.assertCompanyWideProcurement(membership);
+    const companyId = membership.companyId;
+    const id = await this.db.transaction(async client => {
+      const requisitionResult = await client.query<{id:string;status:string;title:string}>(
+        "SELECT id,status,title FROM requisitions WHERE id=$1 AND company_id=$2 FOR UPDATE",
+        [dto.requisitionId, companyId],
+      );
+      const requisition = requisitionResult.rows[0];
+      if (!requisition) throw new NotFoundException('Requisition not found in this company.');
+      if (requisition.status !== 'approved') throw new BadRequestException('Only approved requisitions can be converted to a purchase order.');
+      const approval = await client.query(
+        "SELECT id FROM approval_requests WHERE company_id=$1 AND entity_type='requisition' AND entity_id=$2 AND status='approved'",
+        [companyId, dto.requisitionId],
+      );
+      if (!approval.rows[0]) throw new BadRequestException('The requisition must have an approved approval record before conversion.');
+      const existing = await client.query(
+        "SELECT id FROM purchase_orders WHERE company_id=$1 AND requisition_id=$2 AND status<>'cancelled' LIMIT 1",
+        [companyId, dto.requisitionId],
+      );
+      if (existing.rows[0]) throw new BadRequestException('A purchase order already exists for this requisition.');
+      const supplier = await client.query(
+        "SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true AND status='active'",
+        [dto.supplierId, companyId],
+      );
+      if (!supplier.rows[0]) throw new NotFoundException('Active supplier not found in this company.');
+      const requested = await client.query<{id:string;product_id:string;quantity:string|number;product_name:string;sku:string}>(
+        `SELECT ri.id,ri.product_id,ri.quantity,p.name AS product_name,p.sku
+         FROM requisition_items ri JOIN products p ON p.id=ri.product_id AND p.company_id=ri.company_id
+         WHERE ri.company_id=$1 AND ri.requisition_id=$2 ORDER BY ri.created_at,ri.id FOR SHARE OF ri,p`,
+        [companyId, dto.requisitionId],
+      );
+      if (!requested.rows.length) throw new BadRequestException('The approved requisition has no items.');
+      if (new Set(dto.items.map(item => item.requisitionItemId)).size !== dto.items.length) {
+        throw new BadRequestException('Each requisition line can only be included once.');
+      }
+      if (requested.rows.length !== dto.items.length || requested.rows.some(line => !dto.items.some(item => item.requisitionItemId === line.id))) {
+        throw new BadRequestException('The purchase order must account for every requisition line exactly once.');
+      }
+      const year = new Date().getFullYear();
+      const seq = await client.query<{next_number:number}>(`INSERT INTO purchase_order_sequences(company_id,order_year,next_number)
+        VALUES($1,$2,1) ON CONFLICT(company_id,order_year)
+        DO UPDATE SET next_number=purchase_order_sequences.next_number+1 RETURNING next_number`, [companyId,year]);
+      const number = `PO-${year}-${String(seq.rows[0].next_number).padStart(5,'0')}`;
+      const settings = await client.query<{settings:unknown}>('SELECT settings FROM companies WHERE id=$1 AND is_active=true',[companyId]);
+      if (!settings.rows[0]) throw new NotFoundException('Active company not found.');
+      const taxPolicy = readCompanyTaxPolicy(settings.rows[0].settings);
+      let subtotal = 0, taxAmount = 0;
+      const lines = requested.rows.map(line => {
+        const supplied = dto.items.find(item => item.requisitionItemId === line.id)!;
+        const productTax = resolveTaxTreatment({
+          policy: taxPolicy,
+          productTreatment: 'legacy',
+          productRate: 0,
+          requestedRate: supplied.taxRate,
+        });
+        const qty = Number(line.quantity);
+        const sub = Math.round(qty * supplied.unitCost * 100) / 100;
+        const tax = Math.round(sub * productTax.rate) / 100;
+        subtotal += sub; taxAmount += tax;
+        return {productId:line.product_id,name:line.product_name,sku:line.sku,qty,cost:supplied.unitCost,rate:productTax.rate,sub,tax,total:sub+tax};
+      });
+      const inserted = await client.query<{id:string}>(`INSERT INTO purchase_orders
+        (company_id,supplier_id,requisition_id,order_number,expected_date,status,subtotal,tax_amount,total,notes,created_by)
+        VALUES($1,$2,$3,$4,$5,'draft',$6,$7,$8,$9,$10) RETURNING id`,
+        [companyId,dto.supplierId,dto.requisitionId,number,dto.expectedDate??null,subtotal,taxAmount,subtotal+taxAmount,dto.notes??requisition.title,user.userId]);
+      for (const line of lines) await client.query(`INSERT INTO purchase_order_items
+        (company_id,purchase_order_id,product_id,product_name,sku,quantity,unit_cost,tax_rate,line_subtotal,tax_amount,line_total)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [companyId,inserted.rows[0].id,line.productId,line.name,line.sku,line.qty,line.cost,line.rate,line.sub,line.tax,line.total]);
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'purchase_order.create_from_requisition',entityType:'purchase_order',entityId:inserted.rows[0].id,oldValues:null,newValues:{requisitionId:dto.requisitionId,supplierId:dto.supplierId},ipAddress:null});
+      return inserted.rows[0].id;
+    });
+    return this.getById(user,id);
+  }
+
   async updateStatus(user: AuthenticatedUser,id:string,dto:UpdatePurchaseOrderStatusDto) {
     const m=await this.companyFor(user); this.assertCompanyWideProcurement(m);
     await this.db.transaction(async client=>{
