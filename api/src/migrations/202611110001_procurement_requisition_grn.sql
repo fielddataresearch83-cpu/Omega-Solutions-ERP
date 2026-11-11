@@ -26,3 +26,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_purchase_orders_company_requisition_unique
 
 ALTER TABLE goods_receipts
   ADD COLUMN IF NOT EXISTS discrepancy_notes VARCHAR(4000);
+
+-- Enforce same-company parent and product references for requisition lines.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='requisition_items_parent_company_fk' AND conrelid='requisition_items'::regclass) THEN
+    ALTER TABLE requisition_items
+      ADD CONSTRAINT requisition_items_parent_company_fk
+      FOREIGN KEY (requisition_id, company_id)
+      REFERENCES requisitions(id, company_id) ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='requisition_items_product_company_fk' AND conrelid='requisition_items'::regclass) THEN
+    ALTER TABLE requisition_items
+      ADD CONSTRAINT requisition_items_product_company_fk
+      FOREIGN KEY (product_id, company_id)
+      REFERENCES products(id, company_id) ON DELETE RESTRICT;
+  END IF;
+END $$;
+
+ALTER TABLE requisitions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE requisition_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE approval_requests ENABLE ROW LEVEL SECURITY;
