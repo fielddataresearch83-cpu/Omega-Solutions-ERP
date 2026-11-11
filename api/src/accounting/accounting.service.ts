@@ -152,4 +152,158 @@ export class AccountingService {
    WHERE l.company_id=$1 AND l.journal_entry_id=$2 ORDER BY a.code`,[companyId,id]);
   return {...j.rows[0],lines:lines.rows};
  }
+
+ private validateDate(date: string, label: string): string {
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(date)
+   && !Number.isNaN(Date.parse(date + 'T00:00:00Z'))
+   && new Date(date + 'T00:00:00Z').toISOString().slice(0, 10) === date;
+  if (!valid) throw new BadRequestException(`${label} must be a valid YYYY-MM-DD date.`);
+  return date;
+ }
+
+ private async getCompanyCurrency(companyId: string): Promise<string> {
+  const r = await this.db.query<{ currency: string | null }>(
+   'SELECT currency FROM companies WHERE id=$1', [companyId]);
+  return r.rows[0]?.currency || 'KES';
+ }
+
+ async profitAndLoss(user: AuthenticatedUser, startDate: string, endDate: string) {
+  const membership = await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const { companyId } = membership;
+  this.validateDate(startDate, 'startDate');
+  this.validateDate(endDate, 'endDate');
+  if (startDate > endDate) throw new BadRequestException('startDate must be on or before endDate.');
+
+  const currency = await this.getCompanyCurrency(companyId);
+
+  const accounts = await this.db.query<{
+   id: string; code: string; name: string; account_type: string;
+   system_code: string | null; balance: string | number;
+  }>(`SELECT a.id, a.code, a.name, a.account_type, a.system_code,
+    CASE WHEN a.normal_side='debit'
+     THEN COALESCE(SUM(l.debit-l.credit) FILTER (WHERE j.status='posted' AND j.entry_date>=$2::date AND j.entry_date<=$3::date),0)
+     ELSE COALESCE(SUM(l.credit-l.debit) FILTER (WHERE j.status='posted' AND j.entry_date>=$2::date AND j.entry_date<=$3::date),0)
+    END::numeric(14,2) AS balance
+   FROM chart_of_accounts a
+   LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
+   LEFT JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id
+   WHERE a.company_id=$1 AND a.account_type IN ('income','expense') AND a.is_active=true
+   GROUP BY a.id ORDER BY a.code`,
+   [companyId, startDate, endDate]);
+
+  const rows = accounts.rows.map(r => ({ ...r, balance: Number(r.balance) }));
+  const incomeAccounts = rows.filter(a => a.account_type === 'income');
+  const expenseAccounts = rows.filter(a => a.account_type === 'expense');
+  const totalIncome = incomeAccounts.reduce((s, a) => s + a.balance, 0);
+  const totalExpenses = expenseAccounts.reduce((s, a) => s + a.balance, 0);
+
+  const isCostOfSales = (a: { system_code: string | null }) =>
+   a.system_code === 'purchases_expense' || a.system_code === 'cost_of_sales';
+
+  const costOfSales = expenseAccounts.filter(isCostOfSales).reduce((s, a) => s + a.balance, 0);
+  const operatingExpenses = expenseAccounts.filter(a => !isCostOfSales(a)).reduce((s, a) => s + a.balance, 0);
+  const grossProfit = totalIncome - costOfSales;
+  const netProfit = totalIncome - totalExpenses;
+
+  return {
+   currency, startDate, endDate,
+   incomeAccounts, expenseAccounts,
+   totalIncome, costOfSales, grossProfit, operatingExpenses,
+   totalExpenses, netProfit,
+  };
+ }
+
+ async balanceSheet(user: AuthenticatedUser, asOfDate: string) {
+  const membership = await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const { companyId } = membership;
+  this.validateDate(asOfDate, 'asOfDate');
+
+  const currency = await this.getCompanyCurrency(companyId);
+
+  const accounts = await this.db.query<{
+   id: string; code: string; name: string; account_type: string;
+   system_code: string | null; balance: string | number;
+  }>(`SELECT a.id, a.code, a.name, a.account_type, a.system_code,
+    CASE WHEN a.normal_side='debit'
+     THEN COALESCE(SUM(l.debit-l.credit) FILTER (WHERE j.status='posted' AND j.entry_date<=$2::date),0)
+     ELSE COALESCE(SUM(l.credit-l.debit) FILTER (WHERE j.status='posted' AND j.entry_date<=$2::date),0)
+    END::numeric(14,2) AS balance
+   FROM chart_of_accounts a
+   LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
+   LEFT JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id
+   WHERE a.company_id=$1 AND a.account_type IN ('asset','liability','equity') AND a.is_active=true
+   GROUP BY a.id ORDER BY a.code`,
+   [companyId, asOfDate]);
+
+  const rows = accounts.rows.map(r => ({ ...r, balance: Number(r.balance) }));
+  const assetAccounts = rows.filter(a => a.account_type === 'asset');
+  const liabilityAccounts = rows.filter(a => a.account_type === 'liability');
+  const equityAccounts = rows.filter(a => a.account_type === 'equity');
+
+  const totalAssets = assetAccounts.reduce((s, a) => s + a.balance, 0);
+  const totalLiabilities = liabilityAccounts.reduce((s, a) => s + a.balance, 0);
+  const totalEquity = equityAccounts.reduce((s, a) => s + a.balance, 0);
+  const totalLiabilitiesAndEquity = totalLiabilities + totalEquity;
+  const variance = Math.round((totalAssets - totalLiabilitiesAndEquity) * 100) / 100;
+
+  return {
+   currency, asOfDate,
+   assetAccounts, liabilityAccounts, equityAccounts,
+   totalAssets, totalLiabilities, totalEquity,
+   totalLiabilitiesAndEquity, variance,
+   balanced: Math.abs(variance) <= 0.01,
+  };
+ }
+
+ async cashFlow(user: AuthenticatedUser, startDate: string, endDate: string) {
+  const membership = await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const { companyId } = membership;
+  this.validateDate(startDate, 'startDate');
+  this.validateDate(endDate, 'endDate');
+  if (startDate > endDate) throw new BadRequestException('startDate must be on or before endDate.');
+
+  const currency = await this.getCompanyCurrency(companyId);
+
+  const result = await this.db.query<{
+   account_code: string; account_name: string; opening_balance: string | number;
+   closing_balance: string | number; net_movement: string | number;
+  }>(`SELECT a.code AS account_code, a.name AS account_name,
+    COALESCE(SUM(CASE WHEN a.normal_side='debit' THEN l.debit-l.credit ELSE l.credit-l.debit END)
+     FILTER (WHERE j.status='posted' AND j.entry_date<$2::date),0)::numeric(14,2) AS opening_balance,
+    COALESCE(SUM(CASE WHEN a.normal_side='debit' THEN l.debit-l.credit ELSE l.credit-l.debit END)
+     FILTER (WHERE j.status='posted' AND j.entry_date<=$3::date),0)::numeric(14,2) AS closing_balance,
+    COALESCE(SUM(CASE WHEN a.normal_side='debit' THEN l.debit-l.credit ELSE l.credit-l.debit END)
+     FILTER (WHERE j.status='posted' AND j.entry_date>=$2::date AND j.entry_date<=$3::date),0)::numeric(14,2) AS net_movement
+   FROM chart_of_accounts a
+   LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
+   LEFT JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id
+   WHERE a.company_id=$1 AND a.account_type='asset'
+    AND a.system_code IN ('cash','bank','mpesa')
+    AND a.is_active=true
+   GROUP BY a.id ORDER BY a.code`,
+   [companyId, startDate, endDate]);
+
+  const cashAccounts = result.rows.map(r => ({
+   account_code: r.account_code,
+   account_name: r.account_name,
+   opening_balance: Number(r.opening_balance),
+   closing_balance: Number(r.closing_balance),
+   net_movement: Number(r.net_movement),
+  }));
+  const totalOpening = cashAccounts.reduce((s, a) => s + a.opening_balance, 0);
+  const totalClosing = cashAccounts.reduce((s, a) => s + a.closing_balance, 0);
+  const netCashMovement = Math.round((totalClosing - totalOpening) * 100) / 100;
+
+  return {
+   currency, startDate, endDate, cashAccounts,
+   totalOpeningBalance: totalOpening,
+   totalClosingBalance: totalClosing,
+   netCashMovement,
+   method: 'direct',
+   limitation: 'Category-level breakdown (operating/investing/financing) is not available because journal entries lack cash-flow classification tags. This report shows net cash movement for cash, bank, and M-Pesa accounts only.',
+  };
+ }
 }

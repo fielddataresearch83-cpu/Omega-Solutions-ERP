@@ -19,4 +19,7 @@ export class AccountingController {
  @Get('reconciliation/receivables') @RequirePermissions('accounting:read') receivablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.receivablesReconciliation(req.user);}
  @Get('journals') @RequirePermissions('accounting:read') journals(@Req() req:{user:AuthenticatedUser}){return this.accounting.listJournals(req.user);}
  @Get('journals/:id') @RequirePermissions('accounting:read') journal(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.accounting.getJournal(req.user,id);}
+ @Get('reports/profit-and-loss') @RequirePermissions('accounting:read') profitAndLoss(@Req() req:{user:AuthenticatedUser},@Query('startDate') startDate:string,@Query('endDate') endDate:string){return this.accounting.profitAndLoss(req.user,startDate,endDate);}
+ @Get('reports/balance-sheet') @RequirePermissions('accounting:read') balanceSheet(@Req() req:{user:AuthenticatedUser},@Query('asOfDate') asOfDate:string){return this.accounting.balanceSheet(req.user,asOfDate);}
+ @Get('reports/cash-flow') @RequirePermissions('accounting:read') cashFlow(@Req() req:{user:AuthenticatedUser},@Query('startDate') startDate:string,@Query('endDate') endDate:string){return this.accounting.cashFlow(req.user,startDate,endDate);}
 }
