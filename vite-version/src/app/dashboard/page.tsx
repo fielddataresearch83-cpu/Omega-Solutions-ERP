@@ -29,6 +29,8 @@ import { formatNumber } from "@/lib/format"
 import { useMyCompany } from "@/hooks/use-company"
 import { useAuth } from "@/contexts/auth-context"
 import {
+  Bar,
+  BarChart,
   Area,
   CartesianGrid,
   ComposedChart,
@@ -67,6 +69,27 @@ type DashboardSummary = {
     currency: string
     balance: number
   }>
+  sales: null | {
+    currentPeriodInvoiced: number
+    previousPeriodInvoiced: number
+    currentPeriodCollected: number
+    previousPeriodCollected: number
+    creditNotesCurrentPeriod: number
+    periodStart: string
+    periodEnd: string
+    previousPeriodStart: string
+    previousPeriodEnd: string
+  }
+  expenses: null | {
+    currentPeriod: number
+    previousPeriod: number
+    periodStart: string
+    periodEnd: string
+    previousPeriodStart: string
+    previousPeriodEnd: string
+  }
+  topProducts: null | Array<{ id: string; name: string; sku: string; quantity: number; revenue: number }>
+  categoryBreakdown: null | Array<{ category: string; revenue: number }>
 }
 
 type MetricTone = "emerald" | "blue" | "violet" | "amber"
@@ -177,6 +200,22 @@ export default function Page() {
   const canReadCustomers = canUseModule("sales") && permissions.has("customers:read")
   const canReadProcurement = canUseModule("procurement") && permissions.has("suppliers:read") && Boolean(dashboard.data?.suppliers)
   const canReadProducts = canUseModule("inventory") && permissions.has("products:read") && Boolean(dashboard.data?.inventory)
+  const canReadExpenses = canUseModule("accounting") && permissions.has("expenses:read")
+
+  const sales = dashboard.data?.sales ?? null
+  const expenses = dashboard.data?.expenses ?? null
+  const topProducts = dashboard.data?.topProducts ?? null
+  const categoryBreakdown = dashboard.data?.categoryBreakdown ?? null
+  const invoicedDelta = sales && sales.previousPeriodInvoiced > 0
+    ? ((sales.currentPeriodInvoiced - sales.previousPeriodInvoiced) / sales.previousPeriodInvoiced) * 100
+    : null
+  const collectedDelta = sales && sales.previousPeriodCollected > 0
+    ? ((sales.currentPeriodCollected - sales.previousPeriodCollected) / sales.previousPeriodCollected) * 100
+    : null
+  const expenseDelta = expenses && expenses.previousPeriod > 0
+    ? ((expenses.currentPeriod - expenses.previousPeriod) / expenses.previousPeriod) * 100
+    : null
+  const monthLabel = sales ? new Date(sales.periodStart + "T00:00:00").toLocaleDateString(undefined, { month: "long" }) : ""
 
   const loading = authLoading || companyLoading || dashboardLoading
   const activeProducts = dashboard.data?.inventory?.activeProducts ?? 0
@@ -408,6 +447,161 @@ export default function Page() {
                 {lowStockCount > 0 && <div className="flex items-center gap-2 py-3 text-[11px] font-semibold text-amber-600 dark:text-amber-400"><ArrowDownRight className="size-4 shrink-0" />{lowStockCount} product{lowStockCount === 1 ? "" : "s"} need stock review.</div>}
               </CardContent>
             </Panel>
+          </section>
+        )}
+
+        {canReadSales && sales && (
+          <section aria-label="Sales performance this month">
+            <SectionHeading title={"Sales performance · " + monthLabel} detail="Invoiced sales, collected payments and credit notes for the current month" />
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <Panel className="relative">
+                <div aria-hidden className="pointer-events-none absolute -right-8 -top-12 size-40 rounded-full bg-emerald-500/[0.06] blur-3xl" />
+                <CardContent className="relative p-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Invoiced sales</p>
+                  <p className="mt-3 break-words text-2xl font-bold tracking-[-0.045em] text-foreground sm:text-3xl">{formatCompanyCurrency(sales.currentPeriodInvoiced)}</p>
+                  <div className="mt-2 flex items-center gap-2 text-xs">
+                    {invoicedDelta === null ? (
+                      <span className="text-muted-foreground">No prior-month data</span>
+                    ) : (
+                      <span className={"inline-flex items-center gap-1 font-semibold " + (invoicedDelta >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+                        {invoicedDelta >= 0 ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
+                        {Math.abs(invoicedDelta).toFixed(1)}% vs last month
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">Excludes draft and cancelled invoices</p>
+                </CardContent>
+              </Panel>
+              <Panel className="relative">
+                <div aria-hidden className="pointer-events-none absolute -right-8 -top-12 size-40 rounded-full bg-sky-500/[0.06] blur-3xl" />
+                <CardContent className="relative p-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Collected payments</p>
+                  <p className="mt-3 break-words text-2xl font-bold tracking-[-0.045em] text-foreground sm:text-3xl">{formatCompanyCurrency(sales.currentPeriodCollected)}</p>
+                  <div className="mt-2 flex items-center gap-2 text-xs">
+                    {collectedDelta === null ? (
+                      <span className="text-muted-foreground">No prior-month data</span>
+                    ) : (
+                      <span className={"inline-flex items-center gap-1 font-semibold " + (collectedDelta >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive")}>
+                        {collectedDelta >= 0 ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
+                        {Math.abs(collectedDelta).toFixed(1)}% vs last month
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[10px] text-muted-foreground">Confirmed and reconciled payments only</p>
+                </CardContent>
+              </Panel>
+              <Panel className="relative">
+                <div aria-hidden className="pointer-events-none absolute -right-8 -top-12 size-40 rounded-full bg-amber-500/[0.06] blur-3xl" />
+                <CardContent className="relative p-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Credit notes</p>
+                  <p className="mt-3 break-words text-2xl font-bold tracking-[-0.045em] text-foreground sm:text-3xl">{formatCompanyCurrency(sales.creditNotesCurrentPeriod)}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">Issued this month, tracked separately</p>
+                </CardContent>
+              </Panel>
+              <Panel className="relative">
+                <div aria-hidden className="pointer-events-none absolute -right-8 -top-12 size-40 rounded-full bg-violet-500/[0.06] blur-3xl" />
+                <CardContent className="relative p-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Net collected</p>
+                  <p className="mt-3 break-words text-2xl font-bold tracking-[-0.045em] text-foreground sm:text-3xl">{formatCompanyCurrency(sales.currentPeriodCollected - sales.creditNotesCurrentPeriod)}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">Collected payments minus credit notes</p>
+                </CardContent>
+              </Panel>
+            </div>
+          </section>
+        )}
+
+        {canReadExpenses && expenses && (
+          <section aria-label="Expenses this month">
+            <SectionHeading title={"Expenses · " + monthLabel} detail="Operating expenses recorded this month" />
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+              <Panel>
+                <CardContent className="p-5 sm:p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">This month</p>
+                      <p className="mt-3 break-words text-2xl font-bold tracking-[-0.045em] text-foreground sm:text-3xl">{formatCompanyCurrency(expenses.currentPeriod)}</p>
+                      <div className="mt-2 flex items-center gap-2 text-xs">
+                        {expenseDelta === null ? (
+                          <span className="text-muted-foreground">No prior-month data</span>
+                        ) : (
+                          <span className={"inline-flex items-center gap-1 font-semibold " + (expenseDelta >= 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>
+                            {expenseDelta >= 0 ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
+                            {Math.abs(expenseDelta).toFixed(1)}% vs last month
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400"><Wallet className="size-5" /></span>
+                  </div>
+                  <Link to="/expenses" className="mt-5 inline-flex items-center gap-1.5 border-t border-border/70 pt-3 text-[11px] font-bold text-primary">Review expenses <ChevronRight className="size-3.5" /></Link>
+                </CardContent>
+              </Panel>
+              <Panel>
+                <CardContent className="p-5 sm:p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Last month</p>
+                      <p className="mt-3 break-words text-2xl font-bold tracking-[-0.045em] text-foreground sm:text-3xl">{formatCompanyCurrency(expenses.previousPeriod)}</p>
+                      <p className="mt-2 text-xs text-muted-foreground">Prior month for comparison</p>
+                    </div>
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-muted text-muted-foreground"><CalendarDays className="size-5" /></span>
+                  </div>
+                </CardContent>
+              </Panel>
+            </div>
+          </section>
+        )}
+
+        {canReadSales && (topProducts || categoryBreakdown) && (
+          <section className="grid min-w-0 grid-cols-1 gap-5 xl:grid-cols-2" aria-label="Top products and category breakdown">
+            {topProducts && (
+              <Panel>
+                <CardHeader className="border-b border-border/70 px-5 pb-4 pt-5">
+                  <CardTitle className="flex items-center gap-2 text-sm font-bold"><Package className="size-4 text-primary" /> Top products · {monthLabel}</CardTitle>
+                  <CardDescription className="mt-1.5 text-xs">By invoiced revenue this month</CardDescription>
+                </CardHeader>
+                <CardContent className="px-5 pb-5 pt-3">
+                  {topProducts.length === 0 ? (
+                    <div className="flex min-h-32 flex-col items-center justify-center gap-2 text-center">
+                      <div className="rounded-2xl bg-primary/10 p-3 text-primary"><Package className="size-5" /></div>
+                      <p className="text-sm font-semibold text-foreground">No product sales yet</p>
+                      <p className="text-xs text-muted-foreground">Top products will appear here once invoices are recorded this month.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto"><table className="w-full min-w-[24rem] text-xs"><thead><tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.08em] text-muted-foreground"><th className="py-3 pr-4 font-bold">Product</th><th className="py-3 pr-4 font-bold">SKU</th><th className="py-3 pr-4 text-right font-bold">Qty</th><th className="py-3 text-right font-bold">Revenue</th></tr></thead><tbody>{topProducts.map((product) => (<tr key={product.id} className="border-b border-border/70 last:border-0"><td className="max-w-44 truncate py-3.5 pr-4 font-semibold text-foreground">{product.name}</td><td className="py-3.5 pr-4 text-muted-foreground">{product.sku || "—"}</td><td className="py-3.5 pr-4 text-right font-bold tabular-nums">{formatNumber(product.quantity)}</td><td className="py-3.5 text-right font-bold tabular-nums text-foreground">{formatCompanyCurrency(product.revenue)}</td></tr>))}</tbody></table></div>
+                  )}
+                </CardContent>
+              </Panel>
+            )}
+            {categoryBreakdown && (
+              <Panel>
+                <CardHeader className="border-b border-border/70 px-5 pb-4 pt-5">
+                  <CardTitle className="flex items-center gap-2 text-sm font-bold"><Boxes className="size-4 text-primary" /> Category breakdown · {monthLabel}</CardTitle>
+                  <CardDescription className="mt-1.5 text-xs">Invoiced revenue by product category</CardDescription>
+                </CardHeader>
+                <CardContent className="px-5 pb-5 pt-3">
+                  {categoryBreakdown.length === 0 ? (
+                    <div className="flex min-h-32 flex-col items-center justify-center gap-2 text-center">
+                      <div className="rounded-2xl bg-primary/10 p-3 text-primary"><Boxes className="size-5" /></div>
+                      <p className="text-sm font-semibold text-foreground">No category data yet</p>
+                      <p className="text-xs text-muted-foreground">Categories will appear here once product sales are recorded this month.</p>
+                    </div>
+                  ) : (
+                    <div className="h-[220px] w-full" role="img" aria-label="Category revenue breakdown chart">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={categoryBreakdown} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 8 }}>
+                          <CartesianGrid horizontal={false} stroke="currentColor" strokeOpacity={0.08} strokeDasharray="3 6" />
+                          <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} tickFormatter={(value: number) => value >= 1000000 ? (value / 1000000).toFixed(1) + "m" : value >= 1000 ? Math.round(value / 1000) + "k" : String(value)} />
+                          <YAxis type="category" dataKey="category" axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} width={96} />
+                          <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 12, color: "var(--popover-foreground)", fontSize: 12, boxShadow: "0 8px 24px rgb(0 0 0 / 10%)" }} formatter={(value) => [formatCompanyCurrency(Number(value)), "Revenue"]} />
+                          <Bar dataKey="revenue" fill="var(--chart-2)" radius={[0, 6, 6, 0]} isAnimationActive animationDuration={550} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </CardContent>
+              </Panel>
+            )}
           </section>
         )}
 

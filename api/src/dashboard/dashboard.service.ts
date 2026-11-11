@@ -34,6 +34,20 @@ export class DashboardService {
       inventory: null as null | { activeProducts: number; lowStock: number; costValue: number; lowStockProducts: Array<{ id: string; name: string; sku: string; stock_quantity: number; reorder_level: number }> },
       invoiceTrend: null as null | Array<{ key: string; total: number }>,
       overdueInvoices: null as null | Array<{ id: string; invoice_number: string; customer_name: string; due_date: string; currency: string; balance: number }>,
+      sales: null as null | {
+        currentPeriodInvoiced: number;
+        previousPeriodInvoiced: number;
+        currentPeriodCollected: number;
+        previousPeriodCollected: number;
+        creditNotesCurrentPeriod: number;
+        periodStart: string;
+        periodEnd: string;
+        previousPeriodStart: string;
+        previousPeriodEnd: string;
+      },
+      expenses: null as null | { currentPeriod: number; previousPeriod: number; periodStart: string; periodEnd: string; previousPeriodStart: string; previousPeriodEnd: string },
+      topProducts: null as null | Array<{ id: string; name: string; sku: string; quantity: number; revenue: number }>,
+      categoryBreakdown: null as null | Array<{ category: string; revenue: number }>,
     };
 
     if (can('sales', 'customers:read')) {
@@ -136,6 +150,155 @@ export class DashboardService {
         trendParams,
       );
       result.overdueInvoices = overdue.rows.map((row) => ({ ...row, balance: Number(row.balance) }));
+
+      // --- Sales revenue for current and previous calendar month ---
+      // Invoiced sales = SUM(invoice total) for non-draft/non-cancelled invoices.
+      // Credit notes reduce revenue. Collected payments = confirmed/reconciled invoice_payments.
+      // All scoped by company, currency, and branch (via the same branchFilter).
+      const periodStart = new Date();
+      periodStart.setDate(1);
+      periodStart.setHours(0, 0, 0, 0);
+      const periodEnd = new Date(periodStart);
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
+      const previousPeriodStart = new Date(periodStart);
+      previousPeriodStart.setMonth(previousPeriodStart.getMonth() - 1);
+      const previousPeriodEnd = new Date(periodStart);
+
+      const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+      const salesParams = [membership.companyId, currency, membership.branchId ?? null];
+
+      const currentInvoiced = await this.db.query<{ total: string | number }>(
+        `SELECT COALESCE(SUM(i.total), 0) AS total
+         FROM invoices i
+         WHERE i.company_id = $1 AND i.currency = $2::text
+           AND i.status NOT IN ('draft', 'cancelled')
+           AND i.issue_date >= $4::date AND i.issue_date < $5::date
+           ${branchFilter}`,
+        [...salesParams, fmt(periodStart), fmt(periodEnd)],
+      );
+      const previousInvoiced = await this.db.query<{ total: string | number }>(
+        `SELECT COALESCE(SUM(i.total), 0) AS total
+         FROM invoices i
+         WHERE i.company_id = $1 AND i.currency = $2::text
+           AND i.status NOT IN ('draft', 'cancelled')
+           AND i.issue_date >= $4::date AND i.issue_date < $5::date
+           ${branchFilter}`,
+        [...salesParams, fmt(previousPeriodStart), fmt(previousPeriodEnd)],
+      );
+
+      const currentCollected = await this.db.query<{ total: string | number }>(
+        `SELECT COALESCE(SUM(ip.amount), 0) AS total
+         FROM invoice_payments ip
+         JOIN invoices i ON i.id = ip.invoice_id AND i.company_id = ip.company_id
+         WHERE ip.company_id = $1 AND i.currency = $2::text
+           AND ip.status IN ('confirmed', 'reconciled')
+           AND ip.paid_at >= $4::timestamptz AND ip.paid_at < $5::timestamptz
+           ${branchFilter.replace('ps.invoice_id = i.id', 'ps.invoice_id = ip.invoice_id')}`,
+        [...salesParams, periodStart.toISOString(), periodEnd.toISOString()],
+      );
+      const previousCollected = await this.db.query<{ total: string | number }>(
+        `SELECT COALESCE(SUM(ip.amount), 0) AS total
+         FROM invoice_payments ip
+         JOIN invoices i ON i.id = ip.invoice_id AND i.company_id = ip.company_id
+         WHERE ip.company_id = $1 AND i.currency = $2::text
+           AND ip.status IN ('confirmed', 'reconciled')
+           AND ip.paid_at >= $4::timestamptz AND ip.paid_at < $5::timestamptz
+           ${branchFilter.replace('ps.invoice_id = i.id', 'ps.invoice_id = ip.invoice_id')}`,
+        [...salesParams, previousPeriodStart.toISOString(), previousPeriodEnd.toISOString()],
+      );
+
+      const currentCreditNotes = await this.db.query<{ total: string | number }>(
+        `SELECT COALESCE(SUM(cn.total), 0) AS total
+         FROM credit_notes cn
+         WHERE cn.company_id = $1
+           AND cn.issue_date >= $2::date AND cn.issue_date < $3::date`,
+        [membership.companyId, fmt(periodStart), fmt(periodEnd)],
+      );
+
+      result.sales = {
+        currentPeriodInvoiced: Number(currentInvoiced.rows[0]?.total ?? 0),
+        previousPeriodInvoiced: Number(previousInvoiced.rows[0]?.total ?? 0),
+        currentPeriodCollected: Number(currentCollected.rows[0]?.total ?? 0),
+        previousPeriodCollected: Number(previousCollected.rows[0]?.total ?? 0),
+        creditNotesCurrentPeriod: Number(currentCreditNotes.rows[0]?.total ?? 0),
+        periodStart: fmt(periodStart),
+        periodEnd: fmt(periodEnd),
+        previousPeriodStart: fmt(previousPeriodStart),
+        previousPeriodEnd: fmt(previousPeriodEnd),
+      };
+
+      // --- Top-selling products (current month, by revenue) ---
+      const topProducts = await this.db.query<{ id: string; name: string; sku: string; quantity: string | number; revenue: string | number }>(
+        `SELECT ii.product_id AS id, ii.product_name AS name, ii.sku,
+                SUM(ii.quantity) AS quantity, SUM(ii.line_total) AS revenue
+         FROM invoice_items ii
+         JOIN invoices i ON i.id = ii.invoice_id AND i.company_id = ii.company_id
+         WHERE ii.company_id = $1 AND i.currency = $2::text
+           AND i.status NOT IN ('draft', 'cancelled')
+           AND i.issue_date >= $4::date AND i.issue_date < $5::date
+           AND ii.product_id IS NOT NULL
+           ${branchFilter}
+         GROUP BY ii.product_id, ii.product_name, ii.sku
+         ORDER BY revenue DESC
+         LIMIT 5`,
+        [...salesParams, fmt(periodStart), fmt(periodEnd)],
+      );
+      result.topProducts = topProducts.rows.map((row) => ({
+        id: row.id, name: row.name, sku: row.sku ?? '',
+        quantity: Number(row.quantity), revenue: Number(row.revenue),
+      }));
+
+      // --- Category breakdown (current month, by revenue) ---
+      const categoryBreakdown = await this.db.query<{ category: string; revenue: string | number }>(
+        `SELECT COALESCE(p.category, 'Uncategorised') AS category, SUM(ii.line_total) AS revenue
+         FROM invoice_items ii
+         JOIN invoices i ON i.id = ii.invoice_id AND i.company_id = ii.company_id
+         LEFT JOIN products p ON p.id = ii.product_id AND p.company_id = ii.company_id
+         WHERE ii.company_id = $1 AND i.currency = $2::text
+           AND i.status NOT IN ('draft', 'cancelled')
+           AND i.issue_date >= $4::date AND i.issue_date < $5::date
+           ${branchFilter}
+         GROUP BY COALESCE(p.category, 'Uncategorised')
+         ORDER BY revenue DESC
+         LIMIT 6`,
+        [...salesParams, fmt(periodStart), fmt(periodEnd)],
+      );
+      result.categoryBreakdown = categoryBreakdown.rows.map((row) => ({
+        category: row.category, revenue: Number(row.revenue),
+      }));
+    }
+
+    // --- Expenses for current and previous calendar month ---
+    // Expenses are company-wide financial data — blocked for branch-bound users,
+    // consistent with the accounting module's assertCompanyWide guard.
+    if (can('accounting', 'expenses:read') && !membership.branchId) {
+      const periodStart = new Date();
+      periodStart.setDate(1);
+      periodStart.setHours(0, 0, 0, 0);
+      const periodEnd = new Date(periodStart);
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
+      const previousPeriodStart = new Date(periodStart);
+      previousPeriodStart.setMonth(previousPeriodStart.getMonth() - 1);
+      const previousPeriodEnd = new Date(periodStart);
+      const fmt = (d: Date) => d.toISOString().slice(0, 10);
+
+      const currentExpenses = await this.db.query<{ total: string | number }>(
+        'SELECT COALESCE(SUM(amount), 0) AS total FROM expenses WHERE company_id = $1 AND expense_date >= $2::date AND expense_date < $3::date',
+        [membership.companyId, fmt(periodStart), fmt(periodEnd)],
+      );
+      const previousExpenses = await this.db.query<{ total: string | number }>(
+        'SELECT COALESCE(SUM(amount), 0) AS total FROM expenses WHERE company_id = $1 AND expense_date >= $2::date AND expense_date < $3::date',
+        [membership.companyId, fmt(previousPeriodStart), fmt(previousPeriodEnd)],
+      );
+      result.expenses = {
+        currentPeriod: Number(currentExpenses.rows[0]?.total ?? 0),
+        previousPeriod: Number(previousExpenses.rows[0]?.total ?? 0),
+        periodStart: fmt(periodStart),
+        periodEnd: fmt(periodEnd),
+        previousPeriodStart: fmt(previousPeriodStart),
+        previousPeriodEnd: fmt(previousPeriodEnd),
+      };
     }
 
     return {
