@@ -13,6 +13,8 @@ import { formatKES, formatDate } from "@/lib/format";
 type Supplier={id:string;name:string;is_active:boolean;status:string};
 type Product={id:string;name:string;sku:string;cost_price:number|string;is_service:boolean;is_active:boolean;unit:string};
 type Warehouse={id:string;name:string;code:string;is_active:boolean};
+type Requisition={id:string;request_number:string;title:string;status:string};
+type RequisitionDetail=Requisition&{items:Array<{id:string;product_id:string;product_name:string;quantity:string|number;sku:string|null}>};
 type Line={productId:string;quantity:string;unitCost:string;taxRate:string};
 type Item={id:string;product_id:string;product_name:string;sku:string|null;quantity:string|number;received_quantity:string|number;unit_cost:string|number;line_total:string|number};
 type PurchaseOrder={id:string;order_number:string;supplier_name:string;order_date:string;expected_date:string|null;status:"draft"|"ordered"|"partially_received"|"received"|"cancelled";approval_status?:"pending"|"approved"|"rejected"|"cancelled"|null;total:string|number;item_count:number;items?:Item[]};
@@ -26,6 +28,11 @@ export default function PurchaseOrdersPage(){
  const [suppliers,setSuppliers]=React.useState<Supplier[]>([]);
  const [products,setProducts]=React.useState<Product[]>([]);
  const [warehouses,setWarehouses]=React.useState<Warehouse[]>([]);
+ const [approvedRequisitions,setApprovedRequisitions]=React.useState<Requisition[]>([]);
+ const [selectedRequisition,setSelectedRequisition]=React.useState("");
+ const [requisitionDetail,setRequisitionDetail]=React.useState<RequisitionDetail|null>(null);
+ const [requisitionCosts,setRequisitionCosts]=React.useState<Record<string,string>>({});
+ const [converting,setConverting]=React.useState(false);
  const [loading,setLoading]=React.useState(true);
  const [saving,setSaving]=React.useState(false);
  const [busyId,setBusyId]=React.useState("");
@@ -49,16 +56,18 @@ export default function PurchaseOrdersPage(){
  const refresh=React.useCallback(async()=>{
   setLoading(true);setError("");
   try{
-   const [po,sup,prod,wh]=await Promise.all([
-    api.get<PurchaseOrder[]>("/purchase-orders"),api.get<Supplier[]>("/suppliers"),api.get<Product[]>("/products"),api.get<Warehouse[]>("/inventory/warehouses")
+   const [po,sup,prod,wh,reqs]=await Promise.all([
+    api.get<PurchaseOrder[]>("/purchase-orders"),api.get<Supplier[]>("/suppliers"),api.get<Product[]>("/products"),api.get<Warehouse[]>("/inventory/warehouses"),api.get<Requisition[]>("/requisitions")
    ]);
-   setOrders(po);setSuppliers(sup.filter(s=>s.is_active&&s.status==="active"));setProducts(prod.filter(p=>p.is_active&&!p.is_service));setWarehouses(wh.filter(w=>w.is_active));
+   setOrders(po);setSuppliers(sup.filter(s=>s.is_active&&s.status==="active"));setProducts(prod.filter(p=>p.is_active&&!p.is_service));setWarehouses(wh.filter(w=>w.is_active));setApprovedRequisitions(reqs.filter(r=>r.status==="approved"));
    setSupplierId(current=>current||sup.find(s=>s.is_active&&s.status==="active")?.id||"");
    setReceiveWarehouse(current=>wh.some(w=>w.id===current&&w.is_active)?current:wh.find(w=>w.is_active)?.id||"");
   }catch(e){setError(messageOf(e))}
   finally{setLoading(false)}
  },[]);
- React.useEffect(()=>{let active=true;void Promise.all([api.get<PurchaseOrder[]>("/purchase-orders"),api.get<Supplier[]>("/suppliers"),api.get<Product[]>("/products"),api.get<Warehouse[]>("/inventory/warehouses")]).then(([po,sup,prod,wh])=>{if(active){setOrders(po);setSuppliers(sup.filter(s=>s.is_active&&s.status==="active"));setProducts(prod.filter(p=>p.is_active&&!p.is_service));setWarehouses(wh.filter(w=>w.is_active));setSupplierId(current=>current||sup.find(s=>s.is_active&&s.status==="active")?.id||"");setReceiveWarehouse(current=>wh.some(w=>w.id===current&&w.is_active)?current:wh.find(w=>w.is_active)?.id||"");}}).catch(e=>{if(active)setError(messageOf(e));}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[]);
+ React.useEffect(()=>{let active=true;void Promise.all([api.get<PurchaseOrder[]>("/purchase-orders"),api.get<Supplier[]>("/suppliers"),api.get<Product[]>("/products"),api.get<Warehouse[]>("/inventory/warehouses"),api.get<Requisition[]>("/requisitions")]).then(([po,sup,prod,wh,reqs])=>{if(active){setOrders(po);setSuppliers(sup.filter(s=>s.is_active&&s.status==="active"));setProducts(prod.filter(p=>p.is_active&&!p.is_service));setWarehouses(wh.filter(w=>w.is_active));setApprovedRequisitions(reqs.filter(r=>r.status==="approved"));setSupplierId(current=>current||sup.find(s=>s.is_active&&s.status==="active")?.id||"");setReceiveWarehouse(current=>wh.some(w=>w.id===current&&w.is_active)?current:wh.find(w=>w.is_active)?.id||"");}}).catch(e=>{if(active)setError(messageOf(e));}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[]);
+ const loadRequisition=async(id:string)=>{setSelectedRequisition(id);setRequisitionDetail(null);setError("");if(!id)return;try{const detail=await api.get<RequisitionDetail>("/requisitions/"+id);setRequisitionDetail(detail);setRequisitionCosts(Object.fromEntries(detail.items.map(item=>{const product=products.find(p=>p.id===item.product_id);return [item.id,String(product?.cost_price??0)];})));}catch(e){setError(messageOf(e));}};
+ const convertRequisition=async()=>{if(!requisitionDetail||!supplierId)return;const invalid=requisitionDetail.items.some(item=>!Number.isFinite(Number(requisitionCosts[item.id]))||Number(requisitionCosts[item.id])<0);if(invalid){setError("Enter a valid unit cost for every requisition line.");return;}setConverting(true);setError("");try{await api.post("/purchase-orders/from-requisition",{requisitionId:requisitionDetail.id,supplierId,items:requisitionDetail.items.map(item=>({requisitionItemId:item.id,unitCost:Number(requisitionCosts[item.id]),taxRate:16}))});setSelectedRequisition("");setRequisitionDetail(null);setRequisitionCosts({});await refresh();}catch(e){setError(messageOf(e));}finally{setConverting(false);}};
  const updateLine=(index:number,key:keyof Line,value:string)=>{
   setLines(current=>current.map((line,i)=>i===index?{...line,[key]:value}:line));
   if(key==="productId"){const product=products.find(p=>p.id===value);if(product)setLines(current=>current.map((line,i)=>i===index?{...line,productId:value,unitCost:String(product.cost_price??0)}:line))}
@@ -124,6 +133,7 @@ export default function PurchaseOrdersPage(){
    <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Open orders</p><p className="text-2xl font-semibold tabular-nums">{openCount}</p></CardContent></Card>
    <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Received / partially received value</p><p className="text-2xl font-semibold tabular-nums">{formatKES(receivedValue)}</p></CardContent></Card>
   </div>
+  {approvedRequisitions.length>0&&<Card><CardContent className="flex flex-col gap-3 p-4"><div><h2 className="font-semibold">Convert approved requisition</h2><p className="text-sm text-muted-foreground">Create a draft purchase order from an approved requisition. Every requested line must be priced.</p></div><div className="grid gap-3 sm:grid-cols-2"><div className="flex flex-col gap-1"><Label htmlFor="po-requisition">Approved requisition</Label><select id="po-requisition" className="h-9 rounded-md border bg-background px-3 text-sm" value={selectedRequisition} onChange={e=>void loadRequisition(e.target.value)}><option value="">Choose requisition</option>{approvedRequisitions.map(r=><option key={r.id} value={r.id}>{r.request_number} — {r.title}</option>)}</select></div><div className="flex flex-col gap-1"><Label htmlFor="po-requisition-supplier">Supplier</Label><select id="po-requisition-supplier" className="h-9 rounded-md border bg-background px-3 text-sm" value={supplierId} onChange={e=>setSupplierId(e.target.value)}><option value="">Choose supplier</option>{suppliers.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div></div>{requisitionDetail&&<><div className="space-y-2">{requisitionDetail.items.map(item=><div key={item.id} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_120px_160px] sm:items-center"><div><p className="font-medium">{item.product_name}</p><p className="text-xs text-muted-foreground">{item.sku||"No SKU"} · Qty {Number(item.quantity)}</p></div><Label className="text-sm">Unit cost (KSh)</Label><Input aria-label={"Unit cost for "+item.product_name} type="number" min="0" step="0.01" value={requisitionCosts[item.id]??""} onChange={e=>setRequisitionCosts(current=>({...current,[item.id]:e.target.value}))}/></div>)}</div><div className="flex justify-end"><Button onClick={()=>void convertRequisition()} disabled={converting||!supplierId}>{converting?<Loader2 className="size-4 animate-spin"/>:<Plus className="size-4"/>}Create draft purchase order</Button></div></>}</CardContent></Card>}
   {showForm&&<Card><CardContent className="flex flex-col gap-4 p-4">
    <div><h2 className="font-semibold">New purchase order</h2><p className="text-sm text-muted-foreground">Orders start as drafts and must be approved before they can be ordered or received.</p></div>
    {suppliers.length===0&&<p className="text-sm text-amber-700">Add an active supplier before creating a purchase order.</p>}
