@@ -13,6 +13,18 @@ export class CreatePurchaseOrderDto {
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
   @IsArray() @ArrayMinSize(1) @ValidateNested({each:true}) @Type(() => CreatePurchaseOrderItemDto) items!: CreatePurchaseOrderItemDto[];
 }
+export class CreatePurchaseOrderFromRequisitionItemDto {
+  @IsUUID() requisitionItemId!: string;
+  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) unitCost!: number;
+  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100) taxRate?: number;
+}
+export class CreatePurchaseOrderFromRequisitionDto {
+  @IsUUID() requisitionId!: string;
+  @IsUUID() supplierId!: string;
+  @IsOptional() @IsDateString() expectedDate?: string;
+  @IsOptional() @IsString() @MaxLength(2000) notes?: string;
+  @IsArray() @ArrayMinSize(1) @ValidateNested({each:true}) @Type(() => CreatePurchaseOrderFromRequisitionItemDto) items!: CreatePurchaseOrderFromRequisitionItemDto[];
+}
 export class UpdatePurchaseOrderStatusDto {
   @IsString() status!: 'ordered' | 'cancelled';
 }
