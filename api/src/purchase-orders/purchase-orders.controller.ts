@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { PurchaseOrdersService } from './purchase-orders.service.js';
-import { CreatePurchaseOrderDto, ReceivePurchaseOrderDto, UpdatePurchaseOrderStatusDto } from './dto/purchase-order.dto.js';
+import { CreatePurchaseOrderDto, CreatePurchaseOrderFromRequisitionDto, ReceivePurchaseOrderDto, UpdatePurchaseOrderStatusDto } from './dto/purchase-order.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -15,6 +15,7 @@ export class PurchaseOrdersController {
  @Get() @RequirePermissions('purchases:read') list(@Req() req:{user:AuthenticatedUser}){return this.orders.list(req.user);}
  @Get(':id/receipts') @RequirePermissions('purchases:read') listReceipts(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.orders.listReceipts(req.user,id);}
  @Get(':id') @RequirePermissions('purchases:read') getById(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.orders.getById(req.user,id);}
+ @Post('from-requisition') @RequirePermissions('purchases:write') createFromRequisition(@Req() req:{user:AuthenticatedUser},@Body() dto:CreatePurchaseOrderFromRequisitionDto){return this.orders.createFromRequisition(req.user,dto);}
  @Post() @RequirePermissions('purchases:write') create(@Req() req:{user:AuthenticatedUser},@Body() dto:CreatePurchaseOrderDto){return this.orders.create(req.user,dto);}
  @Patch(':id/status') @RequirePermissions('purchases:write') updateStatus(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Body() dto:UpdatePurchaseOrderStatusDto){return this.orders.updateStatus(req.user,id,dto);}
  @Post(':id/receive') @RequirePermissions('purchases:write') receive(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Body() dto:ReceivePurchaseOrderDto){return this.orders.receive(req.user,id,dto);}
