@@ -59,7 +59,7 @@ export default function RequisitionsPage(){
    setError("Enter a title and complete every product line with a quantity greater than zero.");return;
   }
   setSaving(true);setError("");
-  const payload={title:title.trim(),notes:notes.trim()||undefined,requiredBy:requiredBy||undefined,items:lines.map(line=>({productId:line.productId,quantity:Number(line.quantity),notes:line.notes.trim()||undefined}))};
+  const payload={title:title.trim(),notes:notes.trim()||undefined,requiredBy:requiredBy||null,items:lines.map(line=>({productId:line.productId,quantity:Number(line.quantity),notes:line.notes.trim()||undefined}))};
   try{
    if(editingId) await api.patch("/requisitions/"+editingId,payload);
    else await api.post("/requisitions",payload);
