@@ -108,7 +108,7 @@ export class PurchaseOrdersService {
         [dto.supplierId, companyId],
       );
       if (!supplier.rows[0]) throw new NotFoundException('Active supplier not found in this company.');
-      const requested = await client.query<{id:string;product_id:string;quantity:string|number;product_name:string;sku:string}>(
+      const requested = await client.query<{id:string;product_id:string;quantity:string|number;product_name:string;sku:string;tax_treatment:string|null;tax_rate:string|number|null;is_active:boolean;is_service:boolean}>(
         `SELECT ri.id,ri.product_id,ri.quantity,p.name AS product_name,p.sku,p.tax_treatment,p.tax_rate,p.is_active,p.is_service
          FROM requisition_items ri JOIN products p ON p.id=ri.product_id AND p.company_id=ri.company_id
          WHERE ri.company_id=$1 AND ri.requisition_id=$2 ORDER BY ri.created_at,ri.id FOR SHARE OF ri,p`,
