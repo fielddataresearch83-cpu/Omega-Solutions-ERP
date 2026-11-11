@@ -60,9 +60,6 @@ export class UsersRolesService {
   async updateRole(user: AuthenticatedUser, membershipId: string, dto: UpdateMembershipRoleDto) {
     const actor = await this.companyFor(user);
     const actorMembership = await this.memberships.requireOwnerOrAdmin(user.userId, actor.companyId);
-    if (membershipId === actorMembership.companyId) {
-      throw new BadRequestException('Invalid membership identifier.');
-    }
     // Reject unauthorized admin grants before opening a database transaction.
     if (dto.role === 'admin' && actorMembership.role !== 'owner') {
       throw new ForbiddenException('Only a company owner can grant the admin role.');

@@ -128,4 +128,35 @@ describe('UsersRolesService', () => {
     expect(client.query.mock.calls[0][1]).toEqual(['company-1', 'foreign-membership']);
     expect(audit.log).not.toHaveBeenCalled();
   });
+
+  it('blocks self-role-change via the transaction-level user_id check even when the membership id matches the actor', async () => {
+    memberships.requireOwnerOrAdmin.mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'admin' });
+    const admin = { userId: 'admin-1', companyId: 'company-1', branchId: null } as any;
+    client.query.mockResolvedValueOnce({
+      rows: [{ id: 'membership-admin', user_id: admin.userId, role: 'admin', is_active: true }],
+      rowCount: 1,
+    });
+
+    await expect(service.updateRole(admin, 'membership-admin', { role: 'manager' } as any)).rejects.toThrow(BadRequestException);
+    expect(client.query.mock.calls.some(([sql]) => String(sql).startsWith('UPDATE company_memberships'))).toBe(false);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('allows an admin to update a staff membership to manager', async () => {
+    memberships.requireOwnerOrAdmin.mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'admin' });
+    client.query
+      .mockResolvedValueOnce({ rows: [{ id: 'membership-3', user_id: 'user-3', role: 'staff', is_active: true }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'membership-3', user_id: 'user-3', role: 'manager', is_active: true }], rowCount: 1 });
+
+    const result = await service.updateRole(owner, 'membership-3', { role: 'manager' } as any);
+
+    expect(result.role).toBe('manager');
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+      companyId: 'company-1',
+      action: 'update_role',
+      entityId: 'membership-3',
+      oldValues: { role: 'staff' },
+      newValues: { role: 'manager' },
+    }));
+  });
 });
