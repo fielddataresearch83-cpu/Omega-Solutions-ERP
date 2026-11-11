@@ -37,4 +37,5 @@ export class ReceivePurchaseOrderDto {
   @IsArray() @ArrayMinSize(1) @ValidateNested({each:true}) @Type(() => ReceivePurchaseOrderItemDto) items!: ReceivePurchaseOrderItemDto[];
   @IsOptional() @IsString() @MaxLength(120) reference?: string;
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
+  @IsOptional() @IsString() @MaxLength(4000) discrepancyNotes?: string;
 }
