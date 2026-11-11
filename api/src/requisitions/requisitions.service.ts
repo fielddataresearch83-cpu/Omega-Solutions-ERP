@@ -4,7 +4,7 @@ import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
-import type { CreateRequisitionDto } from './dto/requisition.dto.js';
+import type { CreateRequisitionDto, UpdateRequisitionDto } from './dto/requisition.dto.js';
 
 @Injectable()
 export class RequisitionsService {
@@ -55,6 +55,34 @@ export class RequisitionsService {
       }
       await this.audit.logInTransaction(client, { userId:user.userId, companyId, branchId:targetBranchId, action:'create', entityType:'requisition', entityId:id, oldValues:null, newValues:{ title:dto.title, status:'draft' }, ipAddress:null });
       return id;
+    });
+    return this.get(user, id);
+  }
+  async update(user: AuthenticatedUser, id: string, dto: UpdateRequisitionDto) {
+    const membership = await this.companyFor(user);
+    const companyId = membership.companyId;
+    await this.db.transaction(async client => {
+      const found = await client.query('SELECT * FROM requisitions WHERE company_id=$1 AND id=$2 FOR UPDATE', [companyId, id]);
+      const row = found.rows[0];
+      if (!row) throw new NotFoundException('Requisition not found.');
+      if (membership.branchId && row.branch_id !== membership.branchId) throw new NotFoundException('Requisition not found in this branch.');
+      if (row.requester_user_id !== user.userId) throw new ForbiddenException('Only the requester can edit this requisition.');
+      if (row.status !== 'draft' && row.status !== 'rejected') throw new BadRequestException('Only draft or rejected requisitions can be edited.');
+      if (dto.title !== undefined) await client.query('UPDATE requisitions SET title=$1,updated_at=NOW() WHERE company_id=$2 AND id=$3', [dto.title.trim(), companyId, id]);
+      if (dto.requiredBy !== undefined) await client.query('UPDATE requisitions SET required_by=$1::date,updated_at=NOW() WHERE company_id=$2 AND id=$3', [dto.requiredBy || null, companyId, id]);
+      if (dto.notes !== undefined) await client.query('UPDATE requisitions SET notes=$1,updated_at=NOW() WHERE company_id=$2 AND id=$3', [dto.notes?.trim() || null, companyId, id]);
+      if (dto.items !== undefined) {
+        for (const item of dto.items) {
+          const product = await client.query('SELECT id FROM products WHERE id=$1 AND company_id=$2 AND is_active=true', [item.productId, companyId]);
+          if (!product.rows[0]) throw new NotFoundException('A requested product is not active in this company.');
+        }
+        await client.query('DELETE FROM requisition_items WHERE company_id=$1 AND requisition_id=$2', [companyId, id]);
+        for (const item of dto.items) {
+          await client.query(`INSERT INTO requisition_items(company_id,requisition_id,product_id,quantity,notes) VALUES($1,$2,$3,$4,$5)`,
+            [companyId, id, item.productId, item.quantity, item.notes ?? null]);
+        }
+      }
+      await this.audit.logInTransaction(client, { userId: user.userId, companyId, branchId: row.branch_id ?? null, action: 'update', entityType: 'requisition', entityId: id, oldValues: { title: row.title, status: row.status }, newValues: { title: dto.title, itemsUpdated: dto.items !== undefined }, ipAddress: null });
     });
     return this.get(user, id);
   }

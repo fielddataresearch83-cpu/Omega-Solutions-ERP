@@ -13,6 +13,12 @@ export class CreateRequisitionDto {
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
   @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => RequisitionItemDto) items!: RequisitionItemDto[];
 }
+export class UpdateRequisitionDto {
+  @IsOptional() @IsString() @MaxLength(200) title?: string;
+  @IsOptional() @IsDateString() requiredBy?: string;
+  @IsOptional() @IsString() @MaxLength(2000) notes?: string;
+  @IsOptional() @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => RequisitionItemDto) items?: RequisitionItemDto[];
+}
 export class ApprovalDecisionDto {
   @IsOptional() @IsString() @MaxLength(1000) note?: string;
 }
