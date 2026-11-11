@@ -109,12 +109,13 @@ export class PurchaseOrdersService {
       );
       if (!supplier.rows[0]) throw new NotFoundException('Active supplier not found in this company.');
       const requested = await client.query<{id:string;product_id:string;quantity:string|number;product_name:string;sku:string}>(
-        `SELECT ri.id,ri.product_id,ri.quantity,p.name AS product_name,p.sku
+        `SELECT ri.id,ri.product_id,ri.quantity,p.name AS product_name,p.sku,p.tax_treatment,p.tax_rate,p.is_active,p.is_service
          FROM requisition_items ri JOIN products p ON p.id=ri.product_id AND p.company_id=ri.company_id
          WHERE ri.company_id=$1 AND ri.requisition_id=$2 ORDER BY ri.created_at,ri.id FOR SHARE OF ri,p`,
         [companyId, dto.requisitionId],
       );
       if (!requested.rows.length) throw new BadRequestException('The approved requisition has no items.');
+      if (requested.rows.some(line => !line.is_active || line.is_service)) throw new BadRequestException('Every requisition item must be an active inventory product before conversion.');
       if (new Set(dto.items.map(item => item.requisitionItemId)).size !== dto.items.length) {
         throw new BadRequestException('Each requisition line can only be included once.');
       }
@@ -134,8 +135,8 @@ export class PurchaseOrdersService {
         const supplied = dto.items.find(item => item.requisitionItemId === line.id)!;
         const productTax = resolveTaxTreatment({
           policy: taxPolicy,
-          productTreatment: 'legacy',
-          productRate: 0,
+          productTreatment: (line.tax_treatment ?? 'legacy') as 'legacy'|'standard'|'zero_rated'|'exempt'|'out_of_scope',
+          productRate: Number(line.tax_rate ?? 0),
           requestedRate: supplied.taxRate,
         });
         const qty = Number(line.quantity);
@@ -273,9 +274,9 @@ export class PurchaseOrdersService {
         planned.push({ item: r, line });
       }
       await client.query(
-        `INSERT INTO goods_receipts(id,company_id,purchase_order_id,warehouse_id,receipt_reference,notes,received_by,receipt_value)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [receiptId, m.companyId, po.id, dto.warehouseId, dto.reference ?? null, dto.notes ?? null, user.userId, receiptValue],
+        `INSERT INTO goods_receipts(id,company_id,purchase_order_id,warehouse_id,receipt_reference,notes,discrepancy_notes,received_by,receipt_value)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [receiptId, m.companyId, po.id, dto.warehouseId, dto.reference ?? null, dto.notes ?? null, dto.discrepancyNotes ?? null, user.userId, receiptValue],
       );
       await this.accounting.ensureDefaults(m.companyId, client);
       for (const { item: r, line } of planned) {
@@ -308,7 +309,7 @@ export class PurchaseOrdersService {
       await this.audit.logInTransaction(client, {userId:user.userId,companyId:m.companyId,branchId:null,action:'purchase_order.receive',entityType:'purchase_order',entityId:id,oldValues:{status:po.status},newValues:{status:done?'received':'partially_received',warehouseId:dto.warehouseId,itemCount:dto.items.length,receiptId},ipAddress:null});
     });
     const receiptResult = await this.db.query(
-      `SELECT id,company_id,purchase_order_id,warehouse_id,receipt_reference,notes,received_by,received_at,receipt_value
+      `SELECT id,company_id,purchase_order_id,warehouse_id,receipt_reference,notes,discrepancy_notes,received_by,received_at,receipt_value
        FROM goods_receipts WHERE id=$1 AND company_id=$2 AND purchase_order_id=$3`,
       [receiptId, m.companyId, id],
     );
