@@ -74,7 +74,7 @@ type DashboardSummary = {
     previousPeriodInvoiced: number
     currentPeriodCollected: number
     previousPeriodCollected: number
-    creditNotesCurrentPeriod: number
+    creditNotesCurrentPeriod: number | null
     periodStart: string
     periodEnd: string
     previousPeriodStart: string
@@ -266,7 +266,7 @@ export default function Page() {
               </div>
               <p className="text-sm font-medium text-slate-300">{today}</p>
               <h1 className="mt-2 text-[2rem] font-bold leading-tight tracking-[-0.055em] sm:text-[2.65rem]">
-                {greeting}{user?.firstName ? ", " + user.firstName : ""}.
+                {greeting}{user?.fullName ? ", " + user.fullName.split(" ")[0] : ""}.
               </h1>
               <p className="mt-3 max-w-xl text-[13px] leading-6 text-slate-300 sm:text-sm">
                 {companyLoading ? "Preparing your business overview…" : company ? "Here’s what’s happening at " + company.name + ". Your key records and priorities, all in one place." : "Your key business records and priorities, all in one place."}
@@ -452,8 +452,8 @@ export default function Page() {
 
         {canReadSales && sales && (
           <section aria-label="Sales performance this month">
-            <SectionHeading title={"Sales performance · " + monthLabel} detail="Invoiced sales, collected payments and credit notes for the current month" />
-            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <SectionHeading title={"Sales performance · " + monthLabel} detail="Invoiced sales and collected payments for the current month" />
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <Panel className="relative">
                 <div aria-hidden className="pointer-events-none absolute -right-8 -top-12 size-40 rounded-full bg-emerald-500/[0.06] blur-3xl" />
                 <CardContent className="relative p-5">
@@ -490,22 +490,16 @@ export default function Page() {
                   <p className="mt-1 text-[10px] text-muted-foreground">Confirmed and reconciled payments only</p>
                 </CardContent>
               </Panel>
-              <Panel className="relative">
-                <div aria-hidden className="pointer-events-none absolute -right-8 -top-12 size-40 rounded-full bg-amber-500/[0.06] blur-3xl" />
-                <CardContent className="relative p-5">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Credit notes</p>
-                  <p className="mt-3 break-words text-2xl font-bold tracking-[-0.045em] text-foreground sm:text-3xl">{formatCompanyCurrency(sales.creditNotesCurrentPeriod)}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">Issued this month, tracked separately</p>
-                </CardContent>
-              </Panel>
-              <Panel className="relative">
-                <div aria-hidden className="pointer-events-none absolute -right-8 -top-12 size-40 rounded-full bg-violet-500/[0.06] blur-3xl" />
-                <CardContent className="relative p-5">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Net collected</p>
-                  <p className="mt-3 break-words text-2xl font-bold tracking-[-0.045em] text-foreground sm:text-3xl">{formatCompanyCurrency(sales.currentPeriodCollected - sales.creditNotesCurrentPeriod)}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">Collected payments minus credit notes</p>
-                </CardContent>
-              </Panel>
+              {sales.creditNotesCurrentPeriod !== null && (
+                <Panel className="relative">
+                  <div aria-hidden className="pointer-events-none absolute -right-8 -top-12 size-40 rounded-full bg-amber-500/[0.06] blur-3xl" />
+                  <CardContent className="relative p-5">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Credit notes</p>
+                    <p className="mt-3 break-words text-2xl font-bold tracking-[-0.045em] text-foreground sm:text-3xl">{formatCompanyCurrency(sales.creditNotesCurrentPeriod)}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">Issued this month, tracked separately from invoice revenue</p>
+                  </CardContent>
+                </Panel>
+              )}
             </div>
           </section>
         )}

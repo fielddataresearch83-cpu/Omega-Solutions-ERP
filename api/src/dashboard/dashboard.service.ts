@@ -39,7 +39,7 @@ export class DashboardService {
         previousPeriodInvoiced: number;
         currentPeriodCollected: number;
         previousPeriodCollected: number;
-        creditNotesCurrentPeriod: number;
+        creditNotesCurrentPeriod: number | null;
         periodStart: string;
         periodEnd: string;
         previousPeriodStart: string;
@@ -208,20 +208,24 @@ export class DashboardService {
         [...salesParams, previousPeriodStart.toISOString(), previousPeriodEnd.toISOString()],
       );
 
-      const currentCreditNotes = await this.db.query<{ total: string | number }>(
-        `SELECT COALESCE(SUM(cn.total), 0) AS total
-         FROM credit_notes cn
-         WHERE cn.company_id = $1
-           AND cn.issue_date >= $2::date AND cn.issue_date < $3::date`,
-        [membership.companyId, fmt(periodStart), fmt(periodEnd)],
-      );
+      // Credit notes have no branch_id column — only query for company-wide users
+      // to avoid leaking company-wide totals to branch-bound users.
+      const creditNotesTotal = !membership.branchId
+        ? await this.db.query<{ total: string | number }>(
+            `SELECT COALESCE(SUM(cn.total), 0) AS total
+             FROM credit_notes cn
+             WHERE cn.company_id = $1
+               AND cn.issue_date >= $2::date AND cn.issue_date < $3::date`,
+            [membership.companyId, fmt(periodStart), fmt(periodEnd)],
+          )
+        : null;
 
       result.sales = {
         currentPeriodInvoiced: Number(currentInvoiced.rows[0]?.total ?? 0),
         previousPeriodInvoiced: Number(previousInvoiced.rows[0]?.total ?? 0),
         currentPeriodCollected: Number(currentCollected.rows[0]?.total ?? 0),
         previousPeriodCollected: Number(previousCollected.rows[0]?.total ?? 0),
-        creditNotesCurrentPeriod: Number(currentCreditNotes.rows[0]?.total ?? 0),
+        creditNotesCurrentPeriod: creditNotesTotal ? Number(creditNotesTotal.rows[0]?.total ?? 0) : null,
         periodStart: fmt(periodStart),
         periodEnd: fmt(periodEnd),
         previousPeriodStart: fmt(previousPeriodStart),

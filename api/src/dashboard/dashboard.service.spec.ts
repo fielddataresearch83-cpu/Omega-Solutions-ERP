@@ -313,6 +313,24 @@ describe('DashboardService.summary', () => {
     expect(result.overdueInvoices).toEqual([]);
   });
 
+  it('suppresses credit notes for branch-bound users to avoid leaking company-wide totals', async () => {
+    const { service, db } = makeService('branch-1', {
+      permissions: ['sales:read'],
+      modules: ['sales'],
+    });
+
+    const result = await service.summary({
+      userId: 'user-1',
+      companyId: 'company-1',
+      permissions: ['sales:read'],
+    } as never);
+
+    expect(result.sales).not.toBeNull();
+    expect(result.sales!.creditNotesCurrentPeriod).toBeNull();
+    // Credit notes query must not be executed for branch users
+    expect(db.query.mock.calls.some(([sql]) => String(sql).includes('COALESCE(SUM(cn.total)'))).toBe(false);
+  });
+
   it('scopes all queries to the authenticated company id, never trusting a frontend-supplied id', async () => {
     const { service, db } = makeService(null, {
       permissions: ['sales:read', 'expenses:read'],
