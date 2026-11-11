@@ -17,7 +17,7 @@ type Line={productId:string;quantity:string;unitCost:string;taxRate:string};
 type Item={id:string;product_id:string;product_name:string;sku:string|null;quantity:string|number;received_quantity:string|number;unit_cost:string|number;line_total:string|number};
 type PurchaseOrder={id:string;order_number:string;supplier_name:string;order_date:string;expected_date:string|null;status:"draft"|"ordered"|"partially_received"|"received"|"cancelled";approval_status?:"pending"|"approved"|"rejected"|"cancelled"|null;total:string|number;item_count:number;items?:Item[]};
 type ReceiptItem={id:string;product_name:string;quantity:string|number;unit_cost:string|number;line_value:string|number};
-type Receipt={id:string;warehouse_name:string;receipt_reference:string|null;notes:string|null;received_at:string;receipt_value:string|number;items:ReceiptItem[]};
+type Receipt={id:string;warehouse_name:string;receipt_reference:string|null;notes:string|null;discrepancy_notes:string|null;received_at:string;receipt_value:string|number;items:ReceiptItem[]};
 const statusLabel:Record<PurchaseOrder["status"],string>={draft:"Draft",ordered:"Ordered",partially_received:"Partially received",received:"Received",cancelled:"Cancelled"};
 function messageOf(e:unknown){return e&&typeof e==="object"&&"message" in e?String((e as {message:unknown}).message):"Request failed. Please try again."}
 function statusStyle(s:PurchaseOrder["status"]){return s==="received"?"bg-emerald-500/10 text-emerald-700":s==="cancelled"?"bg-destructive/10 text-destructive":s==="partially_received"?"bg-amber-500/10 text-amber-700":s==="ordered"?"bg-blue-500/10 text-blue-700":"bg-muted text-muted-foreground"}
@@ -41,6 +41,7 @@ export default function PurchaseOrdersPage(){
  const [receiveQuantities,setReceiveQuantities]=React.useState<Record<string,string>>({});
  const [receiveReference,setReceiveReference]=React.useState("");
  const [receiveNotes,setReceiveNotes]=React.useState("");
+ const [receiveDiscrepancyNotes,setReceiveDiscrepancyNotes]=React.useState("");
  const [filter,setFilter]=React.useState("all");
  const [receiptOrder,setReceiptOrder]=React.useState<PurchaseOrder|null>(null);
  const [receiptHistory,setReceiptHistory]=React.useState<Receipt[]>([]);
@@ -87,7 +88,7 @@ export default function PurchaseOrdersPage(){
    if(!outstanding.length){setError("There are no outstanding quantities to receive.");return}
    setReceivingOrder(full);setReceiveItems(outstanding);
    setReceiveQuantities(Object.fromEntries(outstanding.map(i=>[i.id,""])));
-   setReceiveReference(full.order_number);setReceiveNotes("");
+   setReceiveReference(full.order_number);setReceiveNotes("");setReceiveDiscrepancyNotes("");
   }catch(e){setError(messageOf(e))}finally{setBusyId("")}
  };
  const viewReceiptHistory=async(order:PurchaseOrder)=>{
@@ -107,7 +108,7 @@ export default function PurchaseOrdersPage(){
   }
   setBusyId(receivingOrder.id);setError("");
   try{
-   await api.post(`/purchase-orders/${receivingOrder.id}/receive`,{warehouseId:receiveWarehouse,items,reference:receiveReference.trim()||receivingOrder.order_number,notes:receiveNotes.trim()||undefined});
+   await api.post(`/purchase-orders/${receivingOrder.id}/receive`,{warehouseId:receiveWarehouse,items,reference:receiveReference.trim()||receivingOrder.order_number,notes:receiveNotes.trim()||undefined,discrepancyNotes:receiveDiscrepancyNotes.trim()||undefined});
    setReceivingOrder(null);setReceiveItems([]);setReceiveQuantities({});await refresh();
    await viewReceiptHistory(receivingOrder);
   }catch(e){setError(messageOf(e))}finally{setBusyId("")}
@@ -145,14 +146,14 @@ export default function PurchaseOrdersPage(){
   </CardContent></Card>}
   {receivingOrder&&<Card><CardContent className="flex flex-col gap-4 p-4">
    <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">Receive stock — {receivingOrder.order_number}</h2><p className="text-sm text-muted-foreground">Enter only the quantities delivered now. Leave other lines blank to receive them later.</p></div><Button variant="ghost" onClick={()=>setReceivingOrder(null)} disabled={busyId===receivingOrder.id}>Close</Button></div>
-   <div className="grid gap-3 sm:grid-cols-2"><div className="flex flex-col gap-1"><Label htmlFor="receipt-reference">Receipt reference</Label><Input id="receipt-reference" value={receiveReference} onChange={e=>setReceiveReference(e.target.value)} maxLength={120}/></div><div className="flex flex-col gap-1"><Label htmlFor="receipt-notes">Notes</Label><Input id="receipt-notes" value={receiveNotes} onChange={e=>setReceiveNotes(e.target.value)} maxLength={2000} placeholder="Optional delivery note"/></div></div>
+   <div className="grid gap-3 sm:grid-cols-2"><div className="flex flex-col gap-1"><Label htmlFor="receipt-reference">Receipt reference</Label><Input id="receipt-reference" value={receiveReference} onChange={e=>setReceiveReference(e.target.value)} maxLength={120}/></div><div className="flex flex-col gap-1"><Label htmlFor="receipt-notes">Notes</Label><Input id="receipt-notes" value={receiveNotes} onChange={e=>setReceiveNotes(e.target.value)} maxLength={2000} placeholder="Optional delivery note"/></div><div className="flex flex-col gap-1 sm:col-span-2"><Label htmlFor="receipt-discrepancy">Discrepancy notes</Label><textarea id="receipt-discrepancy" className="min-h-20 rounded-md border bg-background px-3 py-2 text-sm" value={receiveDiscrepancyNotes} onChange={e=>setReceiveDiscrepancyNotes(e.target.value)} maxLength={4000} placeholder="Record shortages, damaged goods, substitutions or other delivery differences"/></div></div>
    <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Product</TableHead><TableHead className="text-right">Ordered</TableHead><TableHead className="text-right">Received</TableHead><TableHead className="text-right">Remaining</TableHead><TableHead className="w-40">Receive now</TableHead></TableRow></TableHeader><TableBody>{receiveItems.map(item=>{const remaining=Number(item.quantity)-Number(item.received_quantity);return <TableRow key={item.id}><TableCell><div className="font-medium">{item.product_name}</div><div className="text-xs text-muted-foreground">{item.sku||"No SKU"}</div></TableCell><TableCell className="text-right tabular-nums">{Number(item.quantity)}</TableCell><TableCell className="text-right tabular-nums">{Number(item.received_quantity)}</TableCell><TableCell className="text-right tabular-nums">{remaining}</TableCell><TableCell><Input aria-label={`Receive quantity for ${item.product_name}`} type="number" min="0" max={remaining} step="0.001" value={receiveQuantities[item.id]??""} onChange={e=>setReceiveQuantities(current=>({...current,[item.id]:e.target.value}))} placeholder="0"/></TableCell></TableRow>})}</TableBody></Table></div>
    <div className="flex justify-end gap-2"><Button variant="outline" onClick={()=>setReceivingOrder(null)} disabled={busyId===receivingOrder.id}>Cancel</Button><Button onClick={()=>void submitReceipt()} disabled={busyId===receivingOrder.id||!receiveWarehouse}>{busyId===receivingOrder.id?<Loader2 className="size-4 animate-spin"/>:<Truck className="size-4"/>}Post receipt</Button></div>
   </CardContent></Card>}
   {receiptOrder&&<Card><CardContent className="flex flex-col gap-4 p-4">
    <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">Goods receipt history — {receiptOrder.order_number}</h2><p className="text-sm text-muted-foreground">Posted deliveries for this purchase order, including their warehouse and valuation.</p></div><Button variant="outline" onClick={()=>setReceiptOrder(null)}>Close history</Button></div>
    {receiptsLoading?<div className="flex justify-center py-6"><Loader2 className="size-5 animate-spin"/></div>:receiptHistory.length===0?<p className="py-4 text-sm text-muted-foreground">No posted receipts found for this purchase order.</p>:<div className="flex flex-col gap-3">{receiptHistory.map(receipt=><div key={receipt.id} className="rounded-lg border p-3">
-    <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-medium">{receipt.receipt_reference||"Goods receipt"}</p><p className="text-sm text-muted-foreground">{formatDate(receipt.received_at)} · {receipt.warehouse_name}</p>{receipt.notes&&<p className="mt-1 text-sm text-muted-foreground">{receipt.notes}</p>}</div><p className="font-semibold tabular-nums">{formatKES(Number(receipt.receipt_value))}</p></div>
+    <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-medium">{receipt.receipt_reference||"Goods receipt"}</p><p className="text-sm text-muted-foreground">{formatDate(receipt.received_at)} · {receipt.warehouse_name}</p>{receipt.notes&&<p className="mt-1 text-sm text-muted-foreground">{receipt.notes}</p>}{receipt.discrepancy_notes&&<p className="mt-1 text-sm text-amber-700">Discrepancy: {receipt.discrepancy_notes}</p>}</div><p className="font-semibold tabular-nums">{formatKES(Number(receipt.receipt_value))}</p></div>
     <div className="mt-3 overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Product</TableHead><TableHead className="text-right">Quantity</TableHead><TableHead className="text-right">Unit cost</TableHead><TableHead className="text-right">Line value</TableHead></TableRow></TableHeader><TableBody>{receipt.items.map(item=><TableRow key={item.id}><TableCell>{item.product_name}</TableCell><TableCell className="text-right tabular-nums">{Number(item.quantity)}</TableCell><TableCell className="text-right tabular-nums">{formatKES(Number(item.unit_cost))}</TableCell><TableCell className="text-right tabular-nums">{formatKES(Number(item.line_value))}</TableCell></TableRow>)}</TableBody></Table></div>
    </div>)}</div>}
   </CardContent></Card>}
