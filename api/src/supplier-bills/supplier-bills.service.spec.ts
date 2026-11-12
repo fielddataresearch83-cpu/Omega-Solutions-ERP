@@ -130,3 +130,27 @@ describe('SupplierBillsService duplicate supplier invoice protection', () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 });
+
+
+describe('SupplierBillsService supplier balance synchronization', () => {
+  it('recomputes the supplier balance from non-void bill balances in the same transaction', async () => {
+    const client = { query: vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }) };
+    const db = { query: vi.fn(), transaction: vi.fn() };
+    const memberships = { getMembership: vi.fn(), getMembershipForCompany: vi.fn() };
+    const audit = { log: vi.fn(), logInTransaction: vi.fn() };
+    const accounting = { ensureDefaults: vi.fn() };
+    const service = new SupplierBillsService(db as any, memberships as any, audit as any, accounting as any);
+    const internal = service as unknown as {
+      refreshSupplierBalance: (tx: typeof client, companyId: string, supplierId: string) => Promise<void>;
+    };
+
+    await internal.refreshSupplierBalance(client, 'company-1', 'supplier-1');
+
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining("b.status<>'void'"),
+      ['company-1', 'supplier-1'],
+    );
+    expect(client.query.mock.calls[0][0]).toContain('SUM(GREATEST(0, b.total - b.paid_amount))');
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+});
