@@ -165,6 +165,11 @@ export class SuppliersService {
       return existing;
     }
 
+    if ('status' in dto) {
+      const statusParam = paramIndex - 1;
+      fields.push("is_active = CASE WHEN $" + statusParam + " = 'inactive' THEN false WHEN $" + statusParam + " = 'active' THEN true ELSE is_active END");
+    }
+
     fields.push('updated_at = NOW()');
     values.push(supplierId);
     values.push(membership.companyId);
@@ -200,23 +205,35 @@ export class SuppliersService {
   async delete(user: AuthenticatedUser, supplierId: string): Promise<void> {
     const membership = await this.membershipFor(user);
     this.assertCompanyWide(membership);
-    const existing = await this.getByIdInternal(membership.companyId, supplierId);
+    await this.db.transaction(async client => {
+      const found = await client.query<SupplierRow>(
+        `SELECT ${SUPPLIER_COLUMNS} FROM suppliers WHERE id=$1 AND company_id=$2 FOR UPDATE`,
+        [supplierId, membership.companyId],
+      );
+      const existing = found.rows[0];
+      if (!existing) throw new NotFoundException('Supplier not found.');
 
-    await this.db.query(
-      'DELETE FROM suppliers WHERE id = $1 AND company_id = $2',
-      [supplierId, membership.companyId],
-    );
+      if (!existing.is_active && existing.status === 'inactive') return;
 
-    await this.audit.log({
-      userId: user.userId,
-      companyId: membership.companyId,
-      branchId: null,
-      action: 'supplier.delete',
-      entityType: 'supplier',
-      entityId: existing.id,
-      oldValues: { name: existing.name },
-      newValues: null,
-      ipAddress: null,
+      // Suppliers are referenced by purchase orders, bills and payment history.
+      // Archive instead of hard deleting so historical procurement and audit records remain intact.
+      await client.query(
+        `UPDATE suppliers SET status='inactive',is_active=false,updated_at=NOW()
+         WHERE id=$1 AND company_id=$2`,
+        [supplierId, membership.companyId],
+      );
+
+      await this.audit.logInTransaction(client, {
+        userId: user.userId,
+        companyId: membership.companyId,
+        branchId: null,
+        action: 'supplier.archive',
+        entityType: 'supplier',
+        entityId: existing.id,
+        oldValues: { name: existing.name, status: existing.status, isActive: existing.is_active },
+        newValues: { status: 'inactive', isActive: false },
+        ipAddress: null,
+      });
     });
   }
 
