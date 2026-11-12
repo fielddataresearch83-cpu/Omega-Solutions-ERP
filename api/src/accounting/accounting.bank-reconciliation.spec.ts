@@ -98,3 +98,28 @@ describe('AccountingService bank statement imports', () => {
     expect(db.query).not.toHaveBeenCalled();
   });
 });
+
+
+describe('AccountingService bank statement unmatching', () => {
+  it('releases a matched line and reopens the statement import', async () => {
+    const { service, db, client, audit } = setup();
+    client.query
+      .mockResolvedValueOnce({ rows: [{ id: 'line-1', status: 'matched', matched_journal_entry_id: 'journal-1' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'import-1', opening_balance: '1000', closing_balance: '1250' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'line-1', status: 'unmatched', debit: '0', credit: '250' }], rowCount: 1 });
+
+    const result = await service.unmatchBankStatementLine(
+      { userId: 'user-1', companyId: 'company-1' } as any, 'import-1', 'line-1',
+    );
+
+    expect(result.unmatchedCount).toBe(1);
+    expect(client.query.mock.calls[1][0]).toContain("matched_journal_entry_id=NULL");
+    expect(client.query.mock.calls[2][0]).toContain("status='imported'");
+    expect(audit.logInTransaction).toHaveBeenCalledWith(client, expect.objectContaining({
+      action: 'accounting.bank_statement.unmatch', entityId: 'line-1',
+    }));
+  });
+});
