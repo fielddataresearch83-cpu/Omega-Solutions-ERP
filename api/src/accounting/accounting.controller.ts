@@ -25,5 +25,6 @@ export class AccountingController {
  @Get('reports/profit-and-loss') @RequirePermissions('accounting:read') profitAndLoss(@Req() req:{user:AuthenticatedUser},@Query('startDate') startDate:string,@Query('endDate') endDate:string){return this.accounting.profitAndLoss(req.user,startDate,endDate);}
  @Get('reports/balance-sheet') @RequirePermissions('accounting:read') balanceSheet(@Req() req:{user:AuthenticatedUser},@Query('asOfDate') asOfDate:string){return this.accounting.balanceSheet(req.user,asOfDate);}
  @Get('reports/vat') @RequirePermissions('accounting:read') vatSummary(@Req() req:{user:AuthenticatedUser},@Query('startDate') startDate:string,@Query('endDate') endDate:string){return this.accounting.vatSummary(req.user,startDate,endDate);}
+ @Get('reports/withholding-tax') @RequirePermissions('accounting:read') withholdingTaxSchedule(@Req() req:{user:AuthenticatedUser},@Query('startDate') startDate:string,@Query('endDate') endDate:string){return this.accounting.withholdingTaxSchedule(req.user,startDate,endDate);}
  @Get('reports/cash-flow') @RequirePermissions('accounting:read') cashFlow(@Req() req:{user:AuthenticatedUser},@Query('startDate') startDate:string,@Query('endDate') endDate:string){return this.accounting.cashFlow(req.user,startDate,endDate);}
 }
