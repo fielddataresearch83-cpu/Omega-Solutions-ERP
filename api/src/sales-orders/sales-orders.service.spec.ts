@@ -115,7 +115,7 @@ describe('SalesOrdersService inventory fulfilment', () => {
   it('deducts available stock, records an issue movement, and marks the order fulfilled atomically', async () => {
     await service.updateStatus(user, 'order-1', 'fulfilled', 'warehouse-1');
     const calls = client.query.mock.calls as unknown as [string, unknown[]?][];
-    expect(calls.some(([sql, params]) => sql.includes('UPDATE inventory_stock_levels SET quantity = quantity -') && params?.[0] === 2)).toBe(true);
+    expect(calls.some(([sql, params]) => sql.includes('UPDATE inventory_stock_levels') && sql.includes('quantity = quantity -') && params?.[0] === 2)).toBe(true);
     expect(calls.some(([sql, params]) => sql.includes('INSERT INTO inventory_stock_movements') && params?.[3] === -2 && params?.[4] === 3.75 && params?.[5] === 'SO-2026-00001')).toBe(true);
     expect(calls.some(([sql, params]) => sql.includes('UPDATE sales_orders SET status') && params?.[0] === 'fulfilled')).toBe(true);
     expect(calls.some(([sql, params]) => sql.includes('INSERT INTO journal_entry_lines') && params?.[3] === 7.5 && params?.[4] === 'account-inventory')).toBe(true);
@@ -173,6 +173,7 @@ describe('SalesOrdersService inventory fulfilment', () => {
       if (sql.includes('FROM warehouses WHERE id = $1')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
       if (sql.includes('FROM sales_order_items soi')) return { rows: [{ product_id: 'product-1', quantity: '2', is_service: false, is_active: true, cost_price: '4.5', product_name: 'Widget' }], rowCount: 1 };
       if (sql.includes('FROM inventory_stock_levels')) return { rows: [{ quantity: '10', reserved_quantity: '1', average_unit_cost: '3.75' }], rowCount: 1 };
+      if (sql.includes('UPDATE inventory_stock_levels')) return { rows: [{ id: 'stock-1' }], rowCount: 1 };
       if (sql.includes('INSERT INTO journal_entry_sequences')) return { rows: [{ next_number: 1 }], rowCount: 1 };
       if (sql.includes('FROM chart_of_accounts')) return { rows: [{ id: 'account-inventory', system_code: 'inventory' }, { id: 'account-cogs', system_code: 'purchases_expense' }], rowCount: 2 };
       if (sql.includes('INSERT INTO journal_entries')) return { rows: [{ id: 'journal-1' }], rowCount: 1 };
