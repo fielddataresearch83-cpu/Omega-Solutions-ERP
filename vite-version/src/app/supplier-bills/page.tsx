@@ -85,7 +85,7 @@ export default function SupplierBillsPage(){
   setBusyId(payBill.id);setError("");
   try{
    await api.post(`/supplier-bills/${payBill.id}/payments`,{amount,paymentDate:paymentDate||undefined,method:paymentMethod,reference:paymentReference.trim()||undefined,withholdingTaxAmount:Number(paymentWithholdingTaxAmount||0),withholdingCertificateNumber:paymentWithholdingCertificateNumber.trim()||undefined});
-   setPayBill(null);setPaymentAmount("");setPaymentReference("");await refresh();
+   setPayBill(null);setPaymentAmount("");setPaymentReference("");setPaymentWithholdingTaxAmount("0");setPaymentWithholdingCertificateNumber("");await refresh();
   }catch(e){setError(messageOf(e))}finally{setBusyId("")}
  };
  const outstanding=bills.filter(b=>b.status==="open"||b.status==="partially_paid").reduce((sum,b)=>sum+Number(b.balance),0);
