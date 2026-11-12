@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS inventory_returns (
   return_type VARCHAR(16) NOT NULL CHECK (return_type IN ('customer','supplier')),
   customer_id UUID REFERENCES customers(id) ON DELETE RESTRICT,
   supplier_id UUID REFERENCES suppliers(id) ON DELETE RESTRICT,
+  supplier_bill_id UUID,
   warehouse_id UUID NOT NULL,
   source_reference VARCHAR(120),
   reason VARCHAR(1000) NOT NULL,
@@ -20,6 +21,7 @@ CREATE TABLE IF NOT EXISTS inventory_returns (
     (return_type='customer' AND customer_id IS NOT NULL AND supplier_id IS NULL) OR
     (return_type='supplier' AND supplier_id IS NOT NULL AND customer_id IS NULL)
   ),
+  CONSTRAINT inventory_returns_supplier_bill_company_fk FOREIGN KEY (supplier_bill_id,company_id) REFERENCES supplier_bills(id,company_id) ON DELETE RESTRICT,
   CONSTRAINT inventory_returns_warehouse_company_fk FOREIGN KEY (warehouse_id,company_id)
     REFERENCES warehouses(id,company_id) ON DELETE RESTRICT,
   CONSTRAINT inventory_returns_id_company_unique UNIQUE(id,company_id),
