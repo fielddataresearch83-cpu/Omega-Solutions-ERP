@@ -104,7 +104,7 @@ export default function BankReconciliationPage(){
   }catch(e){setError(errorText(e))}
   finally{setLoading(false)}
  },[])
- React.useEffect(()=>{void load()},[load])
+ React.useEffect(()=>{const timer=window.setTimeout(()=>{void load()},0);return()=>window.clearTimeout(timer)},[load])
 
  const openImport=async(id:string)=>{
   setError(null)
