@@ -119,3 +119,48 @@ describe('AccountingService fixed asset depreciation', () => {
     expect(client.query).not.toHaveBeenCalled();
   });
 });
+
+
+describe('AccountingService fixed asset disposal', () => {
+  it('clears asset cost and accumulated depreciation and posts disposal gain', async () => {
+    const { service, db, client, audit } = setup();
+    client.query
+      .mockResolvedValueOnce({ rows: [{
+        id: 'asset-1', asset_code: 'LAPTOP-001', name: 'Finance laptop',
+        acquisition_date: '2026-11-12', cost: '1200', accumulated_depreciation: '100',
+        asset_account_id: 'asset-account', accumulated_depreciation_account_id: 'accum-account', status: 'active',
+      }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [
+        { id: 'gain-account', system_code: 'fixed_asset_disposal_gain', account_type: 'income' },
+        { id: 'loss-account', system_code: 'fixed_asset_disposal_loss', account_type: 'expense' },
+      ], rowCount: 2 })
+      .mockResolvedValueOnce({ rows: [
+        { id: 'asset-account', account_type: 'asset', system_code: 'fixed_assets' },
+        { id: 'accum-account', account_type: 'asset', system_code: 'accumulated_depreciation' },
+        { id: 'bank-account', account_type: 'asset', system_code: 'bank' },
+      ], rowCount: 3 })
+      .mockResolvedValueOnce({ rows: [{ next_number: 1 }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'journal-1' }], rowCount: 1 })
+      .mockResolvedValue({ rows: [], rowCount: 1 });
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'asset-1', status: 'disposed', disposal_proceeds: '1200' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    const result = await service.disposeFixedAsset(
+      { userId: 'user-1', companyId: 'company-1' } as any, 'asset-1',
+      { disposalDate: '2027-01-15', proceeds: 1200, paymentAccountId: 'bank-account' } as any,
+    );
+
+    expect(result.status).toBe('disposed');
+    const lineCalls = client.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO journal_entry_lines'));
+    expect(lineCalls.map(([,params])=>params)).toEqual([
+      ['company-1','journal-1','accum-account','Clear accumulated depreciation - LAPTOP-001',100,0],
+      ['company-1','journal-1','bank-account','Disposal proceeds - LAPTOP-001',1200,0],
+      ['company-1','journal-1','asset-account','Remove asset cost - LAPTOP-001',0,1200],
+      ['company-1','journal-1','gain-account','Gain on disposal - LAPTOP-001',0,100],
+    ]);
+    expect(audit.logInTransaction).toHaveBeenCalledWith(client, expect.objectContaining({
+      action: 'accounting.fixed_asset.dispose', entityId: 'asset-1',
+    }));
+  });
+});
