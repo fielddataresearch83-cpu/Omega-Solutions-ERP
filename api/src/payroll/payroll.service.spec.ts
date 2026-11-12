@@ -5,7 +5,7 @@ describe('PayrollService tenant and workflow guards',()=>{
  it('loads company statutory settings with safe defaults when no effective row exists',async()=>{
   const db={query:vi.fn().mockResolvedValue({rows:[]}),transaction:vi.fn()} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   const result=await service.getCompanyStatutorySettings({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]});
   expect(result.company_id).toBe('company-a');
   expect(result.nssf_method).toBe('YEAR4');
@@ -16,7 +16,7 @@ describe('PayrollService tenant and workflow guards',()=>{
  it('validates company statutory settings before writing and scopes writes to active company',async()=>{
   const db={query:vi.fn().mockResolvedValue({rows:[{company_id:'company-a',nssf_method:'LEGACY_FLAT_200'}]}),transaction:vi.fn()} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   const user={userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]};
   await expect(service.setCompanyStatutorySettings(user,{effectiveFrom:'2026-10-01',nssfMethod:'UNKNOWN'})).rejects.toThrow('nssfMethod must be');
   await expect(service.setCompanyStatutorySettings(user,{effectiveFrom:'2026-10-01',nssfMethod:'YEAR4'})).rejects.toThrow('Choose whether this company remits the housing levy');
@@ -29,7 +29,7 @@ describe('PayrollService tenant and workflow guards',()=>{
  it('requires company-specific statutory settings before creating a payroll run',async()=>{
   const db={query:vi.fn().mockResolvedValue({rows:[]}),transaction:vi.fn()} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.createRun(
    {userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},
    {periodStart:'2026-10-01',periodEnd:'2026-10-31'}
@@ -39,7 +39,7 @@ describe('PayrollService tenant and workflow guards',()=>{
  it('rejects legacy statutory rows without an explicit housing levy choice before creating a run',async()=>{
   const db={query:vi.fn().mockResolvedValue({rows:[{nssf_method:'YEAR4',nssf_employee_flat:'200',nssf_employer_flat:'200',nssf_employee_rate:'0.06',nssf_employer_rate:'0.06',nssf_pensionable_pay_cap:'108000',housing_levy_enabled:null,housing_levy_employee_rate:'0.015',housing_levy_employer_rate:'0.015'}]}),transaction:vi.fn()} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.createRun(
    {userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},
    {periodStart:'2026-10-01',periodEnd:'2026-10-31'}
@@ -53,7 +53,7 @@ describe('PayrollService tenant and workflow guards',()=>{
    .mockResolvedValueOnce({rows:[{missing_count:2}]})
    .mockResolvedValue({rows:[]}),transaction:vi.fn()} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.createRun(
    {userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},
    {periodStart:'2026-10-01',periodEnd:'2026-10-31'}
@@ -64,14 +64,14 @@ describe('PayrollService tenant and workflow guards',()=>{
  it('rejects malformed periods before reading employees',async()=>{
   const db={query:vi.fn(),transaction:vi.fn()} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.createRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]} ,{periodStart:'not-a-date',periodEnd:'2026-10-31'})).rejects.toThrow('valid periodStart');
   expect((db as {query:ReturnType<typeof vi.fn>}).query).not.toHaveBeenCalled();
  });
  it('rejects reversed periods before reading employees',async()=>{
   const db={query:vi.fn(),transaction:vi.fn()} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.createRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]} ,{periodStart:'2026-11-01',periodEnd:'2026-10-01'})).rejects.toThrow('end on or after');
  });
 
@@ -81,7 +81,7 @@ describe('PayrollService tenant and workflow guards',()=>{
    .mockResolvedValueOnce({rows:[{id:'item-a',employee_id:'employee-a',employee_number:'=CMD()',employee_name:'Example Employee',gross_cash_pay:'100000.00',taxable_benefits:'0.00',nssf_employee:'6000.00',nssf_employer:'6000.00',shif_employee:'2750.00',housing_levy_employee:'1500.00',housing_levy_employer:'1500.00',paye:'19308.35',pension_employee:'0.00',prmf_employee:'0.00',employee_deductions:'29558.35',net_pay:'70441.65',calculation_snapshot:{taxableIncome:86250,payeBeforeReliefs:21708.35,personalRelief:2400,insuranceRelief:0}}]})
   ,transaction:vi.fn()} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   const report=await service.exportRunReport({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'run-a','paye');
   expect(report.filename).toBe('omega-payroll-paye-2026-10-01.csv');
   expect(report.csv).toContain('PAYE withheld KES');
@@ -92,7 +92,7 @@ describe('PayrollService tenant and workflow guards',()=>{
  it('rejects unsupported payroll report types before querying payroll data',async()=>{
   const db={query:vi.fn(),transaction:vi.fn()} as never;
   const memberships={getMembership:vi.fn()} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.exportRunReport({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'run-a','p10')).rejects.toThrow('Unsupported report type');
   expect((db as {query:ReturnType<typeof vi.fn>}).query).not.toHaveBeenCalled();
  });
@@ -101,7 +101,7 @@ describe('PayrollService tenant and workflow guards',()=>{
  it('exports annual tax summaries from posted payroll runs within the active company',async()=>{
   const db={query:vi.fn().mockResolvedValue({rows:[{employee_number:'E-1',employee_name:'Employee One',posted_pay_periods:12,gross_cash_pay:'1200000.00',taxable_benefits:'0.00',paye_withheld:'220000.00',employee_nssf:'72000.00',employer_nssf:'72000.00',shif_contributions:'33000.00',employee_housing_levy:'18000.00',employer_housing_levy:'18000.00',employee_pension:'0.00',post_retirement_medical:'0.00',total_employee_deductions:'343000.00',net_cash_pay:'857000.00'}]}),transaction:vi.fn()} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   const report=await service.exportAnnualTaxSummary({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'2026');
   expect(report.filename).toBe('omega-annual-tax-summary-2026.csv');
   expect(report.csv).toContain('Employee One');
@@ -116,7 +116,7 @@ describe('PayrollService tenant and workflow guards',()=>{
  it('rejects annual tax summary years without verified historical payroll rules',async()=>{
   const db={query:vi.fn(),transaction:vi.fn()} as never;
   const memberships={getMembership:vi.fn()} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.exportAnnualTaxSummary({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'2025')).rejects.toThrow('Earlier years require verified historical statutory rules');
   expect((db as {query:ReturnType<typeof vi.fn>}).query).not.toHaveBeenCalled();
  });
@@ -132,7 +132,7 @@ describe('PayrollService tenant and workflow guards',()=>{
    .mockResolvedValueOnce({rows:[{id:'employee-a',employee_number:'E-1',first_name:'Employee',last_name:'One',monthly_basic_salary:'100000',monthly_taxable_allowances:'0',monthly_taxable_benefits:'5000',employee_pension_contribution:'0',post_retirement_medical_contribution:'0',qualifying_mortgage_interest:'0',eligible_insurance_premiums:'0',resident_for_tax_purposes:true}]}),
    transaction:vi.fn(async(callback:(tx:{query:ReturnType<typeof vi.fn>})=>unknown)=>callback(client))} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await service.createRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},{periodStart:'2026-10-01',periodEnd:'2026-10-31'});
   const insertRun=client.query.mock.calls.find(([sql])=>String(sql).includes('INSERT INTO payroll_runs'));
   expect(insertRun?.[1][4]).toBe(105000);
@@ -155,7 +155,7 @@ describe('PayrollService tenant and workflow guards',()=>{
   })};
   const db={query:vi.fn(),transaction:vi.fn(async(callback:(tx:{query:ReturnType<typeof vi.fn>})=>unknown)=>callback(client))} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   const result=await service.postRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'run-a');
   expect(result).toMatchObject({status:'posted',journal_entry_id:'journal-a',debits:107500,credits:107500,balanced:true});
   expect(client.query.mock.calls[0][1]).toEqual(['run-a','company-a']);
@@ -193,7 +193,7 @@ describe('PayrollService tenant and workflow guards',()=>{
   })};
   const db={query:vi.fn(),transaction:vi.fn(async(callback:(tx:{query:ReturnType<typeof vi.fn>})=>unknown)=>callback(client))} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.postRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'run-a')).rejects.toBe(writeFailure);
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO journal_entries'))).toBe(true);
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO journal_entry_lines'))).toBe(true);
@@ -214,7 +214,7 @@ describe('PayrollService tenant and workflow guards',()=>{
   })};
   const db={query:vi.fn(),transaction:vi.fn(async(callback:(tx:{query:ReturnType<typeof vi.fn>})=>unknown)=>callback(client))} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.postRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'run-unbalanced')).rejects.toThrow('Payroll run totals do not reconcile');
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes('RETURNING next_number-1 AS allocated_number'))).toBe(false);
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO journal_entries'))).toBe(false);
@@ -228,7 +228,7 @@ describe('PayrollService tenant and workflow guards',()=>{
   })};
   const db={query:vi.fn(),transaction:vi.fn(async(callback:(tx:{query:ReturnType<typeof vi.fn>})=>unknown)=>callback(client))} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.approveRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'legacy-draft')).rejects.toThrow('Payroll run totals do not reconcile');
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes("UPDATE payroll_runs SET status='approved'"))).toBe(false);
  });
@@ -240,7 +240,7 @@ describe('PayrollService tenant and workflow guards',()=>{
   })};
   const db={query:vi.fn(),transaction:vi.fn(async(callback:(tx:{query:ReturnType<typeof vi.fn>})=>unknown)=>callback(client))} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.approveRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'run-breakdown')).rejects.toThrow('Payroll run totals do not reconcile');
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes("UPDATE payroll_runs SET status='approved'"))).toBe(false);
  });
@@ -252,7 +252,7 @@ describe('PayrollService tenant and workflow guards',()=>{
   })};
   const db={query:vi.fn(),transaction:vi.fn(async(callback:(tx:{query:ReturnType<typeof vi.fn>})=>unknown)=>callback(client))} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.postRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'legacy-run')).rejects.toThrow('Payroll run totals do not reconcile');
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO journal_entries'))).toBe(false);
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes("UPDATE payroll_runs SET status='posted'"))).toBe(false);
@@ -261,7 +261,7 @@ describe('PayrollService tenant and workflow guards',()=>{
   const client={query:vi.fn().mockResolvedValue({rows:[{id:'run-a',company_id:'company-a',status}]})};
   const db={query:vi.fn(),transaction:vi.fn(async(callback:(tx:{query:ReturnType<typeof vi.fn>})=>unknown)=>callback(client))} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.postRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'run-a')).rejects.toThrow('Only approved payroll runs can be posted');
   expect(client.query).toHaveBeenCalledTimes(1);
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO journal_entries'))).toBe(false);
@@ -273,7 +273,7 @@ describe('PayrollService tenant and workflow guards',()=>{
   const client={query:vi.fn().mockResolvedValue({rows:[]})};
   const db={query:vi.fn(),transaction:vi.fn(async(callback:(tx:{query:ReturnType<typeof vi.fn>})=>unknown)=>callback(client))} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.postRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'run-from-company-b')).rejects.toThrow('Payroll run not found in this company.');
   expect(client.query).toHaveBeenCalledTimes(1);
   expect(client.query.mock.calls[0][1]).toEqual(['run-from-company-b','company-a']);
@@ -296,7 +296,7 @@ describe('PayrollService tenant and workflow guards',()=>{
   })};
   const db={query:vi.fn(),transaction:vi.fn(async(callback:(tx:{query:ReturnType<typeof vi.fn>})=>unknown)=>callback(client))} as never;
   const memberships={getMembership:vi.fn().mockResolvedValue({companyId:'company-a'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.postRun({userId:'user-a',email:'a@b.test',fullName:'A',companyId:null,branchId:null,role:'owner',permissions:[]},'run-a')).rejects.toThrow('Payroll account payroll_paye_payable is missing or inactive.');
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes('INSERT INTO journal_entries'))).toBe(false);
   expect(client.query.mock.calls.some(([sql])=>String(sql).includes('RETURNING next_number-1 AS allocated_number'))).toBe(false);
@@ -306,7 +306,7 @@ describe('PayrollService tenant and workflow guards',()=>{
  it('scopes employee pay settings reads to a branch-bound membership',async()=>{
   const db={query:vi.fn().mockResolvedValue({rows:[]}),transaction:vi.fn()} as never;
   const memberships={getMembershipForCompany:vi.fn().mockResolvedValue({companyId:'company-a',branchId:'branch-a',role:'staff'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.getEmployeePaySettings({userId:'user-a',email:'a@b.test',fullName:'A',companyId:'company-a',branchId:'branch-a',role:'staff',permissions:['payroll:read']},'employee-b')).rejects.toThrow('Pay settings not found');
   const query=(db as {query:ReturnType<typeof vi.fn>}).query;
   expect(query.mock.calls[0][0]).toContain('e.branch_id=$3');
@@ -315,7 +315,7 @@ describe('PayrollService tenant and workflow guards',()=>{
  it('does not write pay settings for an employee outside the active branch',async()=>{
   const db={query:vi.fn().mockResolvedValue({rows:[]}),transaction:vi.fn()} as never;
   const memberships={getMembershipForCompany:vi.fn().mockResolvedValue({companyId:'company-a',branchId:'branch-a',role:'staff'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   await expect(service.setEmployeePaySettings({userId:'user-a',email:'a@b.test',fullName:'A',companyId:'company-a',branchId:'branch-a',role:'staff',permissions:['payroll:write']},'employee-b',{})).rejects.toThrow('Employee not found');
   const query=(db as {query:ReturnType<typeof vi.fn>}).query;
   expect(query.mock.calls[0][0]).toContain('branch_id=$3');
@@ -326,7 +326,7 @@ describe('PayrollService tenant and workflow guards',()=>{
  it('blocks company-wide payroll access for branch-bound memberships',async()=>{
   const db={query:vi.fn(),transaction:vi.fn()} as never;
   const memberships={getMembershipForCompany:vi.fn().mockResolvedValue({companyId:'company-a',branchId:'branch-a',role:'staff'})} as never;
-  const service=new PayrollService(db,memberships);
+  const service=new PayrollService(db,memberships,{log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
   const user={userId:'user-a',email:'a@b.test',fullName:'A',companyId:'company-a',branchId:'branch-a',role:'staff',permissions:['payroll:read','payroll:write','payroll:approve']};
   await expect(service.listRuns(user)).rejects.toThrow('Payroll runs and company statutory settings are company-wide');
   await expect(service.getCompanyStatutorySettings(user)).rejects.toThrow('Payroll runs and company statutory settings are company-wide');
