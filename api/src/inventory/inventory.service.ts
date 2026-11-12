@@ -144,8 +144,22 @@ export class InventoryService {
     values.push(warehouseId,companyId,branchId);
     try {
       return await this.db.transaction(async client => {
+        if (dto.isActive === false && existing.is_active) {
+          const lockedWarehouse = await client.query<{ id: string }>(
+            'SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',
+            [warehouseId, companyId, branchId],
+          );
+          if (!lockedWarehouse.rows[0]) throw new NotFoundException('Warehouse not found.');
+          const occupied = await client.query<{ id: string }>(
+            'SELECT id FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND (quantity>0 OR reserved_quantity>0) FOR UPDATE',
+            [companyId, warehouseId],
+          );
+          if (occupied.rows.length) {
+            throw new ConflictException('Move or release all on-hand and reserved stock before deactivating this warehouse.');
+          }
+        }
         const result = await client.query<WarehouseRow>(
-          `UPDATE warehouses SET ${fields.join(',')} WHERE id=$${values.length-2} AND company_id=$${values.length-1} AND ($${values.length}::uuid IS NULL OR branch_id=$${values.length}) RETURNING *`, values as (string|number|boolean|null)[],
+          `UPDATE warehouses SET ${fields.join(',')} WHERE id=${values.length-2} AND company_id=${values.length-1} AND (${values.length}::uuid IS NULL OR branch_id=${values.length}) RETURNING *`, values as (string|number|boolean|null)[],
         );
         if (!result.rows[0]) throw new NotFoundException('Warehouse not found.');
         await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:result.rows[0].branch_id,action:'inventory.warehouse.update',entityType:'warehouse',entityId:warehouseId,oldValues:{name:existing.name,code:existing.code},newValues:{name:result.rows[0].name,code:result.rows[0].code},ipAddress:null});
@@ -453,7 +467,7 @@ export class InventoryService {
   }
 
   private async assertWarehouse(client:PoolClient,companyId:string,warehouseId:string,branchId:string|null) {
-    const result=await client.query<{id:string;branch_id:string|null}>('SELECT id,branch_id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true AND ($3::uuid IS NULL OR branch_id=$3)',[warehouseId,companyId,branchId]);
+    const result=await client.query<{id:string;branch_id:string|null}>('SELECT id,branch_id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true AND ($3::uuid IS NULL OR branch_id=$3) FOR SHARE',[warehouseId,companyId,branchId]);
     if(!result.rows[0]) throw new NotFoundException('Active warehouse not found in your company and assigned branch.');
   }
 

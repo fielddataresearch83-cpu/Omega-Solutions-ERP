@@ -238,7 +238,7 @@ export class PurchaseOrdersService {
       const res=await client.query<{id:string;order_number:string;status:string}>('SELECT id,order_number,status FROM purchase_orders WHERE id=$1 AND company_id=$2 FOR UPDATE',[id,m.companyId]);
       const po=res.rows[0];if(!po)throw new NotFoundException('Purchase order not found.');
       if(!['ordered','partially_received'].includes(po.status))throw new BadRequestException('Only ordered purchase orders can receive stock.');
-      const wh=await client.query('SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true',[dto.warehouseId,m.companyId]);
+      const wh=await client.query('SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE',[dto.warehouseId,m.companyId]);
       if(!wh.rows[0])throw new NotFoundException('Active warehouse not found in this company.');
       let receiptValue = 0;
       const planned: Array<{

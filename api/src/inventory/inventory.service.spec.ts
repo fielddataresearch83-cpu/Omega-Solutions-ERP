@@ -489,4 +489,45 @@ describe('InventoryService', () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 
+  it('blocks warehouse deactivation while on-hand or reserved stock remains', async () => {
+    const existing = {
+      id: 'warehouse-1', company_id: 'company-1', branch_id: null,
+      code: 'MAIN', name: 'Main', location: null, capacity: 0, is_active: true,
+      created_at: '2026-10-23T00:00:00.000Z', updated_at: '2026-10-23T00:00:00.000Z',
+    };
+    db.query.mockResolvedValueOnce({ rows: [existing], rowCount: 1 });
+    const client = { query: vi.fn(async (sql: string) => {
+      if (sql.includes('FROM warehouses') && sql.includes('FOR UPDATE')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
+      if (sql.includes('FROM inventory_stock_levels')) return { rows: [{ id: 'stock-1' }], rowCount: 1 };
+      return { rows: [{ ...existing, is_active: false }], rowCount: 1 };
+    }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+
+    await expect(service.updateWarehouse(user, 'warehouse-1', { isActive: false })).rejects.toThrow(ConflictException);
+
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE warehouses'))).toBe(false);
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('FOR UPDATE'))).toBe(true);
+  });
+
+  it('allows warehouse deactivation after all on-hand and reserved stock is cleared', async () => {
+    const existing = {
+      id: 'warehouse-1', company_id: 'company-1', branch_id: null,
+      code: 'MAIN', name: 'Main', location: null, capacity: 0, is_active: true,
+      created_at: '2026-10-23T00:00:00.000Z', updated_at: '2026-10-23T00:00:00.000Z',
+    };
+    db.query.mockResolvedValueOnce({ rows: [existing], rowCount: 1 });
+    const client = { query: vi.fn(async (sql: string) => {
+      if (sql.includes('FROM warehouses') && sql.includes('FOR UPDATE')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
+      if (sql.includes('FROM inventory_stock_levels')) return { rows: [], rowCount: 0 };
+      if (sql.includes('UPDATE warehouses')) return { rows: [{ ...existing, is_active: false }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+
+    const result = await service.updateWarehouse(user, 'warehouse-1', { isActive: false });
+
+    expect(result.is_active).toBe(false);
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE warehouses'))).toBe(true);
+  });
+
 });
