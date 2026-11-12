@@ -5,6 +5,7 @@ import { CreateJournalDto } from './dto/create-journal.dto.js';
 import { CreateBankStatementDto, MatchBankStatementLineDto } from './dto/create-bank-statement.dto.js';
 import { CreateFixedAssetDto, RunDepreciationDto } from './dto/fixed-assets.dto.js';
 import { CreateBudgetDto, CreateCostCentreDto } from './dto/budgets-cost-centres.dto.js';
+import { CreateBudgetDto, CreateCostCentreDto } from './dto/budgets-cost-centres.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -19,6 +20,17 @@ export class AccountingController {
  @Get('accounts') @RequirePermissions('accounting:read') accounts(@Req() req:{user:AuthenticatedUser}){return this.accounting.listAccounts(req.user);}
  @Post('accounts') @RequirePermissions('accounting:write') createAccount(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateAccountDto){return this.accounting.createAccount(req.user,dto);}
  @Get('reports/trial-balance') @RequirePermissions('accounting:read') trialBalance(@Req() req:{user:AuthenticatedUser},@Query('asOfDate') asOfDate?:string){return this.accounting.trialBalance(req.user,asOfDate);}
+ @Get('cost-centres') @RequirePermissions('accounting:read') costCentres(@Req() req:{user:AuthenticatedUser}){return this.accounting.listCostCentres(req.user);}
+ @Post('cost-centres') @RequirePermissions('accounting:write') createCostCentre(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateCostCentreDto){return this.accounting.createCostCentre(req.user,dto);}
+ @Get('budgets/vs-actual') @RequirePermissions('accounting:read') budgetVsActual(@Req() req:{user:AuthenticatedUser},@Query('fiscalYear') fiscalYear?:string,@Query('periodMonth') periodMonth?:string){
+  const year=fiscalYear===undefined?undefined:Number(fiscalYear);
+  const month=periodMonth===undefined?undefined:Number(periodMonth);
+  if(year!==undefined&&(!Number.isInteger(year)||year<2000||year>2200))throw new BadRequestException('fiscalYear must be a whole year between 2000 and 2200.');
+  if(month!==undefined&&(!Number.isInteger(month)||month<1||month>12))throw new BadRequestException('periodMonth must be a whole number between 1 and 12.');
+  return this.accounting.budgetVsActual(req.user,year,month);
+ }
+ @Post('budgets') @RequirePermissions('accounting:write') createBudget(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateBudgetDto){return this.accounting.createBudget(req.user,dto);}
+ @Post('budgets/:id/approve') @RequirePermissions('accounting:write') approveBudget(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.accounting.approveBudget(req.user,id);}
  @Get('reconciliation/payables') @RequirePermissions('accounting:read') payablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.payablesReconciliation(req.user);}
  @Get('reconciliation/receivables') @RequirePermissions('accounting:read') receivablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.receivablesReconciliation(req.user);}
  @Get('journals') @RequirePermissions('accounting:read') journals(@Req() req:{user:AuthenticatedUser}){return this.accounting.listJournals(req.user);}
