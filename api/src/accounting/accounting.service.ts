@@ -43,7 +43,7 @@ export class AccountingService {
   const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
   const {companyId}=membership;
   return (await this.db.query(
-   `SELECT a.id,a.company_id,a.code,a.name,a.account_type,a.normal_side,a.system_code,a.is_active,a.created_at,
+   `SELECT a.id,a.company_id,a.code,a.name,a.account_type,a.normal_side,a.system_code,a.cash_flow_category,a.is_active,a.created_at,
     COALESCE(SUM(l.debit) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS total_debits,COALESCE(SUM(l.credit) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS total_credits,
     CASE WHEN a.normal_side='debit' THEN COALESCE(SUM(l.debit-l.credit) FILTER (WHERE j.status='posted'),0) ELSE COALESCE(SUM(l.credit-l.debit) FILTER (WHERE j.status='posted'),0) END::numeric(14,2) AS balance
     FROM chart_of_accounts a LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
