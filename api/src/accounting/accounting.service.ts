@@ -412,6 +412,11 @@ export class AccountingService {
     ? new Date(Date.UTC(new Date(latest.rows[0].period_end+'T00:00:00.000Z').getUTCFullYear(),new Date(latest.rows[0].period_end+'T00:00:00.000Z').getUTCMonth()+2,0)).toISOString().slice(0,10)
     : firstPeriod;
    if(periodEnd!==expectedPeriod)throw new ConflictException(`Depreciation periods must be posted monthly in order. Next period: ${expectedPeriod}.`);
+   const depreciationAccounts=await client.query<{id:string}>(
+    'SELECT id FROM chart_of_accounts WHERE company_id=$1 AND id=ANY($2::uuid[]) AND is_active=true FOR SHARE',
+    [companyId,[asset.accumulated_depreciation_account_id,asset.depreciation_expense_account_id]],
+   );
+   if(depreciationAccounts.rows.length!==2)throw new BadRequestException('The accumulated depreciation and depreciation expense accounts must remain active.');
    const depreciableBase=Math.round((Number(asset.cost)-Number(asset.residual_value))*100)/100;
    const accumulated=Number(asset.accumulated_depreciation);
    const monthly=Math.round((depreciableBase/Number(asset.useful_life_months))*100)/100;
