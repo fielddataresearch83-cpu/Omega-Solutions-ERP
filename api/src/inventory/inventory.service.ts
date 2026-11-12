@@ -659,10 +659,7 @@ export class InventoryService {
             type: 'issue', quantity: -quantity, unitCost: cost, reference: header.return_number,
             notes: 'Supplier return dispatched after inspection', userId: user.userId,
           });
-          await this.postMovementJournal(client, {
-            companyId, userId: user.userId, movementId: movement.id, quantity: -quantity, unitCost: cost,
-            description: `Supplier return ${header.return_number} - inventory returned`,
-          });
+          supplierReturnValue += quantity * cost;
           await this.syncLegacyProductQuantity(client, companyId, line.product_id);
         } else if (header.return_type === 'supplier' && line.disposition === 'quarantine') {
           await client.query(
@@ -680,6 +677,35 @@ export class InventoryService {
         } else {
           throw new BadRequestException('The selected disposition is not valid for this return type.');
         }
+      }
+      if (header.return_type === 'supplier' && supplierReturnValue > 0) {
+        await this.accounting.ensureDefaults(companyId, client);
+        const amount = Math.round(supplierReturnValue * 100) / 100;
+        const year = new Date().getFullYear();
+        const sequence = await client.query<{ next_number: number }>(
+          `INSERT INTO journal_entry_sequences(company_id,entry_year,next_number) VALUES($1,$2,1)
+           ON CONFLICT(company_id,entry_year) DO UPDATE SET next_number=journal_entry_sequences.next_number+1
+           RETURNING next_number`, [companyId, year],
+        );
+        const entryNumber = `JE-${year}-${String(sequence.rows[0].next_number).padStart(6, '0')}`;
+        const journal = await client.query<{ id: string }>(
+          `INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by)
+           VALUES($1,$2,CURRENT_DATE,$3,'supplier_inventory_return',$4,'posted',NOW(),$5) RETURNING id`,
+          [companyId, entryNumber, `Supplier return ${header.return_number}`, returnId, user.userId],
+        );
+        const accounts = await client.query<{ id: string; system_code: string }>(
+          `SELECT id,system_code FROM chart_of_accounts
+           WHERE company_id=$1 AND system_code IN ('accounts_payable','inventory') AND is_active=true`,
+          [companyId],
+        );
+        const payable = accounts.rows.find(account => account.system_code === 'accounts_payable');
+        const inventory = accounts.rows.find(account => account.system_code === 'inventory');
+        if (!payable || !inventory) throw new BadRequestException('Accounts payable and inventory control accounts must be active to post a supplier return.');
+        await client.query(
+          `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit)
+           VALUES($1,$2,$3,'Supplier return debit note',$4,0),($1,$2,$5,'Inventory returned to supplier',0,$4)`,
+          [companyId, journal.rows[0].id, payable.id, amount, inventory.id],
+        );
       }
       await client.query(
         "UPDATE inventory_returns SET status='posted',posted_by=$1,posted_at=NOW(),updated_at=NOW() WHERE id=$2 AND company_id=$3 AND status='draft'",
