@@ -5,6 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Pool, PoolClient } from 'pg';
+import { tenantDatabaseContext } from './database/tenant-database-context.js';
 
 export type QueryParams = (string | number | boolean | Date | null)[];
 
@@ -62,8 +63,31 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     text: string,
     params?: QueryParams,
   ): Promise<QueryResult<T>> {
-    const result = await this.pool.query(text, params);
-    return { rows: result.rows as T[], rowCount: result.rowCount };
+    const tenant = tenantDatabaseContext.getStore();
+    if (!tenant) {
+      const result = await this.pool.query(text, params);
+      return { rows: result.rows as T[], rowCount: result.rowCount };
+    }
+
+    // SET LOCAL is transaction-bound and cannot leak through the pool.
+    const client = await this.pool.connect();
+    let releaseError: Error | undefined;
+    try {
+      await client.query('BEGIN');
+      await this.applyTenantContext(client, tenant);
+      const result = await client.query(text, params);
+      await client.query('COMMIT');
+      return { rows: result.rows as T[], rowCount: result.rowCount };
+    } catch (error) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        releaseError = rollbackError instanceof Error ? rollbackError : new Error('Tenant query rollback failed.');
+      }
+      throw error;
+    } finally {
+      client.release(releaseError);
+    }
   }
 
   async getClient(): Promise<PoolClient> {
@@ -79,6 +103,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     let releaseError: Error | undefined;
     try {
       await client.query('BEGIN');
+      const tenant = tenantDatabaseContext.getStore();
+      if (tenant) await this.applyTenantContext(client, tenant);
       const result = await callback(client);
       await client.query('COMMIT');
       return result;
@@ -97,6 +123,16 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     } finally {
       client.release(releaseError);
     }
+  }
+
+  private async applyTenantContext(
+    client: PoolClient,
+    tenant: { userId: string; companyId: string; branchId: string | null },
+  ): Promise<void> {
+    await client.query(
+      "SELECT set_config('app.user_id', $1, true), set_config('app.company_id', $2, true), set_config('app.branch_id', $3, true)",
+      [tenant.userId, tenant.companyId, tenant.branchId ?? ''],
+    );
   }
 
   async onModuleDestroy() {
