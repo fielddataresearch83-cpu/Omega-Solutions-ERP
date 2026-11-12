@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { AccountingService } from './accounting.service.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
+import { CreateJournalDto } from './dto/create-journal.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -18,8 +19,11 @@ export class AccountingController {
  @Get('reconciliation/payables') @RequirePermissions('accounting:read') payablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.payablesReconciliation(req.user);}
  @Get('reconciliation/receivables') @RequirePermissions('accounting:read') receivablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.receivablesReconciliation(req.user);}
  @Get('journals') @RequirePermissions('accounting:read') journals(@Req() req:{user:AuthenticatedUser}){return this.accounting.listJournals(req.user);}
+ @Post('journals') @RequirePermissions('accounting:write') createJournal(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateJournalDto){return this.accounting.createJournal(req.user,dto);}
+ @Post('journals/:id/reverse') @RequirePermissions('accounting:write') reverseJournal(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Body('reversalDate') reversalDate?:string){return this.accounting.reverseJournal(req.user,id,reversalDate);}
  @Get('journals/:id') @RequirePermissions('accounting:read') journal(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.accounting.getJournal(req.user,id);}
  @Get('reports/profit-and-loss') @RequirePermissions('accounting:read') profitAndLoss(@Req() req:{user:AuthenticatedUser},@Query('startDate') startDate:string,@Query('endDate') endDate:string){return this.accounting.profitAndLoss(req.user,startDate,endDate);}
  @Get('reports/balance-sheet') @RequirePermissions('accounting:read') balanceSheet(@Req() req:{user:AuthenticatedUser},@Query('asOfDate') asOfDate:string){return this.accounting.balanceSheet(req.user,asOfDate);}
+ @Get('reports/vat') @RequirePermissions('accounting:read') vatSummary(@Req() req:{user:AuthenticatedUser},@Query('startDate') startDate:string,@Query('endDate') endDate:string){return this.accounting.vatSummary(req.user,startDate,endDate);}
  @Get('reports/cash-flow') @RequirePermissions('accounting:read') cashFlow(@Req() req:{user:AuthenticatedUser},@Query('startDate') startDate:string,@Query('endDate') endDate:string){return this.accounting.cashFlow(req.user,startDate,endDate);}
 }
