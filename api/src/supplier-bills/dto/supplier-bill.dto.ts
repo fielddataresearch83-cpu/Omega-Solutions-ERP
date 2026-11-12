@@ -23,5 +23,7 @@ export class RecordSupplierBillPaymentDto {
   @IsOptional() @IsDateString() paymentDate?: string;
   @IsString() @IsIn(['bank_transfer','mpesa','cash','cheque','card','other']) method!: string;
   @IsOptional() @IsString() @MaxLength(120) reference?: string;
+  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) withholdingTaxAmount?: number;
+  @IsOptional() @IsString() @MaxLength(120) withholdingCertificateNumber?: string;
   @IsOptional() @IsString() @MaxLength(1000) notes?: string;
 }
