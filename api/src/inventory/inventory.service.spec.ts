@@ -36,6 +36,79 @@ describe('InventoryService', () => {
 
   const user = { userId: 'user-1' } as any;
 
+
+  it('creates a tenant-scoped draft customer return with inspection dispositions', async () => {
+    const client = { query: vi.fn(async (sql: string) => {
+      if (sql.includes('FROM warehouses WHERE id=$1')) return { rows: [{ id: 'warehouse-1', branch_id: null }], rowCount: 1 };
+      if (sql.includes('FROM customers WHERE id=$1')) return { rows: [{ id: 'customer-1' }], rowCount: 1 };
+      if (sql.includes('SELECT id,is_service FROM products')) return { rows: [{ id: 'product-1', is_service: false }], rowCount: 1 };
+      if (sql.includes('INSERT INTO inventory_returns')) return { rows: [{ id: 'return-1' }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'return-1', company_id: 'company-1', return_type: 'customer', status: 'draft' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'line-1', product_id: 'product-1', disposition: 'quarantine', quantity: '1' }], rowCount: 1 });
+
+    const result = await service.createReturn(user, {
+      returnType: 'customer', customerId: 'customer-1', warehouseId: 'warehouse-1',
+      reason: 'Damaged packaging', items: [{ productId: 'product-1', quantity: 1, unitCost: 25, disposition: 'quarantine', inspectionNotes: 'Seal broken' }],
+    });
+
+    expect(result.id).toBe('return-1');
+    expect(client.query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO inventory_return_lines'), ['company-1', 'return-1', 'product-1', 1, 25, 'quarantine', 'Seal broken']);
+    expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'inventory.return.create', entityType: 'inventory_return' }));
+  });
+
+  it('posts customer returns into quarantine without making them saleable stock', async () => {
+    const client = { query: vi.fn(async (sql: string) => {
+      if (sql.includes('FROM inventory_returns WHERE id=$1')) return { rows: [{ id: 'return-1', return_number: 'IR-2026-TEST', return_type: 'customer', warehouse_id: 'warehouse-1', status: 'draft', branch_id: null }], rowCount: 1 };
+      if (sql.includes('FROM warehouses WHERE id=$1')) return { rows: [{ id: 'warehouse-1', branch_id: null }], rowCount: 1 };
+      if (sql.includes('FROM inventory_return_lines l')) return { rows: [{ id: 'line-1', product_id: 'product-1', quantity: '2', unit_cost: '10', disposition: 'quarantine', product_name: 'Widget' }], rowCount: 1 };
+      if (sql.includes('SELECT id,is_service FROM products')) return { rows: [{ id: 'product-1', is_service: false }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'return-1', status: 'posted' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    await service.postReturn(user, 'return-1');
+
+    const statements = client.query.mock.calls.map(([sql]) => String(sql));
+    expect(statements.some(sql => sql.includes('INSERT INTO inventory_quarantine_balances'))).toBe(true);
+    expect(statements.some(sql => sql.includes('UPDATE inventory_stock_levels'))).toBe(false);
+    expect(statements.some(sql => sql.includes('INSERT INTO inventory_stock_movements'))).toBe(false);
+    expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'inventory.return.post' }));
+  });
+
+  it('rejects posting a supplier return when available stock is insufficient', async () => {
+    const client = { query: vi.fn(async (sql: string) => {
+      if (sql.includes('FROM inventory_returns WHERE id=$1')) return { rows: [{ id: 'return-1', return_number: 'IR-2026-TEST', return_type: 'supplier', warehouse_id: 'warehouse-1', status: 'draft', branch_id: null }], rowCount: 1 };
+      if (sql.includes('FROM warehouses WHERE id=$1')) return { rows: [{ id: 'warehouse-1', branch_id: null }], rowCount: 1 };
+      if (sql.includes('FROM inventory_return_lines l')) return { rows: [{ id: 'line-1', product_id: 'product-1', quantity: '3', unit_cost: '10', disposition: 'return_to_supplier', product_name: 'Widget' }], rowCount: 1 };
+      if (sql.includes('SELECT id,is_service FROM products')) return { rows: [{ id: 'product-1', is_service: false }], rowCount: 1 };
+      if (sql.includes('SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels')) return { rows: [{ quantity: '4', reserved_quantity: '2', average_unit_cost: '10' }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+
+    await expect(service.postReturn(user, 'return-1')).rejects.toThrow(BadRequestException);
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE inventory_stock_levels'))).toBe(false);
+    expect(audit.logInTransaction).not.toHaveBeenCalled();
+  });
+
+  it('does not allow a return from another company to be posted', async () => {
+    const client = { query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+
+    await expect(service.postReturn(user, 'return-other-company')).rejects.toThrow(NotFoundException);
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE id=$1 AND company_id=$2'),
+      ['return-other-company', 'company-1', null],
+    );
+  });
+
   it('keeps warehouse listing read-only and does not create a default warehouse', async () => {
     db.query.mockResolvedValue({ rows: [], rowCount: 0 });
 
