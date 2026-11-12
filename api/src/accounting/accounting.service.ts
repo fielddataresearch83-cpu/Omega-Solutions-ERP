@@ -62,10 +62,10 @@ export class AccountingService {
   const {companyId}=membership;await this.ensureDefaults(companyId);
   const side=dto.normalSide??(['liability','equity','income'].includes(dto.accountType)?'credit':'debit');
   try{
-   const r=await this.db.query(`INSERT INTO chart_of_accounts(company_id,code,name,account_type,normal_side)
-    VALUES($1,$2,$3,$4,$5) RETURNING *`,[companyId,dto.code.trim(),dto.name.trim(),dto.accountType,side]);
+   const r=await this.db.query(`INSERT INTO chart_of_accounts(company_id,code,name,account_type,normal_side,cash_flow_category)
+    VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,[companyId,dto.code.trim(),dto.name.trim(),dto.accountType,side,dto.cashFlowCategory??null]);
    const a=r.rows[0];
-   await this.audit.log({userId:user.userId,companyId,branchId:null,action:'accounting.account.create',entityType:'chart_of_account',entityId:String(a.id),oldValues:null,newValues:{code:dto.code,name:dto.name},ipAddress:null});
+   await this.audit.log({userId:user.userId,companyId,branchId:null,action:'accounting.account.create',entityType:'chart_of_account',entityId:String(a.id),oldValues:null,newValues:{code:dto.code,name:dto.name,cashFlowCategory:dto.cashFlowCategory??null},ipAddress:null});
    return a;
   }catch(e){if((e as {code?:string}).code==='23505')throw new ConflictException('An account with this code or system code already exists.');throw e;}
  }
