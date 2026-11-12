@@ -239,6 +239,8 @@ export class AccountingService {
  }
 
  async budgetVsActual(user: AuthenticatedUser, fiscalYear?: number, periodMonth?: number) {
+  if (fiscalYear !== undefined && (!Number.isInteger(fiscalYear) || fiscalYear < 2000 || fiscalYear > 2200)) throw new BadRequestException('fiscalYear must be a whole year between 2000 and 2200.');
+  if (periodMonth !== undefined && (!Number.isInteger(periodMonth) || periodMonth < 1 || periodMonth > 12)) throw new BadRequestException('periodMonth must be between 1 and 12.');
   const membership = await this.companyFor(user);
   this.assertCompanyWideAccounting(membership);
   const params: (string | number | boolean | Date | null)[] = [membership.companyId];
