@@ -83,6 +83,7 @@ export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalP
       const newTask: Task = {
         id: validatedData.id,
         title: validatedData.title,
+        description: validatedData.description,
         status: validatedData.status,
         category: validatedData.category,
         priority: validatedData.priority,
@@ -99,6 +100,7 @@ export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalP
         status: "todo",
         category: "feature",
         priority: "normal",
+        assignedTo: "",
       })
       setErrors({})
       setOpen(false)
