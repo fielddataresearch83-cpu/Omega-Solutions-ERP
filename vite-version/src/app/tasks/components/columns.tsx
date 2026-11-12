@@ -6,6 +6,7 @@ import type { DataTableFeatures } from "@/lib/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 import { categories, priorities, statuses } from "../data/data"
 import type { Task } from "../data/schema"
@@ -153,3 +154,32 @@ export const columns: ColumnDef<DataTableFeatures, Task>[] = [
     },
   },
 ]
+
+
+export function columnsWithUpdates(
+  onStatusChange: (task: Task, status: string) => void | Promise<void>,
+): ColumnDef<DataTableFeatures, Task>[] {
+  return [
+    ...columns,
+    {
+      id: "updateStatus",
+      header: "Update status",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Select
+          value={row.original.status}
+          onValueChange={(value) => value && void onStatusChange(row.original, value)}
+        >
+          <SelectTrigger aria-label={`Update status for ${row.original.title}`} className="w-[150px]">
+            <SelectValue placeholder="Change status" />
+          </SelectTrigger>
+          <SelectContent>
+            {statuses.map((status) => (
+              <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
+  ];
+}
