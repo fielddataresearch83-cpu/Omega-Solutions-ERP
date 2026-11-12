@@ -694,7 +694,7 @@ export class AccountingService {
        (debit > 0 && credit > 0) || (debit === 0 && credit === 0)) {
     throw new BadRequestException(`Journal line ${index + 1} must contain a valid account and exactly one positive debit or credit amount.`);
    }
-   return { accountId: line.accountId, description: line.description?.trim() || description, debit, credit };
+   return { accountId: line.accountId, costCentreId: line.costCentreId ?? null, description: line.description?.trim() || description, debit, credit };
   });
   const debits = Math.round(lines.reduce((sum, line) => sum + line.debit, 0) * 100) / 100;
   const credits = Math.round(lines.reduce((sum, line) => sum + line.credit, 0) * 100) / 100;
@@ -706,6 +706,8 @@ export class AccountingService {
     [companyId, accountIds],
    );
    if (accounts.rows.length !== accountIds.length) throw new BadRequestException('Every journal account must be active and belong to this company.');
+   const costCentreIds=[...new Set(lines.map(line=>line.costCentreId).filter((id):id is string=>Boolean(id)))];
+   if(costCentreIds.length){const centres=await client.query<{id:string}>('SELECT id FROM cost_centres WHERE company_id=$1 AND id=ANY($2::uuid[]) AND is_active=true FOR SHARE',[companyId,costCentreIds]);if(centres.rows.length!==costCentreIds.length)throw new BadRequestException('Every journal cost centre must be active and belong to this company.');}
    const year = Number(entryDate.slice(0, 4));
    const sequence = await client.query<{ next_number: number }>(
     `INSERT INTO journal_entry_sequences(company_id,entry_year,next_number) VALUES($1,$2,1)
@@ -720,8 +722,8 @@ export class AccountingService {
    );
    for (const line of lines) {
     await client.query(
-     `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit) VALUES($1,$2,$3,$4,$5,$6)`,
-     [companyId, entry.rows[0].id, line.accountId, line.description, line.debit, line.credit],
+     `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit,cost_centre_id) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+     [companyId, entry.rows[0].id, line.accountId, line.description, line.debit, line.credit, line.costCentreId],
     );
    }
    await this.audit.logInTransaction(client, {
