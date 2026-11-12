@@ -535,7 +535,7 @@ export class InventoryService {
         );
         if (!party.rows[0]) throw new NotFoundException('Active supplier not found in this company.');
         const bill = await client.query<{ id: string }>(
-          'SELECT id FROM supplier_bills WHERE id=$1 AND company_id=$2 AND supplier_id=$3 AND status<>'void' FOR SHARE',
+          `SELECT id FROM supplier_bills WHERE id=$1 AND company_id=$2 AND supplier_id=$3 AND status<>'void' FOR SHARE`,
           [dto.supplierBillId!, companyId, dto.supplierId!],
         );
         if (!bill.rows[0]) throw new NotFoundException('An open supplier bill for this supplier is required.');
