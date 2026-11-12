@@ -35,8 +35,9 @@ type CashFlowAccount = { account_code: string; account_name: string; opening_bal
 type CashFlow = {
   currency: string; startDate: string; endDate: string
   cashAccounts: CashFlowAccount[]
+  cashFlowCategories: { category: "operating" | "investing" | "financing"; amount: number }[]
   totalOpeningBalance: number; totalClosingBalance: number; netCashMovement: number
-  method: string; limitation: string
+  classificationVariance: number; method: string
 }
 
 type VatSummary = { currency: string; startDate: string; endDate: string; inputVat: number; outputVat: number; netVatPayable: number }
@@ -136,7 +137,7 @@ export default function FinancialReportsPage() {
     } else if (activeTab === "balance-sheet" && balanceSheet) {
       downloadCsv("omega-balance-sheet-" + asOfDate + ".csv", [["Section", "Account code", "Account name", "Amount"], ...balanceSheet.assetAccounts.map(a => ["Asset", a.code, a.name, a.balance]), ["", "", "Total assets", balanceSheet.totalAssets], ...balanceSheet.liabilityAccounts.map(a => ["Liability", a.code, a.name, a.balance]), ["", "", "Total liabilities", balanceSheet.totalLiabilities], ...balanceSheet.equityAccounts.map(a => ["Equity", a.code, a.name, a.balance]), ["", "", "Total equity", balanceSheet.totalEquity]])
     } else if (activeTab === "cash-flow" && cashFlow) {
-      downloadCsv("omega-cash-movement-" + startDate + "-to-" + endDate + ".csv", [["Account code", "Account name", "Opening balance", "Closing balance", "Net movement"], ...cashFlow.cashAccounts.map(a => [a.account_code, a.account_name, a.opening_balance, a.closing_balance, a.net_movement]), ["", "Totals", cashFlow.totalOpeningBalance, cashFlow.totalClosingBalance, cashFlow.netCashMovement]])
+      downloadCsv("omega-cash-flow-" + startDate + "-to-" + endDate + ".csv", [["Cash flow category", "Amount"], ...cashFlow.cashFlowCategories.map(a => [a.category, a.amount]), ["Net cash movement", cashFlow.netCashMovement], ["Classification variance", cashFlow.classificationVariance], [], ["Account code", "Account name", "Opening balance", "Closing balance", "Net movement"], ...cashFlow.cashAccounts.map(a => [a.account_code, a.account_name, a.opening_balance, a.closing_balance, a.net_movement]), ["", "Totals", cashFlow.totalOpeningBalance, cashFlow.totalClosingBalance, cashFlow.netCashMovement]])
     } else if (activeTab === "vat" && vatSummary) {
       downloadCsv("omega-vat-summary-" + startDate + "-to-" + endDate + ".csv", [["Period start", "Period end", "Currency", "Output VAT", "Recoverable input VAT", "Net VAT payable"], [startDate, endDate, vatSummary.currency, vatSummary.outputVat, vatSummary.inputVat, vatSummary.netVatPayable]])
     }
@@ -157,7 +158,8 @@ export default function FinancialReportsPage() {
       printBusinessDocument("Balance sheet", asOfDate, `<header class="top"><div><div class="brand">${escapeDocumentText(user?.fullName ?? "Your business")}</div><h1>Balance sheet</h1></div><div class="meta"><strong>As of ${escapeDocumentText(asOfDate)}</strong><div>${balanceSheet.balanced ? "Balanced" : "Out of balance: " + formatKES(Math.abs(balanceSheet.variance), true)}</div></div></header><table><thead><tr><th colspan="2">Assets</th><th class="num">Amount</th></tr></thead><tbody>${assetRows}<tr class="subtotal"><td colspan="2">Total assets</td><td class="num">${fmt(balanceSheet.totalAssets)}</td></tr></tbody><thead><tr><th colspan="2">Liabilities</th><th class="num">Amount</th></tr></thead><tbody>${liabRows}<tr class="subtotal"><td colspan="2">Total liabilities</td><td class="num">${fmt(balanceSheet.totalLiabilities)}</td></tr></tbody><thead><tr><th colspan="2">Equity</th><th class="num">Amount</th></tr></thead><tbody>${eqRows}<tr class="subtotal"><td colspan="2">Total equity</td><td class="num">${fmt(balanceSheet.totalEquity)}</td></tr></tbody></table><div class="totals"><div><span>Total liabilities + equity</span><strong>${fmt(balanceSheet.totalLiabilitiesAndEquity)}</strong></div></div>`)
     } else if (activeTab === "cash-flow" && cashFlow) {
       const rows = cashFlow.cashAccounts.map(a => `<tr><td>${escapeDocumentText(a.account_code)}</td><td>${escapeDocumentText(a.account_name)}</td><td class="num">${fmt(a.opening_balance)}</td><td class="num">${fmt(a.closing_balance)}</td><td class="num">${fmt(a.net_movement)}</td></tr>`).join("")
-      printBusinessDocument("Cash movement summary", startDate + " to " + endDate, `<header class="top"><div><div class="brand">${escapeDocumentText(user?.fullName ?? "Your business")}</div><h1>Cash movement summary</h1></div><div class="meta"><strong>${escapeDocumentText(startDate)} to ${escapeDocumentText(endDate)}</strong><div>Direct method</div></div></header><table><thead><tr><th>Code</th><th>Account</th><th class="num">Opening</th><th class="num">Closing</th><th class="num">Movement</th></tr></thead><tbody>${rows}<tr class="subtotal"><td colspan="2">Totals</td><td class="num">${fmt(cashFlow.totalOpeningBalance)}</td><td class="num">${fmt(cashFlow.totalClosingBalance)}</td><td class="num">${fmt(cashFlow.netCashMovement)}</td></tr></tbody></table>`)
+      const categoryRows = cashFlow.cashFlowCategories.map(a => `<tr><td>${escapeDocumentText(a.category)}</td><td class="num">${fmt(a.amount)}</td></tr>`).join("")
+      printBusinessDocument("Cash flow statement", startDate + " to " + endDate, `<header class="top"><div><div class="brand">${escapeDocumentText(user?.fullName ?? "Your business")}</div><h1>Cash flow statement</h1></div><div class="meta"><strong>${escapeDocumentText(startDate)} to ${escapeDocumentText(endDate)}</strong><div>Direct method</div></div></header><table><thead><tr><th>Activity</th><th class="num">Net cash flow</th></tr></thead><tbody>${categoryRows}<tr class="subtotal"><td>Net cash movement</td><td class="num">${fmt(cashFlow.netCashMovement)}</td></tr></tbody></table><table><thead><tr><th>Code</th><th>Cash account</th><th class="num">Opening</th><th class="num">Closing</th><th class="num">Movement</th></tr></thead><tbody>${rows}</tbody></table>`)
     } else if (activeTab === "vat" && vatSummary) {
       printBusinessDocument("VAT summary", startDate + " to " + endDate, `<header class="top"><div><div class="brand">${escapeDocumentText(user?.fullName ?? "Your business")}</div><h1>VAT summary</h1></div><div class="meta"><strong>${escapeDocumentText(startDate)} to ${escapeDocumentText(endDate)}</strong></div></header><table><tbody><tr><td>Output VAT</td><td class="num">${fmt(vatSummary.outputVat)}</td></tr><tr><td>Recoverable input VAT</td><td class="num">${fmt(vatSummary.inputVat)}</td></tr><tr class="subtotal"><td>Net VAT payable</td><td class="num">${fmt(vatSummary.netVatPayable)}</td></tr></tbody></table>`)
     }
@@ -337,10 +339,11 @@ function CashFlowReport({ report }: { report: CashFlow }) {
   const fmt = (v: number) => formatKES(v, true)
   return (
     <div className="flex flex-col gap-4">
-      <Card><CardContent className="p-4">
-        <div className="flex items-center gap-2 text-sm text-amber-600"><Wallet className="size-4" /><span className="font-medium">Cash movement summary (direct method)</span></div>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{report.limitation}</p>
-      </CardContent></Card>
+      <div className="grid gap-3 md:grid-cols-3">
+        {report.cashFlowCategories.map(item => <Card key={item.category}><CardContent className="p-4"><p className="text-sm capitalize text-muted-foreground">{item.category} activities</p><p className="mt-2 text-xl font-semibold tabular-nums">{fmt(item.amount)}</p></CardContent></Card>)}
+      </div>
+      <Card><CardContent className="flex items-center justify-between gap-3 p-4"><div><p className="text-sm font-medium">Net cash movement</p><p className="text-xs text-muted-foreground">Operating + investing + financing activities</p></div><p className="text-xl font-bold tabular-nums">{fmt(report.netCashMovement)}</p></CardContent></Card>
+      {Math.abs(report.classificationVariance)>0.01&&<p role="alert" className="text-sm text-destructive">Cash flow categories differ from the cash-account movement by {fmt(report.classificationVariance)}. Review unbalanced journals and account classifications.</p>}
       <Card><CardContent className="p-0">
         {report.cashAccounts.length === 0 ? (
           <EmptyState icon={Wallet} title="No cash accounts" description="Cash, bank, or M-Pesa accounts with posted journal entries will appear here." />
