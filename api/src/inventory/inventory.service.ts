@@ -6,7 +6,7 @@ import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AccountingService } from '../accounting/accounting.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
-import type { AdjustStockDto, CountStocktakeLineDto, CreateStockMovementDto, CreateStocktakeDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
+import type { AdjustStockDto, CountStocktakeLineDto, CreateInventoryReturnDto, CreateStockMovementDto, CreateStocktakeDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
 
 type WarehouseRow = {
   id: string; company_id: string; branch_id: string | null; code: string; name: string;
@@ -478,6 +478,241 @@ export class InventoryService {
       return {transferGroupId,sourceMovement:out,destinationMovement:into};
     });
     return result;
+  }
+
+  async listReturns(user: AuthenticatedUser) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    return (await this.db.query(
+      `SELECT r.*, c.name AS customer_name, s.name AS supplier_name, w.name AS warehouse_name,
+        (SELECT COUNT(*)::int FROM inventory_return_lines l WHERE l.company_id=r.company_id AND l.return_id=r.id) AS line_count
+       FROM inventory_returns r
+       LEFT JOIN customers c ON c.id=r.customer_id AND c.company_id=r.company_id
+       LEFT JOIN suppliers s ON s.id=r.supplier_id AND s.company_id=r.company_id
+       JOIN warehouses w ON w.id=r.warehouse_id AND w.company_id=r.company_id
+       WHERE r.company_id=$1 AND ($2::uuid IS NULL OR r.branch_id=$2)
+       ORDER BY r.created_at DESC LIMIT 250`, [companyId, branchId],
+    )).rows;
+  }
+
+  async createReturn(user: AuthenticatedUser, dto: CreateInventoryReturnDto) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    const reason = dto.reason.trim();
+    if (!reason) throw new BadRequestException('A return reason is required.');
+    if (dto.returnType === 'customer' && (!dto.customerId || dto.supplierId)) {
+      throw new BadRequestException('A customer return must identify one customer only.');
+    }
+    if (dto.returnType === 'supplier' && (!dto.supplierId || dto.customerId)) {
+      throw new BadRequestException('A supplier return must identify one supplier only.');
+    }
+    const lines = dto.items.map(item => {
+      const disposition = item.disposition;
+      if (dto.returnType === 'customer' && disposition === 'return_to_supplier') {
+        throw new BadRequestException('Customer returns cannot use the supplier-return disposition.');
+      }
+      if (dto.returnType === 'supplier' && disposition === 'restock' || dto.returnType === 'supplier' && disposition === 'reject') {
+        throw new BadRequestException('Supplier returns must be quarantined or returned to the supplier.');
+      }
+      if (!Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitCost) || item.unitCost < 0) {
+        throw new BadRequestException('Return quantities and unit costs must be valid non-negative values.');
+      }
+      return item;
+    });
+    const returnId = await this.db.transaction(async client => {
+      await this.assertWarehouse(client, companyId, dto.warehouseId, branchId);
+      if (dto.returnType === 'customer') {
+        const party = await client.query<{ id: string }>(
+          'SELECT id FROM customers WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE',
+          [dto.customerId!, companyId],
+        );
+        if (!party.rows[0]) throw new NotFoundException('Active customer not found in this company.');
+      } else {
+        const party = await client.query<{ id: string }>(
+          'SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE',
+          [dto.supplierId!, companyId],
+        );
+        if (!party.rows[0]) throw new NotFoundException('Active supplier not found in this company.');
+      }
+      for (const line of lines) await this.assertProduct(client, companyId, line.productId);
+      const number = `IR-${new Date().getFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+      const header = await client.query<{ id: string }>(
+        `INSERT INTO inventory_returns
+          (company_id,branch_id,return_number,return_type,customer_id,supplier_id,warehouse_id,source_reference,reason,created_by)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+        [companyId, branchId, number, dto.returnType, dto.customerId ?? null, dto.supplierId ?? null,
+          dto.warehouseId, dto.sourceReference?.trim() || null, reason, user.userId],
+      );
+      for (const line of lines) {
+        await client.query(
+          `INSERT INTO inventory_return_lines(company_id,return_id,product_id,quantity,unit_cost,disposition,inspection_notes)
+           VALUES($1,$2,$3,$4,$5,$6,$7)`,
+          [companyId, header.rows[0].id, line.productId, line.quantity, line.unitCost, line.disposition, line.inspectionNotes?.trim() || null],
+        );
+      }
+      await this.audit.logInTransaction(client, {
+        userId: user.userId, companyId, branchId, action: 'inventory.return.create',
+        entityType: 'inventory_return', entityId: header.rows[0].id, oldValues: null,
+        newValues: { returnNumber: number, returnType: dto.returnType, lineCount: lines.length }, ipAddress: null,
+      });
+      return header.rows[0].id;
+    });
+    return this.getReturn(user, returnId);
+  }
+
+  async getReturn(user: AuthenticatedUser, returnId: string) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    const header = await this.db.query(
+      `SELECT r.*, c.name AS customer_name, s.name AS supplier_name, w.name AS warehouse_name
+       FROM inventory_returns r
+       LEFT JOIN customers c ON c.id=r.customer_id AND c.company_id=r.company_id
+       LEFT JOIN suppliers s ON s.id=r.supplier_id AND s.company_id=r.company_id
+       JOIN warehouses w ON w.id=r.warehouse_id AND w.company_id=r.company_id
+       WHERE r.company_id=$1 AND r.id=$2 AND ($3::uuid IS NULL OR r.branch_id=$3)`,
+      [companyId, returnId, branchId],
+    );
+    if (!header.rows[0]) throw new NotFoundException('Inventory return not found.');
+    const lines = await this.db.query(
+      `SELECT l.*,p.name AS product_name,p.sku
+       FROM inventory_return_lines l JOIN products p ON p.id=l.product_id AND p.company_id=l.company_id
+       WHERE l.company_id=$1 AND l.return_id=$2 ORDER BY l.created_at,l.id`,
+      [companyId, returnId],
+    );
+    return { ...header.rows[0], items: lines.rows };
+  }
+
+  async postReturn(user: AuthenticatedUser, returnId: string) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    await this.db.transaction(async client => {
+      const result = await client.query<{
+        id: string; return_number: string; return_type: 'customer' | 'supplier'; warehouse_id: string;
+        status: string; branch_id: string | null;
+      }>(
+        'SELECT id,return_number,return_type,warehouse_id,status,branch_id FROM inventory_returns WHERE id=$1 AND company_id=$2 AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',
+        [returnId, companyId, branchId],
+      );
+      const header = result.rows[0];
+      if (!header) throw new NotFoundException('Inventory return not found.');
+      if (header.status !== 'draft') throw new ConflictException('Only draft returns can be posted.');
+      await this.assertWarehouse(client, companyId, header.warehouse_id, branchId);
+      const lines = await client.query<{
+        id: string; product_id: string; quantity: string | number; unit_cost: string | number;
+        disposition: string; product_name: string;
+      }>(
+        `SELECT l.id,l.product_id,l.quantity,l.unit_cost,l.disposition,p.name AS product_name
+         FROM inventory_return_lines l JOIN products p ON p.id=l.product_id AND p.company_id=l.company_id
+         WHERE l.company_id=$1 AND l.return_id=$2 ORDER BY l.product_id,l.id FOR UPDATE OF l`,
+        [companyId, returnId],
+      );
+      if (!lines.rows.length) throw new BadRequestException('A return must contain at least one line.');
+      for (const line of lines.rows) {
+        const quantity = Number(line.quantity);
+        const unitCost = Number(line.unit_cost);
+        await this.assertProduct(client, companyId, line.product_id);
+        if (header.return_type === 'customer' && line.disposition === 'restock') {
+          await this.ensureStockRow(client, companyId, header.warehouse_id, line.product_id);
+          const locked = await client.query<{ quantity: string | number; average_unit_cost: string | number }>(
+            'SELECT quantity,average_unit_cost FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE',
+            [companyId, header.warehouse_id, line.product_id],
+          );
+          const oldQty = Number(locked.rows[0].quantity);
+          const oldCost = Number(locked.rows[0].average_unit_cost);
+          const newAverage = oldQty + quantity > 0 ? ((oldQty * oldCost) + (quantity * unitCost)) / (oldQty + quantity) : unitCost;
+          await client.query(
+            'UPDATE inventory_stock_levels SET quantity=quantity+$1,average_unit_cost=$2,updated_at=NOW() WHERE company_id=$3 AND warehouse_id=$4 AND product_id=$5',
+            [quantity, newAverage, companyId, header.warehouse_id, line.product_id],
+          );
+          const movement = await this.insertMovement(client, {
+            companyId, productId: line.product_id, warehouseId: header.warehouse_id,
+            type: 'receipt', quantity, unitCost, reference: header.return_number,
+            notes: `Customer return restocked: ${line.disposition}`, userId: user.userId,
+          });
+          await this.postMovementJournal(client, {
+            companyId, userId: user.userId, movementId: movement.id, quantity, unitCost,
+            description: `Customer return ${header.return_number} - inventory restocked`,
+          });
+          await this.syncLegacyProductQuantity(client, companyId, line.product_id);
+        } else if (header.return_type === 'customer' && line.disposition === 'quarantine') {
+          await client.query(
+            `INSERT INTO inventory_quarantine_balances(company_id,warehouse_id,product_id,quantity,average_unit_cost)
+             VALUES($1,$2,$3,$4,$5)
+             ON CONFLICT(company_id,warehouse_id,product_id) DO UPDATE
+             SET average_unit_cost=CASE WHEN inventory_quarantine_balances.quantity+$4>0
+               THEN ((inventory_quarantine_balances.quantity*inventory_quarantine_balances.average_unit_cost)+($4*$5))/(inventory_quarantine_balances.quantity+$4)
+               ELSE $5 END,
+               quantity=inventory_quarantine_balances.quantity+$4,updated_at=NOW()`,
+            [companyId, header.warehouse_id, line.product_id, quantity, unitCost],
+          );
+        } else if (header.return_type === 'supplier' && line.disposition === 'return_to_supplier') {
+          const stock = await client.query<{ quantity: string | number; reserved_quantity: string | number; average_unit_cost: string | number }>(
+            'SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE',
+            [companyId, header.warehouse_id, line.product_id],
+          );
+          if (!stock.rows[0] || Number(stock.rows[0].quantity)-Number(stock.rows[0].reserved_quantity)<quantity) {
+            throw new BadRequestException(`Insufficient available stock to return "${line.product_name}" to the supplier.`);
+          }
+          const cost = Number(stock.rows[0].average_unit_cost);
+          await client.query(
+            'UPDATE inventory_stock_levels SET quantity=quantity-$1,updated_at=NOW() WHERE company_id=$2 AND warehouse_id=$3 AND product_id=$4',
+            [quantity, companyId, header.warehouse_id, line.product_id],
+          );
+          const movement = await this.insertMovement(client, {
+            companyId, productId: line.product_id, warehouseId: header.warehouse_id,
+            type: 'issue', quantity: -quantity, unitCost: cost, reference: header.return_number,
+            notes: 'Supplier return dispatched after inspection', userId: user.userId,
+          });
+          await this.postMovementJournal(client, {
+            companyId, userId: user.userId, movementId: movement.id, quantity: -quantity, unitCost: cost,
+            description: `Supplier return ${header.return_number} - inventory returned`,
+          });
+          await this.syncLegacyProductQuantity(client, companyId, line.product_id);
+        } else if (header.return_type === 'supplier' && line.disposition === 'quarantine') {
+          await client.query(
+            `INSERT INTO inventory_quarantine_balances(company_id,warehouse_id,product_id,quantity,average_unit_cost)
+             VALUES($1,$2,$3,$4,$5)
+             ON CONFLICT(company_id,warehouse_id,product_id) DO UPDATE
+             SET average_unit_cost=CASE WHEN inventory_quarantine_balances.quantity+$4>0
+               THEN ((inventory_quarantine_balances.quantity*inventory_quarantine_balances.average_unit_cost)+($4*$5))/(inventory_quarantine_balances.quantity+$4)
+               ELSE $5 END,
+               quantity=inventory_quarantine_balances.quantity+$4,updated_at=NOW()`,
+            [companyId, header.warehouse_id, line.product_id, quantity, unitCost],
+          );
+        } else if (line.disposition === 'reject') {
+          // Rejected customer goods are recorded for traceability but never enter saleable stock.
+        } else {
+          throw new BadRequestException('The selected disposition is not valid for this return type.');
+        }
+      }
+      await client.query(
+        "UPDATE inventory_returns SET status='posted',posted_by=$1,posted_at=NOW(),updated_at=NOW() WHERE id=$2 AND company_id=$3 AND status='draft'",
+        [user.userId, returnId, companyId],
+      );
+      await this.audit.logInTransaction(client, {
+        userId: user.userId, companyId, branchId: header.branch_id,
+        action: 'inventory.return.post', entityType: 'inventory_return', entityId: returnId,
+        oldValues: { status: 'draft' }, newValues: { status: 'posted', returnNumber: header.return_number },
+        ipAddress: null,
+      });
+    });
+    return this.getReturn(user, returnId);
+  }
+
+  async cancelReturn(user: AuthenticatedUser, returnId: string) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    await this.db.transaction(async client => {
+      const result = await client.query<{ id: string; status: string; branch_id: string | null }>(
+        'SELECT id,status,branch_id FROM inventory_returns WHERE id=$1 AND company_id=$2 AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',
+        [returnId, companyId, branchId],
+      );
+      const header = result.rows[0];
+      if (!header) throw new NotFoundException('Inventory return not found.');
+      if (header.status !== 'draft') throw new ConflictException('Only draft returns can be cancelled.');
+      await client.query("UPDATE inventory_returns SET status='cancelled',updated_at=NOW() WHERE id=$1 AND company_id=$2",[returnId,companyId]);
+      await this.audit.logInTransaction(client, {
+        userId: user.userId, companyId, branchId: header.branch_id, action: 'inventory.return.cancel',
+        entityType: 'inventory_return', entityId: returnId, oldValues: { status: 'draft' },
+        newValues: { status: 'cancelled' }, ipAddress: null,
+      });
+    });
+    return this.getReturn(user, returnId);
   }
 
   private async postSingleMovement(user: AuthenticatedUser,dto: CreateStockMovementDto,type:'receipt'|'issue',signedQuantity:number) {
