@@ -219,12 +219,34 @@ export class PosService {
     const today=new Date().toISOString().slice(0,10);
     const totals=await this.db.transaction(async client=>{
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[dto.requestId]);
-      const prior=await client.query<{id:string;sale_number:string;total:string|number;subtotal:string|number;tax_amount:string|number;amount_confirmed:string|number;status:string;invoice_id:string;created_by:string|null}>(
-        'SELECT id,sale_number,total,subtotal,tax_amount,amount_confirmed,status,invoice_id,created_by FROM pos_sales WHERE company_id=$1 AND request_id=$2',
+      const prior=await client.query<{
+        id:string;sale_number:string;total:string|number;subtotal:string|number;tax_amount:string|number;
+        amount_confirmed:string|number;status:string;invoice_id:string;created_by:string|null;
+        register_branch_id:string|null;warehouse_branch_id:string|null;warehouse_id:string;
+      }>(
+        `SELECT ps.id,ps.sale_number,ps.total,ps.subtotal,ps.tax_amount,ps.amount_confirmed,ps.status,
+                ps.invoice_id,ps.created_by,pr.branch_id AS register_branch_id,w.branch_id AS warehouse_branch_id,
+                ps.warehouse_id
+         FROM pos_sales ps
+         JOIN pos_registers pr ON pr.id=ps.register_id AND pr.company_id=ps.company_id
+         JOIN warehouses w ON w.id=ps.warehouse_id AND w.company_id=ps.company_id
+         WHERE ps.company_id=$1 AND ps.request_id=$2`,
         [companyId,dto.requestId]);
       if(prior.rows[0]) {
         const p=prior.rows[0];
         if(p.created_by!==user.userId) throw new ConflictException('This checkout request key has already been used.');
+        if(branchId && (p.register_branch_id!==branchId || (p.warehouse_branch_id!==null && p.warehouse_branch_id!==branchId))) {
+          throw new ForbiddenException('This checkout request belongs to a different branch.');
+        }
+        if(!user.permissions.includes('sales:team-read')) {
+          const assignment=await client.query<{warehouse_id:string}>(
+            'SELECT warehouse_id FROM salesperson_stock_assignments WHERE company_id=$1 AND user_id=$2 AND is_active=true LIMIT 1 FOR SHARE',
+            [companyId,user.userId],
+          );
+          if(!assignment.rows[0] || assignment.rows[0].warehouse_id!==p.warehouse_id) {
+            throw new ForbiddenException('This checkout request is outside your current salesperson warehouse assignment.');
+          }
+        }
         return {saleId:p.id,invoiceId:p.invoice_id,saleNumber:p.sale_number,total:Number(p.total),subtotal:Number(p.subtotal),taxAmount:Number(p.tax_amount),amountConfirmed:Number(p.amount_confirmed),pendingPayment:Math.max(0,Number(p.total)-Number(p.amount_confirmed)),status:p.status,idempotent:true};
       }
       const shiftResult=await client.query<{id:string;register_id:string;opened_by:string;status:string}>(
