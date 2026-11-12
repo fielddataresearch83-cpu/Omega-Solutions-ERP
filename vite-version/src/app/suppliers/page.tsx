@@ -56,6 +56,7 @@ export default function SuppliersPage() {
   const [formData, setFormData] = React.useState({
     name: "",
     email: "",
+    kraPin: "",
     phone: "",
     city: "",
     county: "",
@@ -75,7 +76,7 @@ export default function SuppliersPage() {
 
   const openAddDialog = () => {
     setEditingSupplier(null)
-    setFormData({ name: "", email: "", phone: "", city: "", county: "", contactPerson: "", paymentTerms: "" })
+    setFormData({ name: "", email: "", kraPin: "", phone: "", city: "", county: "", contactPerson: "", paymentTerms: "" })
     setFormErrors({})
     setFormError(null)
     setDialogOpen(true)
@@ -86,6 +87,7 @@ export default function SuppliersPage() {
     setFormData({
       name: supplier.name,
       email: supplier.email ?? "",
+      kraPin: supplier.kra_pin ?? "",
       phone: supplier.phone ?? "",
       city: supplier.city ?? "",
       county: supplier.county ?? "",
@@ -270,6 +272,11 @@ export default function SuppliersPage() {
               <Input id="sup-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} aria-invalid={!!formErrors.name} />
               {formErrors.name && <span className="text-xs text-destructive">{formErrors.name}</span>}
             </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="sup-kra-pin">KRA PIN</Label>
+              <Input id="sup-kra-pin" value={formData.kraPin} onChange={(e) => setFormData({ ...formData, kraPin: e.target.value.toUpperCase() })} maxLength={20} placeholder="A000000000A" />
+              <span className="text-xs text-muted-foreground">Used on withholding-tax schedules and supplier tax records.</span>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="sup-email">Email</Label>
@@ -320,6 +327,7 @@ export default function SuppliersPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div><span className="text-muted-foreground">Name:</span> <span className="font-medium">{viewingSupplier.name}</span></div>
                 <div><span className="text-muted-foreground">Status:</span> <StatusBadge status={viewingSupplier.status === "active" ? "Active" : viewingSupplier.status === "inactive" ? "Inactive" : "Blocked"} /></div>
+                <div><span className="text-muted-foreground">KRA PIN:</span> {viewingSupplier.kra_pin ?? "—"}</div>
                 <div><span className="text-muted-foreground">Email:</span> {viewingSupplier.email ?? "—"}</div>
                 <div><span className="text-muted-foreground">Phone:</span> {viewingSupplier.phone ?? "—"}</div>
                 <div><span className="text-muted-foreground">Contact:</span> {viewingSupplier.contact_person ?? "—"}</div>
