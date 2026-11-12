@@ -122,7 +122,7 @@ export default function CrmPage() {
   }catch(e){setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load more CRM records.")}
   finally{setLoadingMore(false)}
  }
- React.useEffect(()=>{if(!selectedCampaignId){setCampaignAudience([]);return}let active=true;api.get<CampaignLead[]>("/crm/campaigns/"+selectedCampaignId+"/leads").then(rows=>{if(active)setCampaignAudience(rows)}).catch(e=>{if(active)setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load campaign audience.")});return()=>{active=false}},[selectedCampaignId])
+ React.useEffect(()=>{if(!selectedCampaignId)return;let active=true;api.get<CampaignLead[]>("/crm/campaigns/"+selectedCampaignId+"/leads").then(rows=>{if(active)setCampaignAudience(rows)}).catch(e=>{if(active)setError(e&&typeof e==="object"&&"message" in e?String(e.message):"Could not load campaign audience.")});return()=>{active=false}},[selectedCampaignId])
  const leadCount=pipeline?.leads.reduce((s,x)=>s+Number(x.count),0)??leads.length
  const leadValue=pipeline?.leads.reduce((s,x)=>s+Number(x.value),0)??0
  const qualifiedCount=pipeline?.leads.filter(x=>x.status==="qualified").reduce((s,x)=>s+Number(x.count),0)??0
