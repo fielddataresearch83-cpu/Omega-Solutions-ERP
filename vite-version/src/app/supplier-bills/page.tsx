@@ -62,7 +62,7 @@ export default function SupplierBillsPage(){
    const po=await api.get<PO>(`/purchase-orders/${id}`);
    setSupplierId(po.supplier_id);
    const received=(po.items??[]).map(i=>({...i,unbilledQuantity:Math.max(0,Number(i.received_quantity)-Number(i.billed_quantity??0))})).filter(i=>i.unbilledQuantity>0).map(i=>({description:i.product_name,quantity:String(i.unbilledQuantity),unitCost:String(i.unit_cost),taxRate:String(i.tax_rate??0),taxTreatment:"legacy" as const,purchaseOrderItemId:i.id}));
-   if(!received.length){setError("This order has no received quantities available to bill yet.");setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16",taxTreatment:"legacy"}]);return}
+   if(!received.length){setError("This order has no unbilled received quantities available to bill.");setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16",taxTreatment:"legacy"}]);return}
    setLines(received);
   }catch(e){setError(messageOf(e))}
  };
