@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Banknote, FileUp, Plus, RefreshCw, CheckCircle2, Link2, AlertCircle } from "lucide-react"
+import { Banknote, FileUp, Plus, RefreshCw, CheckCircle2, Link2 } from "lucide-react"
 import { BaseLayout } from "@/components/layouts/base-layout"
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
@@ -15,7 +15,7 @@ import { formatKES } from "@/lib/format"
 type Account = { id:string;code:string;name:string;system_code:string|null;is_active:boolean }
 type StatementImport = { id:string;account_code:string;account_name:string;statement_start:string;statement_end:string;opening_balance:number|string;closing_balance:number|string;status:string;line_count:number;matched_count:number;unmatched_count:number;closing_variance:number|string }
 type StatementLine = { id:string;transaction_date:string;description:string;reference:string|null;debit:number|string;credit:number|string;running_balance:number|string|null;status:string;matched_entry_number?:string|null;matched_entry_date?:string|null;matched_entry_description?:string|null }
-type StatementDetail = StatementImport & { bank_account_id:string;lines:StatementLine[];calculatedClosingBalance:number;closingVariance:number }
+type StatementDetail = StatementImport & { bank_account_id:string;lines:StatementLine[];lineCount:number;matchedCount:number;unmatchedCount:number;calculatedClosingBalance:number;closingVariance:number }
 type Candidate = { id:string;entry_number:string;entry_date:string;description:string;bank_movement:number|string }
 type DraftLine = { transactionDate:string;description:string;reference:string;debit:string;credit:string;runningBalance:string }
 
@@ -113,6 +113,7 @@ export default function BankReconciliationPage(){
  }
  const importStatement=async()=>{
   if(!accountId){setError("Select a bank or M-Pesa account.");return}
+  if(openingBalance===""||closingBalance===""){setError("Enter the statement opening and closing balances.");return}
   setSaving(true);setError(null)
   try{
    await api.post("/accounting/bank-statements",{accountId,statementStart,statementEnd,openingBalance:Number(openingBalance),closingBalance:Number(closingBalance),fileName:fileName||undefined,lines:lines.map(line=>({transactionDate:line.transactionDate,description:line.description,reference:line.reference||undefined,debit:Number(line.debit||0),credit:Number(line.credit||0),runningBalance:line.runningBalance===""?undefined:Number(line.runningBalance)}))})
