@@ -7,7 +7,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js
 import type { CreateAccountDto } from './dto/create-account.dto.js';
 import type { CreateJournalDto } from './dto/create-journal.dto.js';
 import type { CreateBankStatementDto } from './dto/create-bank-statement.dto.js';
-import type { CreateFixedAssetDto } from './dto/fixed-assets.dto.js';
+import type { CreateFixedAssetDto, DisposeFixedAssetDto } from './dto/fixed-assets.dto.js';
 import type { CreateBudgetDto, CreateCostCentreDto } from './dto/budgets-cost-centres.dto.js';
 
 const DEFAULT_ACCOUNTS = [
@@ -458,6 +458,87 @@ export class AccountingService {
     userId:user.userId,companyId,branchId:null,action:'accounting.fixed_asset.depreciate',
     entityType:'fixed_asset',entityId:id,oldValues:{accumulatedDepreciation:accumulated,status:asset.status},
     newValues:{periodEnd,depreciationAmount:amount,journalEntryId:journal.rows[0].id,accumulatedDepreciation:fullyDepreciated?depreciableBase:newAccumulated},ipAddress:null,
+   });
+  });
+  return this.getFixedAsset(user,id);
+ }
+
+ async disposeFixedAsset(user:AuthenticatedUser,id:string,dto:DisposeFixedAssetDto) {
+  const membership=await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const {companyId}=membership;
+  const disposalDate=this.validateDate(dto.disposalDate,'disposalDate');
+  const proceeds=Math.round(Number(dto.proceeds)*100)/100;
+  if(!Number.isFinite(proceeds)||proceeds<0)throw new BadRequestException('Disposal proceeds must be a valid non-negative amount.');
+  await this.db.transaction(async client=>{
+   await this.ensureDefaults(companyId,client);
+   const assetResult=await client.query<{
+    id:string;asset_code:string;name:string;acquisition_date:string;cost:string|number;
+    accumulated_depreciation:string|number;asset_account_id:string;accumulated_depreciation_account_id:string;status:string;
+   }>(
+    'SELECT id,asset_code,name,acquisition_date,cost,accumulated_depreciation,asset_account_id,accumulated_depreciation_account_id,status FROM fixed_assets WHERE company_id=$1 AND id=$2 FOR UPDATE',
+    [companyId,id],
+   );
+   const asset=assetResult.rows[0];
+   if(!asset)throw new NotFoundException('Fixed asset not found.');
+   if(asset.status==='disposed')throw new ConflictException('This fixed asset has already been disposed.');
+   if(disposalDate<asset.acquisition_date)throw new BadRequestException('Disposal date cannot be before the acquisition date.');
+   const gainLoss=await client.query<{id:string;system_code:string;account_type:string}>(
+    `SELECT id,system_code,account_type FROM chart_of_accounts
+     WHERE company_id=$1 AND is_active=true AND system_code IN ('fixed_asset_disposal_gain','fixed_asset_disposal_loss') FOR SHARE`,
+    [companyId],
+   );
+   const gainAccount=gainLoss.rows.find(a=>a.system_code==='fixed_asset_disposal_gain');
+   const lossAccount=gainLoss.rows.find(a=>a.system_code==='fixed_asset_disposal_loss');
+   if(!gainAccount||!lossAccount)throw new BadRequestException('Fixed asset disposal gain and loss accounts must be active.');
+   const accounts=await client.query<{id:string;account_type:string;system_code:string|null}>(
+    'SELECT id,account_type,system_code FROM chart_of_accounts WHERE company_id=$1 AND id=ANY($2::uuid[]) AND is_active=true FOR SHARE',
+    [companyId,[asset.asset_account_id,asset.accumulated_depreciation_account_id,dto.paymentAccountId]],
+   );
+   if(accounts.rows.length!==3)throw new BadRequestException('The asset, accumulated depreciation and payment accounts must be active.');
+   const payment=accounts.rows.find(a=>a.id===dto.paymentAccountId);
+   if(payment?.account_type!=='asset'||!['cash','bank','mpesa'].includes(payment.system_code??''))throw new BadRequestException('Select an active cash, bank or M-Pesa account for disposal proceeds.');
+   const cost=Number(asset.cost);
+   const accumulated=Number(asset.accumulated_depreciation);
+   const netBookValue=Math.round((cost-accumulated)*100)/100;
+   const gain=Math.max(0,Math.round((proceeds-netBookValue)*100)/100);
+   const loss=Math.max(0,Math.round((netBookValue-proceeds)*100)/100);
+   const year=Number(disposalDate.slice(0,4));
+   const sequence=await client.query<{next_number:number}>(
+    `INSERT INTO journal_entry_sequences(company_id,entry_year,next_number) VALUES($1,$2,1)
+     ON CONFLICT(company_id,entry_year) DO UPDATE SET next_number=journal_entry_sequences.next_number+1 RETURNING next_number`,
+    [companyId,year],
+   );
+   const entryNumber=`JE-${year}-${String(sequence.rows[0].next_number).padStart(6,'0')}`;
+   const journal=await client.query<{id:string}>(
+    `INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by)
+     VALUES($1,$2,$3::date,$4,'fixed_asset_disposal',$5,'posted',NOW(),$6) RETURNING id`,
+    [companyId,entryNumber,disposalDate,`Dispose fixed asset ${asset.asset_code} - ${asset.name}`,id,user.userId],
+   );
+   const journalLines:Array<{accountId:string;description:string;debit:number;credit:number}>=[];
+   if(accumulated>0)journalLines.push({accountId:asset.accumulated_depreciation_account_id,description:`Clear accumulated depreciation - ${asset.asset_code}`,debit:accumulated,credit:0});
+   if(proceeds>0)journalLines.push({accountId:dto.paymentAccountId,description:`Disposal proceeds - ${asset.asset_code}`,debit:proceeds,credit:0});
+   if(loss>0)journalLines.push({accountId:lossAccount.id,description:`Loss on disposal - ${asset.asset_code}`,debit:loss,credit:0});
+   journalLines.push({accountId:asset.asset_account_id,description:`Remove asset cost - ${asset.asset_code}`,debit:0,credit:cost});
+   if(gain>0)journalLines.push({accountId:gainAccount.id,description:`Gain on disposal - ${asset.asset_code}`,debit:0,credit:gain});
+   const debits=Math.round(journalLines.reduce((sum,line)=>sum+line.debit,0)*100)/100;
+   const credits=Math.round(journalLines.reduce((sum,line)=>sum+line.credit,0)*100)/100;
+   if(Math.abs(debits-credits)>0.005)throw new BadRequestException('Fixed asset disposal journal does not balance.');
+   for(const line of journalLines){
+    await client.query(
+     'INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit) VALUES($1,$2,$3,$4,$5,$6)',
+     [companyId,journal.rows[0].id,line.accountId,line.description,line.debit,line.credit],
+    );
+   }
+   await client.query(
+    `UPDATE fixed_assets SET status='disposed',disposal_date=$1::date,disposal_proceeds=$2,disposal_journal_entry_id=$3,updated_at=NOW()
+     WHERE company_id=$4 AND id=$5`,
+    [disposalDate,proceeds,journal.rows[0].id,companyId,id],
+   );
+   await this.audit.logInTransaction(client,{
+    userId:user.userId,companyId,branchId:null,action:'accounting.fixed_asset.dispose',
+    entityType:'fixed_asset',entityId:id,oldValues:{status:asset.status,netBookValue},
+    newValues:{status:'disposed',disposalDate,proceeds,gain,loss,journalEntryId:journal.rows[0].id},ipAddress:null,
    });
   });
   return this.getFixedAsset(user,id);
