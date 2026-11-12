@@ -154,3 +154,74 @@ describe('SupplierBillsService supplier balance synchronization', () => {
     expect(db.transaction).not.toHaveBeenCalled();
   });
 });
+
+
+describe('SupplierBillsService withholding tax settlement', () => {
+  it('splits gross bill settlement into net cash and withholding payable journals', async () => {
+    const user = { userId: 'user-1', companyId: 'company-1' } as any;
+    const client = {
+      query: vi.fn(async (sql: string, params?: unknown[]) => {
+        if (sql.includes('SELECT total,paid_amount,status FROM supplier_bills')) {
+          return { rows: [{ total: '100.00', paid_amount: '0.00', status: 'open' }], rowCount: 1 };
+        }
+        if (sql.includes('INSERT INTO supplier_bill_payments')) return { rows: [{ id: 'payment-1' }], rowCount: 1 };
+        if (sql.includes('INSERT INTO journal_entry_sequences')) return { rows: [{ next_number: 1 }], rowCount: 1 };
+        if (sql.includes('INSERT INTO journal_entries')) return { rows: [{ id: 'journal-1' }], rowCount: 1 };
+        if (sql.includes('SELECT id FROM chart_of_accounts')) {
+          const code = params?.[1];
+          return { rows: [{ id: 'account-' + String(code) }], rowCount: 1 };
+        }
+        if (sql.includes('SELECT supplier_id FROM supplier_bills')) return { rows: [{ supplier_id: 'supplier-1' }], rowCount: 1 };
+        return { rows: [], rowCount: 1 };
+      }),
+    };
+    const db = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [{ id: 'bill-1', bill_number: 'BILL-1', total: '100', paid_amount: '100', balance: '0' }], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+        .mockResolvedValueOnce({ rows: [{ amount: '100', cash_amount: '80', withholding_tax_amount: '20' }], rowCount: 1 }),
+      transaction: vi.fn(async (callback: (tx: typeof client) => Promise<unknown>) => callback(client)),
+    };
+    const memberships = {
+      getMembership: vi.fn(),
+      getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null }),
+    };
+    const audit = { log: vi.fn(), logInTransaction: vi.fn().mockResolvedValue(undefined) };
+    const accounting = { ensureDefaults: vi.fn().mockResolvedValue(undefined) };
+    const service = new SupplierBillsService(db as any, memberships as any, audit as any, accounting as any);
+
+    await service.recordPayment(user, 'bill-1', {
+      amount: 100, method: 'bank_transfer', withholdingTaxAmount: 20,
+      withholdingCertificateNumber: 'WHT-CERT-2026-001',
+    } as any);
+
+    expect(accounting.ensureDefaults).toHaveBeenCalledWith('company-1', client);
+    const paymentInsert = client.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO supplier_bill_payments'));
+    expect(paymentInsert?.[1]).toEqual([
+      'company-1', 'bill-1', 100, 80, 20, 'WHT-CERT-2026-001', null,
+      'bank_transfer', null, null, 'user-1',
+    ]);
+    const journalLines = client.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO journal_entry_lines'));
+    expect(journalLines.map(([, params]) => params)).toEqual([
+      ['company-1', 'journal-1', 'account-accounts_payable', 'Reduce supplier payable', 100, 0],
+      ['company-1', 'journal-1', 'account-bank', 'Net payment by bank_transfer', 0, 80],
+      ['company-1', 'journal-1', 'account-withholding_tax_payable', 'Withholding tax payable to KRA', 0, 20],
+    ]);
+  });
+
+  it('requires a certificate reference when withholding tax is recorded', async () => {
+    const client = {
+      query: vi.fn().mockResolvedValueOnce({ rows: [{ total: '100', paid_amount: '0', status: 'open' }], rowCount: 1 }),
+    };
+    const db = { query: vi.fn(), transaction: vi.fn(async (callback: (tx: typeof client) => Promise<unknown>) => callback(client)) };
+    const memberships = { getMembership: vi.fn(), getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-1', branchId: null }) };
+    const accounting = { ensureDefaults: vi.fn() };
+    const service = new SupplierBillsService(db as any, memberships as any, { logInTransaction: vi.fn() } as any, accounting as any);
+
+    await expect(service.recordPayment({ userId: 'user-1', companyId: 'company-1' } as any, 'bill-1', {
+      amount: 100, method: 'bank_transfer', withholdingTaxAmount: 20,
+    } as any)).rejects.toThrow('withholding tax certificate/reference is required');
+
+    expect(accounting.ensureDefaults).not.toHaveBeenCalled();
+  });
+});
