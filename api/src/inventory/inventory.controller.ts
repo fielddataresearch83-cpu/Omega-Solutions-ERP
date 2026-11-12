@@ -2,7 +2,7 @@ import {
   Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards,
 } from '@nestjs/common';
 import { InventoryService } from './inventory.service.js';
-import { AdjustStockDto, CountStocktakeLineDto, CreateInventoryReturnDto, CreateStockMovementDto, CreateStocktakeDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
+import { AdjustStockDto, CountStocktakeLineDto, CreateInventoryReturnDto, ResolveInventoryQuarantineDto, CreateStockMovementDto, CreateStocktakeDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -109,6 +109,18 @@ export class InventoryController {
   @RequirePermissions('inventory:write')
   postReturn(@Req() req: { user: AuthenticatedUser }, @Param('returnId', ParseUUIDPipe) id: string) {
     return this.inventory.postReturn(req.user, id);
+  }
+
+  @Get('quarantine')
+  @RequirePermissions('inventory:read')
+  quarantine(@Req() req: { user: AuthenticatedUser }) {
+    return this.inventory.listQuarantine(req.user);
+  }
+
+  @Post('quarantine/resolve')
+  @RequirePermissions('inventory:write')
+  resolveQuarantine(@Req() req: { user: AuthenticatedUser }, @Body() dto: ResolveInventoryQuarantineDto) {
+    return this.inventory.resolveQuarantine(req.user, dto);
   }
 
   @Post('returns/:returnId/cancel')
