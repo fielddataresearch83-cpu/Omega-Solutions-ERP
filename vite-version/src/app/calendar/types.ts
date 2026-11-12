@@ -11,6 +11,8 @@ export interface CalendarEvent {
   description?: string
   allDay?: boolean
   reminderEnabled?: boolean
+  projectId?: string | null
+  projectName?: string | null
 }
 
 export interface Calendar {
