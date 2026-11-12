@@ -213,7 +213,7 @@ describe('AccountingService.cashFlow', () => {
     const { service } = makeService([
       { account_code: '1000', account_name: 'Cash on Hand', opening_balance: '2000', closing_balance: '5000', net_movement: '3000' },
       { account_code: '1010', account_name: 'Bank Account', opening_balance: '10000', closing_balance: '8000', net_movement: '-2000' },
-    ]);
+    ], { cashFlowCategories: [{ category: 'operating', amount: '1000' }] });
 
     const result = await service.cashFlow(user, '2026-01-01', '2026-12-31');
 
