@@ -241,7 +241,7 @@ export default function SuppliersPage() {
                           <Button variant="ghost" size="icon-sm" className="cursor-pointer" onClick={() => openEditDialog(s)} aria-label={`Edit ${s.name}`}>
                             <Pencil className="size-4" />
                           </Button>
-                          <Button variant="ghost" size="icon-sm" className="cursor-pointer text-destructive hover:text-destructive" onClick={() => { setDeletingSupplier(s); setDeleteDialogOpen(true) }} aria-label={`Delete ${s.name}`}>
+                          <Button variant="ghost" size="icon-sm" className="cursor-pointer text-destructive hover:text-destructive" onClick={() => { setDeletingSupplier(s); setDeleteDialogOpen(true) }} aria-label={`Archive ${s.name}`}>
                             <Trash2 className="size-4" />
                           </Button>
                         </div>
@@ -338,8 +338,8 @@ export default function SuppliersPage() {
       <Dialog open={deleteDialogOpen} onOpenChange={(open) => { setDeleteDialogOpen(open); if (!open) setDeletingSupplier(null) }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Supplier</DialogTitle>
-            <DialogDescription>Are you sure you want to delete {deletingSupplier?.name}? This action cannot be undone.</DialogDescription>
+            <DialogTitle>Archive Supplier</DialogTitle>
+            <DialogDescription>Archive {deletingSupplier?.name}? The supplier will no longer be available for new purchase orders, but existing purchase orders, bills, payments and audit history will be retained.</DialogDescription>
           </DialogHeader>
           {formError && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{formError}</div>
@@ -347,7 +347,7 @@ export default function SuppliersPage() {
           <DialogFooter>
             <DialogClose render={<Button variant="outline">Cancel</Button>} />
             <Button onClick={handleDelete} disabled={deleting} variant="destructive" className="cursor-pointer">
-              {deleting ? <LoadingSpinner className="size-4" /> : "Delete Supplier"}
+              {deleting ? <LoadingSpinner className="size-4" /> : "Archive Supplier"}
             </Button>
           </DialogFooter>
         </DialogContent>
