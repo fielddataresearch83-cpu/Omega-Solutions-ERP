@@ -184,7 +184,7 @@ describe('PosService', () => {
 
   it('returns the original sale for a retry by the same cashier without creating another sale', async () => {
     const client = { query: vi.fn(async (sql: string) => {
-      if (sql.includes('SELECT id,sale_number,total,subtotal,tax_amount,amount_confirmed,status,invoice_id,created_by FROM pos_sales')) {
+      if (sql.includes('SELECT ps.id,ps.sale_number,ps.total,ps.subtotal,ps.tax_amount,ps.amount_confirmed,ps.status')) {
         return { rows: [{ id: 'sale-1', sale_number: 'POS-2026-00001', total: '125.00', subtotal: '125.00', tax_amount: '0.00', amount_confirmed: '125.00', status: 'completed', invoice_id: 'invoice-1', created_by: 'cashier-1' }], rowCount: 1 };
       }
       return { rows: [], rowCount: 0 };
