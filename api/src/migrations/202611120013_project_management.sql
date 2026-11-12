@@ -47,12 +47,16 @@ CREATE TABLE IF NOT EXISTS project_events (
   end_at TIMESTAMPTZ,
   all_day BOOLEAN NOT NULL DEFAULT false,
   location VARCHAR(240),
+  attendees JSONB NOT NULL DEFAULT '[]'::jsonb,
+  reminder_enabled BOOLEAN NOT NULL DEFAULT true,
   created_by UUID NOT NULL REFERENCES users(id),
   is_cancelled BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (end_at IS NULL OR end_at >= start_at)
 );
+ALTER TABLE project_events ADD COLUMN IF NOT EXISTS attendees JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE project_events ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN NOT NULL DEFAULT true;
 CREATE INDEX IF NOT EXISTS idx_project_events_company_start ON project_events(company_id,start_at) WHERE is_cancelled = false;
 
 -- Explicit tenant policies are required for tables introduced after the general
