@@ -641,3 +641,21 @@ describe('InventoryService', () => {
   });
 
 });
+
+
+describe('InventoryService supplier return balance synchronization', () => {
+  it('recalculates the supplier master balance after a supplier bill is credited by a return', async () => {
+    const client = { query: vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }) };
+    const internal = service as unknown as {
+      refreshSupplierBalance: (tx: typeof client, companyId: string, supplierId: string) => Promise<void>;
+    };
+
+    await internal.refreshSupplierBalance(client, 'company-1', 'supplier-1');
+
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining("b.status<>'void'"),
+      ['company-1', 'supplier-1'],
+    );
+    expect(client.query.mock.calls[0][0]).toContain('SUM(GREATEST(0, b.total - b.paid_amount))');
+  });
+});
