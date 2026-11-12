@@ -24,6 +24,19 @@ export class ProjectsService {
     if (!result.rows.length) throw new BadRequestException('The selected project is not available in this company.');
   }
 
+  async listMembers(user: AuthenticatedUser) {
+    const { companyId } = await this.scope(user);
+    const result = await this.db.query(
+      `SELECT u.id, u.full_name, u.email, cm.role
+       FROM company_memberships cm
+       JOIN users u ON u.id = cm.user_id
+       WHERE cm.company_id = $1 AND cm.is_active = true
+       ORDER BY u.full_name ASC, u.email ASC`,
+      [companyId],
+    );
+    return result.rows;
+  }
+
   async listProjects(user: AuthenticatedUser) {
     const { companyId } = await this.scope(user);
     const result = await this.db.query(
