@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Clock, PlayCircle } from "lucide-react"
+import { CheckCircle2, Circle, Clock, PlayCircle, XCircle } from "lucide-react"
 
 export const categories = [
   { value: "task", label: "Task" },
@@ -44,6 +44,11 @@ export const statuses = [
     value: "completed",
     label: "Completed",
     icon: CheckCircle2,
+  },
+  {
+    value: "cancelled",
+    label: "Cancelled",
+    icon: XCircle,
   },
 ]
 
