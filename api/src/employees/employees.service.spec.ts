@@ -86,4 +86,11 @@ describe('EmployeesService',()=>{
   db.query.mockResolvedValueOnce({rows:[],rowCount:0}).mockResolvedValueOnce({rows:[],rowCount:0});
   await expect(service.reviewLeaveRequest(user,'foreign-leave',{status:'approved'})).rejects.toThrow(NotFoundException);
  });
+ it('prevents inactive or terminated employees from requesting leave',async()=>{
+  db.query.mockResolvedValue({rows:[],rowCount:0});
+  await expect(service.createLeaveRequest(user,{employeeId:'employee-terminated',leaveType:'annual',startDate:'2026-11-02',endDate:'2026-11-05'})).rejects.toThrow(NotFoundException);
+  expect(db.query.mock.calls[0][0]).toContain("employment_status NOT IN ('terminated','inactive')");
+  expect(audit.log).not.toHaveBeenCalled();
+ });
+
 });
