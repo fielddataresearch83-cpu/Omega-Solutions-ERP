@@ -56,8 +56,6 @@ export default function InventoryReturnsPage(){
   }catch(e){setError(errorText(e))}finally{setLoading(false)}
  },[])
  React.useEffect(()=>{void load()},[load])
- React.useEffect(()=>{setPartyId("");setSupplierBillId("");setDisposition(returnType==="customer"?"restock":"return_to_supplier")},[returnType])
- React.useEffect(()=>{const p=products.find(x=>x.id===productId);if(p&&unitCost==="")setUnitCost(String(p.cost_price??0))},[productId,products,unitCost])
  async function create(e:React.FormEvent){
   e.preventDefault();setSaving(true);setError("");setNotice("")
   try{
@@ -88,11 +86,11 @@ export default function InventoryReturnsPage(){
   {notice&&<p role="status" className="text-sm text-emerald-700">{notice}</p>}
   <Card><CardHeader><CardTitle><ArrowDownToLine className="mr-2 inline size-5"/>Record a physical return</CardTitle></CardHeader><CardContent>
    <form onSubmit={create} className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-    <label className="grid gap-1 text-sm">Return type<select className="h-9 rounded-md border bg-background px-3" value={returnType} onChange={e=>setReturnType(e.target.value as "customer"|"supplier")}><option value="customer">Customer return</option><option value="supplier">Supplier return</option></select></label>
+    <label className="grid gap-1 text-sm">Return type<select className="h-9 rounded-md border bg-background px-3" value={returnType} onChange={e=>{const next=e.target.value as "customer"|"supplier";setReturnType(next);setPartyId("");setSupplierBillId("");setDisposition(next==="customer"?"restock":"return_to_supplier")}}><option value="customer">Customer return</option><option value="supplier">Supplier return</option></select></label>
     <label className="grid gap-1 text-sm">{returnType==="customer"?"Customer":"Supplier"}<select required className="h-9 rounded-md border bg-background px-3" value={partyId} onChange={e=>setPartyId(e.target.value)}><option value="">Select {returnType}</option>{parties.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
     {returnType==="supplier"&&<label className="grid gap-1 text-sm">Original supplier bill<select required className="h-9 rounded-md border bg-background px-3" value={supplierBillId} onChange={e=>setSupplierBillId(e.target.value)}><option value="">Select open bill</option>{supplierBills.filter(b=>b.supplier_id===partyId).map(b=><option key={b.id} value={b.id}>{b.bill_number} · Balance KES {formatNumber(Number(b.total)-Number(b.paid_amount))}</option>)}</select></label>}
     <label className="grid gap-1 text-sm">Warehouse<select required className="h-9 rounded-md border bg-background px-3" value={warehouseId} onChange={e=>setWarehouseId(e.target.value)}><option value="">Select warehouse</option>{warehouses.map(w=><option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}</select></label>
-    <label className="grid gap-1 text-sm">Product<select required className="h-9 rounded-md border bg-background px-3" value={productId} onChange={e=>{setProductId(e.target.value);setUnitCost("")}}><option value="">Select product</option>{products.map(p=><option key={p.id} value={p.id}>{p.sku} — {p.name}</option>)}</select></label>
+    <label className="grid gap-1 text-sm">Product<select required className="h-9 rounded-md border bg-background px-3" value={productId} onChange={e=>{setProductId(e.target.value);const selectedProduct=products.find(p=>p.id===e.target.value);setUnitCost(selectedProduct?String(selectedProduct.cost_price??0):"")}}><option value="">Select product</option>{products.map(p=><option key={p.id} value={p.id}>{p.sku} — {p.name}</option>)}</select></label>
     <label className="grid gap-1 text-sm">Quantity<Input required type="number" min="0.0001" step="0.0001" value={quantity} onChange={e=>setQuantity(e.target.value)}/></label>
     <label className="grid gap-1 text-sm">Unit cost (KES)<Input required type="number" min="0" step="0.0001" value={unitCost} onChange={e=>setUnitCost(e.target.value)} /></label>
     <label className="grid gap-1 text-sm">Inspection disposition<select className="h-9 rounded-md border bg-background px-3" value={disposition} onChange={e=>setDisposition(e.target.value)}>{availableDispositions.map(d=><option key={d} value={d}>{d.replaceAll("_"," ")}</option>)}</select></label>
