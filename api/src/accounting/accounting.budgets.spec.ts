@@ -17,8 +17,8 @@ function setup() {
 
 describe('AccountingService cost centres and budgets', () => {
   it('creates a normalized cost centre and audits the creation', async () => {
-    const { service, db, audit } = setup();
-    db.query.mockResolvedValueOnce({ rows: [{ id: 'centre-1', code: 'OPS', name: 'Operations' }], rowCount: 1 });
+    const { service, client, audit } = setup();
+    client.query.mockResolvedValueOnce({ rows: [{ id: 'centre-1', code: 'OPS', name: 'Operations' }], rowCount: 1 });
 
     const result = await service.createCostCentre(
       { userId: 'user-1', companyId: 'company-1' } as any,
@@ -26,8 +26,8 @@ describe('AccountingService cost centres and budgets', () => {
     );
 
     expect(result.id).toBe('centre-1');
-    expect(db.query.mock.calls[0][1]).toEqual(['company-1', 'OPS', 'Operations', 'Main operations', 'user-1']);
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'accounting.cost_centre.create', entityId: 'centre-1' }));
+    expect(client.query.mock.calls[0][1]).toEqual(['company-1', 'OPS', 'Operations', 'Main operations', 'user-1']);
+    expect(audit.logInTransaction).toHaveBeenCalledWith(client, expect.objectContaining({ action: 'accounting.cost_centre.create', entityId: 'centre-1' }));
   });
 
   it('creates a monthly budget only for active company accounts and cost centres', async () => {
