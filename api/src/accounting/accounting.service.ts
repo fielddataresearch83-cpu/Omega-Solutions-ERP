@@ -7,6 +7,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js
 import type { CreateAccountDto } from './dto/create-account.dto.js';
 import type { CreateJournalDto } from './dto/create-journal.dto.js';
 import type { CreateBankStatementDto } from './dto/create-bank-statement.dto.js';
+import type { CreateFixedAssetDto } from './dto/fixed-assets.dto.js';
 
 const DEFAULT_ACCOUNTS = [
  {code:'1000',name:'Cash on Hand',type:'asset',side:'debit',system:'cash',cashFlowCategory:null},
@@ -138,6 +139,187 @@ export class AccountingService {
   const controlBalance=Number(control.rows[0]?.balance??0),invoiceBalance=Number(subledger.rows[0]?.balance??0);
   const variance=Math.round((controlBalance-invoiceBalance)*100)/100;
   return {companyId,asOf:new Date().toISOString().slice(0,10),controlAccountBalance:controlBalance,customerInvoicesBalance:invoiceBalance,variance,reconciled:Math.abs(variance)<=0.01,ageing:{current:Number(aging.rows[0]?.current??0),days1to30:Number(aging.rows[0]?.days_1_to_30??0),days31to60:Number(aging.rows[0]?.days_31_to_60??0),days61plus:Number(aging.rows[0]?.days_61_plus??0)}};
+ }
+
+ async listFixedAssets(user: AuthenticatedUser) {
+  const membership=await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  return (await this.db.query(
+   `SELECT f.*,asset_account.code AS asset_account_code,asset_account.name AS asset_account_name,
+      accumulated_account.name AS accumulated_depreciation_account_name,
+      expense_account.name AS depreciation_expense_account_name,payment_account.name AS payment_account_name,
+      (f.cost-f.accumulated_depreciation)::numeric(14,2) AS net_book_value
+    FROM fixed_assets f
+    JOIN chart_of_accounts asset_account ON asset_account.id=f.asset_account_id AND asset_account.company_id=f.company_id
+    JOIN chart_of_accounts accumulated_account ON accumulated_account.id=f.accumulated_depreciation_account_id AND accumulated_account.company_id=f.company_id
+    JOIN chart_of_accounts expense_account ON expense_account.id=f.depreciation_expense_account_id AND expense_account.company_id=f.company_id
+    JOIN chart_of_accounts payment_account ON payment_account.id=f.payment_account_id AND payment_account.company_id=f.company_id
+    WHERE f.company_id=$1 ORDER BY f.status,f.asset_code`,
+   [membership.companyId],
+  )).rows;
+ }
+
+ async getFixedAsset(user: AuthenticatedUser,id:string) {
+  const membership=await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const header=await this.db.query(
+   `SELECT f.*,asset_account.code AS asset_account_code,asset_account.name AS asset_account_name,
+      accumulated_account.name AS accumulated_depreciation_account_name,
+      expense_account.name AS depreciation_expense_account_name,payment_account.name AS payment_account_name,
+      (f.cost-f.accumulated_depreciation)::numeric(14,2) AS net_book_value
+    FROM fixed_assets f
+    JOIN chart_of_accounts asset_account ON asset_account.id=f.asset_account_id AND asset_account.company_id=f.company_id
+    JOIN chart_of_accounts accumulated_account ON accumulated_account.id=f.accumulated_depreciation_account_id AND accumulated_account.company_id=f.company_id
+    JOIN chart_of_accounts expense_account ON expense_account.id=f.depreciation_expense_account_id AND expense_account.company_id=f.company_id
+    JOIN chart_of_accounts payment_account ON payment_account.id=f.payment_account_id AND payment_account.company_id=f.company_id
+    WHERE f.company_id=$1 AND f.id=$2`,
+   [membership.companyId,id],
+  );
+  if(!header.rows[0])throw new NotFoundException('Fixed asset not found.');
+  const schedule=await this.db.query(
+   `SELECT d.*,j.entry_number FROM fixed_asset_depreciation d
+    JOIN journal_entries j ON j.id=d.journal_entry_id AND j.company_id=d.company_id
+    WHERE d.company_id=$1 AND d.asset_id=$2 ORDER BY d.period_end`,
+   [membership.companyId,id],
+  );
+  return {...header.rows[0],depreciationSchedule:schedule.rows};
+ }
+
+ async createFixedAsset(user:AuthenticatedUser,dto:CreateFixedAssetDto) {
+  const membership=await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const {companyId}=membership;
+  const acquisitionDate=this.validateDate(dto.acquisitionDate,'acquisitionDate');
+  const cost=Math.round(Number(dto.cost)*100)/100;
+  const residualValue=Math.round(Number(dto.residualValue??0)*100)/100;
+  const usefulLifeMonths=Number(dto.usefulLifeMonths);
+  if(!Number.isFinite(cost)||cost<=0||!Number.isFinite(residualValue)||residualValue<0||residualValue>cost||!Number.isInteger(usefulLifeMonths)||usefulLifeMonths<1)throw new BadRequestException('Enter a positive asset cost, a valid residual value and a whole-number useful life in months.');
+  const assetCode=dto.assetCode.trim();
+  const name=dto.name.trim();
+  if(!assetCode||!name)throw new BadRequestException('Asset code and name are required.');
+  const id=await this.db.transaction(async client=>{
+   await this.ensureDefaults(companyId,client);
+   const accountIds=[dto.assetAccountId,dto.accumulatedDepreciationAccountId,dto.depreciationExpenseAccountId,dto.paymentAccountId];
+   if(new Set(accountIds).size!==4)throw new BadRequestException('Select four distinct ledger accounts for the asset.');
+   const accounts=await client.query<{id:string;account_type:string;normal_side:string;system_code:string|null}>(
+    'SELECT id,account_type,normal_side,system_code FROM chart_of_accounts WHERE company_id=$1 AND id=ANY($2::uuid[]) AND is_active=true FOR SHARE',
+    [companyId,accountIds],
+   );
+   if(accounts.rows.length!==4)throw new BadRequestException('All fixed asset ledger accounts must be active and belong to this company.');
+   const byId=new Map(accounts.rows.map(a=>[a.id,a]));
+   if(byId.get(dto.assetAccountId)?.account_type!=='asset')throw new BadRequestException('The fixed asset account must be an asset account.');
+   if(byId.get(dto.accumulatedDepreciationAccountId)?.account_type!=='asset'||byId.get(dto.accumulatedDepreciationAccountId)?.normal_side!=='credit')throw new BadRequestException('Accumulated depreciation must use a credit-normal asset account.');
+   if(byId.get(dto.depreciationExpenseAccountId)?.account_type!=='expense')throw new BadRequestException('Depreciation must use an expense account.');
+   const paymentAccount=byId.get(dto.paymentAccountId);
+   if(paymentAccount?.account_type!=='asset'||!['cash','bank','mpesa'].includes(paymentAccount.system_code??''))throw new BadRequestException('Select an active cash, bank or M-Pesa ledger account for the acquisition payment.');
+   const asset=await client.query<{id:string}>(
+    `INSERT INTO fixed_assets(company_id,asset_code,name,description,acquisition_date,cost,residual_value,useful_life_months,
+      asset_account_id,accumulated_depreciation_account_id,depreciation_expense_account_id,payment_account_id,created_by)
+     VALUES($1,$2,$3,$4,$5::date,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+    [companyId,assetCode,name,dto.description?.trim()||null,acquisitionDate,cost,residualValue,usefulLifeMonths,
+     dto.assetAccountId,dto.accumulatedDepreciationAccountId,dto.depreciationExpenseAccountId,dto.paymentAccountId,user.userId],
+   );
+   const year=Number(acquisitionDate.slice(0,4));
+   const sequence=await client.query<{next_number:number}>(
+    `INSERT INTO journal_entry_sequences(company_id,entry_year,next_number) VALUES($1,$2,1)
+     ON CONFLICT(company_id,entry_year) DO UPDATE SET next_number=journal_entry_sequences.next_number+1 RETURNING next_number`,
+    [companyId,year],
+   );
+   const entryNumber=`JE-${year}-${String(sequence.rows[0].next_number).padStart(6,'0')}`;
+   const journal=await client.query<{id:string}>(
+    `INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by)
+     VALUES($1,$2,$3::date,$4,'fixed_asset_acquisition',$5,'posted',NOW(),$6) RETURNING id`,
+    [companyId,entryNumber,acquisitionDate,`Acquire fixed asset ${assetCode} - ${name}`,asset.rows[0].id,user.userId],
+   );
+   await client.query(
+    `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit)
+     VALUES($1,$2,$3,$4,$5,0),($1,$2,$6,$7,0,$5)`,
+    [companyId,journal.rows[0].id,dto.assetAccountId,`Capitalise asset ${assetCode}`,cost,dto.paymentAccountId,`Cash/bank payment for asset ${assetCode}`],
+   );
+   await client.query('UPDATE fixed_assets SET acquisition_journal_entry_id=$1 WHERE company_id=$2 AND id=$3',[journal.rows[0].id,companyId,asset.rows[0].id]);
+   await this.audit.logInTransaction(client,{
+    userId:user.userId,companyId,branchId:null,action:'accounting.fixed_asset.create',
+    entityType:'fixed_asset',entityId:asset.rows[0].id,oldValues:null,
+    newValues:{assetCode,name,cost,residualValue,usefulLifeMonths,acquisitionJournalEntryId:journal.rows[0].id},ipAddress:null,
+   });
+   return asset.rows[0].id;
+  });
+  return this.getFixedAsset(user,id);
+ }
+
+ async depreciateFixedAsset(user:AuthenticatedUser,id:string,periodEndInput:string) {
+  const membership=await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const {companyId}=membership;
+  const periodEnd=this.validateDate(periodEndInput,'periodEnd');
+  const periodDate=new Date(periodEnd+'T00:00:00.000Z');
+  const periodYear=periodDate.getUTCFullYear(),periodMonth=periodDate.getUTCMonth()+1;
+  const monthEnd=new Date(Date.UTC(periodYear,periodMonth,0)).toISOString().slice(0,10);
+  if(monthEnd!==periodEnd)throw new BadRequestException('Depreciation must be posted at month end.');
+  await this.db.transaction(async client=>{
+   const assetResult=await client.query<{
+    id:string;asset_code:string;name:string;acquisition_date:string;cost:string|number;residual_value:string|number;
+    useful_life_months:number;accumulated_depreciation:string|number;asset_account_id:string;
+    accumulated_depreciation_account_id:string;depreciation_expense_account_id:string;status:string;
+   }>(
+    'SELECT id,asset_code,name,acquisition_date,cost,residual_value,useful_life_months,accumulated_depreciation,asset_account_id,accumulated_depreciation_account_id,depreciation_expense_account_id,status FROM fixed_assets WHERE company_id=$1 AND id=$2 FOR UPDATE',
+    [companyId,id],
+   );
+   const asset=assetResult.rows[0];
+   if(!asset)throw new NotFoundException('Fixed asset not found.');
+   if(asset.status!=='active')throw new ConflictException('Only active fixed assets can be depreciated.');
+   const acquisition=new Date(asset.acquisition_date+'T00:00:00.000Z');
+   const firstPeriod=new Date(Date.UTC(acquisition.getUTCFullYear(),acquisition.getUTCMonth()+2,0)).toISOString().slice(0,10);
+   if(periodEnd<firstPeriod)throw new BadRequestException('The first straight-line depreciation period is the month end after the acquisition month.');
+   const latest=await client.query<{period_end:string|null}>(
+    'SELECT MAX(period_end)::text AS period_end FROM fixed_asset_depreciation WHERE company_id=$1 AND asset_id=$2',
+    [companyId,id],
+   );
+   const expectedPeriod=latest.rows[0]?.period_end
+    ? new Date(Date.UTC(new Date(latest.rows[0].period_end+'T00:00:00.000Z').getUTCFullYear(),new Date(latest.rows[0].period_end+'T00:00:00.000Z').getUTCMonth()+2,0)).toISOString().slice(0,10)
+    : firstPeriod;
+   if(periodEnd!==expectedPeriod)throw new ConflictException(`Depreciation periods must be posted monthly in order. Next period: ${expectedPeriod}.`);
+   const depreciableBase=Math.round((Number(asset.cost)-Number(asset.residual_value))*100)/100;
+   const accumulated=Number(asset.accumulated_depreciation);
+   const monthly=Math.round((depreciableBase/Number(asset.useful_life_months))*100)/100;
+   const amount=Math.round(Math.min(monthly,depreciableBase-accumulated)*100)/100;
+   if(amount<=0)throw new ConflictException('This asset has no remaining depreciable value.');
+   const year=periodYear;
+   const sequence=await client.query<{next_number:number}>(
+    `INSERT INTO journal_entry_sequences(company_id,entry_year,next_number) VALUES($1,$2,1)
+     ON CONFLICT(company_id,entry_year) DO UPDATE SET next_number=journal_entry_sequences.next_number+1 RETURNING next_number`,
+    [companyId,year],
+   );
+   const entryNumber=`JE-${year}-${String(sequence.rows[0].next_number).padStart(6,'0')}`;
+   const depreciation=await client.query<{id:string}>(
+    `INSERT INTO fixed_asset_depreciation(company_id,asset_id,period_end,depreciation_amount,journal_entry_id,posted_by)
+     VALUES($1,$2,$3::date,$4,$5,$6) RETURNING id`,
+    [companyId,id,periodEnd,amount,'00000000-0000-0000-0000-000000000000',user.userId],
+   );
+   const journal=await client.query<{id:string}>(
+    `INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by)
+     VALUES($1,$2,$3::date,$4,'fixed_asset_depreciation',$5,'posted',NOW(),$6) RETURNING id`,
+    [companyId,entryNumber,periodEnd,`Monthly depreciation - ${asset.asset_code} - ${asset.name}`,depreciation.rows[0].id,user.userId],
+   );
+   await client.query('UPDATE fixed_asset_depreciation SET journal_entry_id=$1 WHERE company_id=$2 AND id=$3',[journal.rows[0].id,companyId,depreciation.rows[0].id]);
+   await client.query(
+    `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit)
+     VALUES($1,$2,$3,$4,$5,0),($1,$2,$6,$7,0,$5)`,
+    [companyId,journal.rows[0].id,asset.depreciation_expense_account_id,`Depreciation expense - ${asset.asset_code}`,amount,asset.accumulated_depreciation_account_id,`Accumulated depreciation - ${asset.asset_code}`],
+   );
+   const newAccumulated=Math.round((accumulated+amount)*100)/100;
+   const fullyDepreciated=newAccumulated>=depreciableBase-0.005;
+   await client.query(
+    'UPDATE fixed_assets SET accumulated_depreciation=$1,status=$2,updated_at=NOW() WHERE company_id=$3 AND id=$4',
+    [fullyDepreciated?depreciableBase:newAccumulated,fullyDepreciated?'fully_depreciated':'active',companyId,id],
+   );
+   await this.audit.logInTransaction(client,{
+    userId:user.userId,companyId,branchId:null,action:'accounting.fixed_asset.depreciate',
+    entityType:'fixed_asset',entityId:id,oldValues:{accumulatedDepreciation:accumulated,status:asset.status},
+    newValues:{periodEnd,depreciationAmount:amount,journalEntryId:journal.rows[0].id,accumulatedDepreciation:fullyDepreciated?depreciableBase:newAccumulated},ipAddress:null,
+   });
+  });
+  return this.getFixedAsset(user,id);
  }
 
  async listBankStatements(user: AuthenticatedUser) {
