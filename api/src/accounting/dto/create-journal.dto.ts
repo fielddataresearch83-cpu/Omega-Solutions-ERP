@@ -6,6 +6,10 @@ export class CreateJournalLineDto {
   accountId!: string;
 
   @IsOptional()
+  @IsUUID()
+  costCentreId?: string;
+
+  @IsOptional()
   @IsString()
   @MaxLength(300)
   description?: string;
