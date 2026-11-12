@@ -11,16 +11,23 @@ import { DataTable } from "./components/data-table"
 import { taskSchema, type Task } from "./data/schema"
 import { api } from "@/lib/api-client"
 
+type CompanyMember = { id: string; full_name: string; email: string; role: string }
+
 export default function TaskPage() {
   const [tasks, setTasks] = useState<Task[]>([])
+  const [members, setMembers] = useState<CompanyMember[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
   const loadTasks = useCallback(async () => {
     try {
       setError("")
-      const rows = await api.get<Task[]>("/projects/tasks")
+      const [rows, companyMembers] = await Promise.all([
+        api.get<Task[]>("/projects/tasks"),
+        api.get<CompanyMember[]>("/projects/members"),
+      ])
       setTasks(z.array(taskSchema).parse(rows))
+      setMembers(companyMembers)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load company tasks.")
     } finally {
@@ -46,6 +53,7 @@ export default function TaskPage() {
       status: newTask.status === "in progress" ? "in_progress" : newTask.status,
       category: newTask.category,
       priority: newTask.priority,
+      assignedTo: newTask.assigned_to ?? undefined,
     })
     await loadTasks()
   }
@@ -75,7 +83,7 @@ export default function TaskPage() {
         </div>
         <Card>
           <CardHeader><CardTitle>Task management</CardTitle><CardDescription>Tasks are stored against the selected company and shared with its authorized members.</CardDescription></CardHeader>
-          <CardContent><DataTable data={tasks} columns={columnsWithUpdates(handleUpdateTaskStatus)} onAddTask={handleAddTask} /></CardContent>
+          <CardContent><DataTable data={tasks} columns={columnsWithUpdates(handleUpdateTaskStatus)} onAddTask={handleAddTask} members={members} /></CardContent>
         </Card>
       </div>
     </BaseLayout>
