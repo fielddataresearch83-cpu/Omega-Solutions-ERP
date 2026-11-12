@@ -97,6 +97,8 @@ export default function WorkforcePage() {
     if (records.length < 2) throw new Error("The checklist needs a header row and at least one worker row.");
     const normalizeHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
     const headers = records[0].map(normalizeHeader);
+    if (headers.some(header => !header) || new Set(headers).size !== headers.length) throw new Error("The CSV header contains a blank or duplicate column name.");
+    records.slice(1).forEach((cells, index) => { if (cells.length !== headers.length) throw new Error(`Row ${index + 2} has ${cells.length} columns; expected ${headers.length}. Check commas and quoted fields.`); });
     const column = (...names: string[]) => headers.findIndex(h => names.includes(h));
     const idCol = column("nationalid", "idno", "idnumber", "nationalidnumber");
     const scheduledCol = column("scheduleddays", "scheduled", "workdays");
