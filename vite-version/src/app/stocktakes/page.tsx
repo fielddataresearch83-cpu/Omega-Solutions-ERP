@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { api } from "@/lib/api-client"
 import { formatNumber } from "@/lib/format"
-type Warehouse={id:string;code:string;name:string}
+type Warehouse={id:string;code:string;name:string;is_active:boolean}
 type Summary={id:string;warehouse_id:string;warehouse_code:string;warehouse_name:string;reference:string|null;status:string;line_count:number|string;counted_lines:number|string;created_at:string}
 type Line={id:string;product_id:string;sku:string;product_name:string;unit:string;snapshot_quantity:string|number;counted_quantity:string|number|null;counted_at:string|null;notes:string|null}
 type Detail=Summary&{lines:Line[]}
@@ -16,7 +16,7 @@ export default function StocktakesPage(){
  const[warehouses,setWarehouses]=React.useState<Warehouse[]>([]),[sessions,setSessions]=React.useState<Summary[]>([]),[detail,setDetail]=React.useState<Detail|null>(null)
  const[warehouseId,setWarehouseId]=React.useState(""),[reference,setReference]=React.useState(""),[counts,setCounts]=React.useState<Record<string,string>>({})
  const[loading,setLoading]=React.useState(true),[saving,setSaving]=React.useState(false),[error,setError]=React.useState<string|null>(null),[notice,setNotice]=React.useState<string|null>(null)
- const load=React.useCallback(async()=>{setLoading(true);setError(null);try{const[w,s]=await Promise.all([api.get<Warehouse[]>("/inventory/warehouses"),api.get<Summary[]>("/inventory/stocktakes")]);setWarehouses(w.filter(x=>x.id));setSessions(s)}catch(e){setError((e as {message?:string}).message??"Could not load stocktakes.")}finally{setLoading(false)}},[])
+ const load=React.useCallback(async()=>{setLoading(true);setError(null);try{const[w,s]=await Promise.all([api.get<Warehouse[]>("/inventory/warehouses"),api.get<Summary[]>("/inventory/stocktakes")]);setWarehouses(w.filter(x=>x.is_active));setSessions(s)}catch(e){setError((e as {message?:string}).message??"Could not load stocktakes.")}finally{setLoading(false)}},[])
  React.useEffect(()=>{void load()},[load])
  async function open(id:string){setError(null);try{const d=await api.get<Detail>("/inventory/stocktakes/"+id);setDetail(d);setCounts(Object.fromEntries(d.lines.map(l=>[l.id,l.counted_quantity===null?"":String(l.counted_quantity)])))}catch(e){setError((e as {message?:string}).message??"Could not open stocktake.")}}
  async function create(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setSaving(true);setError(null);setNotice(null);try{const d=await api.post<Detail>("/inventory/stocktakes",{warehouseId,reference:reference.trim()||undefined});setReference("");setDetail(d);setCounts(Object.fromEntries(d.lines.map(l=>[l.id,""])));await load();setNotice("Count session created. Enter and save the physical count for every product.")}catch(e){setError((e as {message?:string}).message??"Could not create stocktake.")}finally{setSaving(false)}}

@@ -40,7 +40,7 @@ export default function StockLevelsPage(){
     return matches&&(warehouseId==="all"||r.warehouse_id===warehouseId)&&(statusFilter==="all"||r.status===statusFilter)
   })
   const low=rows.filter(r=>r.status==="low_stock"&&Number(r.quantity)>0).length
-  const out=rows.filter(r=>Number(r.quantity)===0).length
+  const out=rows.filter(r=>r.status==="out_of_stock").length
   const totalCost=Number(summary?.inventory_cost_value||0)
   return <BaseLayout><div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
     <PageHeader title="Stock Levels" description="Live, per-warehouse stock balances with available quantity and reorder alerts" action={<Button variant="outline" onClick={()=>void load()} disabled={loading}><RefreshCw className="mr-2 size-4"/>Refresh</Button>}/>

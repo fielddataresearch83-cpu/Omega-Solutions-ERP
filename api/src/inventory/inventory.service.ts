@@ -329,13 +329,14 @@ export class InventoryService {
   async postStocktake(user: AuthenticatedUser, stocktakeId: string) {
     const { companyId, branchId } = await this.resolveMembership(user);
     await this.db.transaction(async client => {
-      const session = await client.query("SELECT t.id,t.status,t.warehouse_id,t.branch_id,t.reference FROM inventory_stocktakes t JOIN warehouses w ON w.id=t.warehouse_id AND w.company_id=t.company_id WHERE t.id=$1 AND t.company_id=$2 AND ($3::uuid IS NULL OR w.branch_id=$3) FOR UPDATE OF t", [stocktakeId, companyId, branchId]);
+      const warehouseAccess = await client.query("SELECT w.id FROM inventory_stocktakes t JOIN warehouses w ON w.id=t.warehouse_id AND w.company_id=t.company_id WHERE t.id=$1 AND t.company_id=$2 AND ($3::uuid IS NULL OR w.branch_id=$3) AND w.is_active=true FOR SHARE OF w", [stocktakeId, companyId, branchId]);
+      if (!warehouseAccess.rows[0]) throw new NotFoundException('Active stocktake warehouse not found in your company and assigned branch.');
+      const session = await client.query("SELECT id,status,warehouse_id,branch_id,reference FROM inventory_stocktakes WHERE id=$1 AND company_id=$2 FOR UPDATE", [stocktakeId, companyId]);
       if (!session.rows[0]) throw new NotFoundException('Stocktake not found.');
       if (session.rows[0].status !== 'draft') throw new ConflictException('This stocktake has already been posted or cancelled.');
       const lines = await client.query("SELECT l.id,l.product_id,l.counted_quantity,l.counted_at,p.name AS product_name,p.cost_price,p.unit FROM inventory_stocktake_lines l JOIN products p ON p.id=l.product_id AND p.company_id=l.company_id WHERE l.stocktake_id=$1 AND l.company_id=$2 ORDER BY l.product_id FOR UPDATE OF l", [stocktakeId, companyId]);
       if (!lines.rows.length) throw new ConflictException('This stocktake has no count lines.');
       if (lines.rows.some(line => line.counted_quantity === null || !line.counted_at)) throw new ConflictException('Count every stocktake line before posting.');
-      await client.query("SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE", [session.rows[0].warehouse_id, companyId]);
       for (const line of lines.rows) {
         await this.ensureStockRow(client, companyId, session.rows[0].warehouse_id, line.product_id);
         const current = await client.query("SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE", [companyId, session.rows[0].warehouse_id, line.product_id]);

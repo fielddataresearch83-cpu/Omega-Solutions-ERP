@@ -530,4 +530,39 @@ describe('InventoryService', () => {
     expect(client.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE warehouses'))).toBe(true);
   });
 
+  it('creates a branch-scoped stocktake snapshot without changing inventory balances', async () => {
+    const branchId = '11111111-1111-4111-8111-111111111111';
+    memberships.getMembership.mockResolvedValue({ companyId: 'company-1', branchId, role: 'manager' });
+    const client = { query: vi.fn()
+      .mockResolvedValueOnce({ rows: [{ id: 'warehouse-1', branch_id: branchId }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 })
+      .mockResolvedValueOnce({ rows: [{ id: 'stocktake-1' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 3 }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'stocktake-1', status: 'draft', warehouse_id: 'warehouse-1' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'line-1', snapshot_quantity: '4', counted_quantity: null }], rowCount: 1 });
+
+    const result = await service.createStocktake(user, { warehouseId: 'warehouse-1', reference: 'ST-001' });
+
+    expect(result.id).toBe('stocktake-1');
+    expect(client.query.mock.calls[0][0]).toContain('is_active=true');
+    expect(client.query.mock.calls[3][0]).toContain('INSERT INTO inventory_stocktake_lines');
+    expect(client.query.mock.calls[3][0]).toContain('COALESCE(s.quantity,0)');
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE inventory_stock_levels'))).toBe(false);
+  });
+
+  it('refuses to post a stocktake until every line has a physical count', async () => {
+    const client = { query: vi.fn()
+      .mockResolvedValueOnce({ rows: [{ id: 'warehouse-1' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'stocktake-1', status: 'draft', warehouse_id: 'warehouse-1', branch_id: null }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'line-1', product_id: 'product-1', counted_quantity: null, counted_at: null }], rowCount: 1 }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+
+    await expect(service.postStocktake(user, 'stocktake-1')).rejects.toThrow(ConflictException);
+
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE inventory_stock_levels'))).toBe(false);
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO inventory_stock_movements'))).toBe(false);
+  });
+
 });
