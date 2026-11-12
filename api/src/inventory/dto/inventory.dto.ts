@@ -68,3 +68,11 @@ export class CreateInventoryReturnDto {
   @IsString() @MaxLength(1000) reason!: string;
   @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => CreateInventoryReturnLineDto) items!: CreateInventoryReturnLineDto[];
 }
+
+export class ResolveInventoryQuarantineDto {
+  @IsUUID() warehouseId!: string;
+  @IsUUID() productId!: string;
+  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 4 }) @Min(0.0001) quantity!: number;
+  @IsIn(['restock', 'reject']) disposition!: 'restock' | 'reject';
+  @IsOptional() @IsString() @MaxLength(2000) notes?: string;
+}
