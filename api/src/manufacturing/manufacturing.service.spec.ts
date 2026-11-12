@@ -94,6 +94,7 @@ describe('ManufacturingService',()=>{
   const client = { query: vi.fn().mockImplementation(async (sql: string) => {
    if (sql.includes('SELECT id,status,warehouse_id,planned_quantity,bom_id FROM manufacturing_production_orders')) return { rows: [{ id: 'order-1', status: 'planned', warehouse_id: 'warehouse-1', planned_quantity: 2, bom_id: 'bom-1' }], rowCount: 1 };
    if (sql.includes('SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
+   if (sql.includes('SELECT id FROM products WHERE id=$1 AND company_id=$2 AND is_active=true AND is_service=false FOR SHARE')) return { rows: [{ id: 'material-1' }], rowCount: 1 };
    if (sql.includes('SELECT material_product_id,required_quantity,reserved_quantity FROM manufacturing_order_materials')) return { rows: [{ material_product_id: 'material-1', required_quantity: 5, reserved_quantity: 0 }], rowCount: 1 };
    if (sql.includes('UPDATE inventory_stock_levels SET reserved_quantity=reserved_quantity+$1')) return { rows: [], rowCount: 0 };
    return { rows: [], rowCount: 1 };

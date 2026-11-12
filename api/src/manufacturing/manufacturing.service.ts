@@ -123,6 +123,8 @@ export class ManufacturingService {
    const materials=await client.query<{material_product_id:string;required_quantity:string|number;reserved_quantity:string|number}>(`SELECT material_product_id,required_quantity,reserved_quantity FROM manufacturing_order_materials WHERE company_id=$1 AND production_order_id=$2 ORDER BY material_product_id FOR UPDATE`,[companyId,id]);
    if(!materials.rows.length)throw new BadRequestException('Production order has no material requirements.');
    for(const material of materials.rows){
+    const activeProduct=await client.query('SELECT id FROM products WHERE id=$1 AND company_id=$2 AND is_active=true AND is_service=false FOR SHARE',[material.material_product_id,companyId]);
+    if(!activeProduct.rows[0])throw new BadRequestException('A required manufacturing material is inactive or unavailable.');
     await client.query(`INSERT INTO inventory_stock_levels(company_id,warehouse_id,product_id,quantity,reserved_quantity,reorder_level) VALUES($1,$2,$3,0,0,0) ON CONFLICT(warehouse_id,product_id) DO NOTHING`,[companyId,order.rows[0].warehouse_id,material.material_product_id]);
     const reserved=await client.query<{id:string;average_unit_cost:string|number}>(`UPDATE inventory_stock_levels SET reserved_quantity=reserved_quantity+$1,updated_at=NOW() WHERE company_id=$2 AND warehouse_id=$3 AND product_id=$4 AND quantity-reserved_quantity >= $1 RETURNING id,average_unit_cost`,[material.required_quantity,companyId,order.rows[0].warehouse_id,material.material_product_id]);
     if(!reserved.rows[0])throw new BadRequestException('Insufficient available stock for material '+material.material_product_id+'; production was not started.');
