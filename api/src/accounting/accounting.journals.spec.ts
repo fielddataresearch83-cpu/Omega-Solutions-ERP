@@ -115,3 +115,30 @@ describe('AccountingService VAT summary', () => {
     expect(db.query.mock.calls[1][0]).toContain("a.system_code IN ('input_tax','output_tax')");
   });
 });
+
+
+describe('AccountingService withholding tax schedule', () => {
+  it('returns supplier PINs, certificates and gross/net settlement totals', async () => {
+    const { service, db } = setup();
+    db.query
+      .mockResolvedValueOnce({ rows: [{ currency: 'KES' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{
+        payment_date: '2026-11-12', supplier_name: 'Acme Supplies', kra_pin: 'A123456789B',
+        bill_number: 'BILL-1', supplier_invoice_number: 'INV-1', amount: '1000.00',
+        cash_amount: '900.00', withholding_tax_amount: '100.00',
+        withholding_certificate_number: 'WHT-001', reference: 'BANK-001',
+      }], rowCount: 1 });
+
+    const result = await service.withholdingTaxSchedule(
+      { userId: 'user-1', companyId: 'company-1' } as any,
+      '2026-11-01', '2026-11-30',
+    );
+
+    expect(result.totalGrossPayments).toBe(1000);
+    expect(result.totalCashPaid).toBe(900);
+    expect(result.totalWithholdingTax).toBe(100);
+    expect(result.payments[0].kra_pin).toBe('A123456789B');
+    expect(db.query.mock.calls[1][0]).toContain('withholding_certificate_number');
+    expect(db.query.mock.calls[1][0]).toContain('s.kra_pin');
+  });
+});
