@@ -90,7 +90,7 @@ export function useCalendar(_initialEvents: CalendarEvent[] = []): UseCalendarRe
       eventType: eventData.type ?? "meeting",
       startAt: date.toISOString(),
       location: eventData.location,
-      allDay: eventData.allDay ?? false,
+      allDay: eventData.allDay ?? eventData.duration === "All day",
       endAt: eventData.allDay || eventData.duration === "All day" ? undefined : new Date(date.getTime() + (durations[eventData.duration ?? "1 hour"] ?? 60) * 60_000).toISOString(),
     }
     if (eventData.id) await api.patch("/projects/events/" + eventData.id, payload)
