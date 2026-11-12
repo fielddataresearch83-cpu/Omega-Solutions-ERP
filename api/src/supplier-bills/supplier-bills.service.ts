@@ -86,7 +86,7 @@ export class SupplierBillsService {
     let id: string;
     try {
     id=await this.db.transaction(async client=>{
-      const supplier=await client.query<{id:string}>("SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true AND status='active'",[dto.supplierId,companyId]);
+      const supplier=await client.query<{id:string}>("SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true AND status='active' FOR SHARE",[dto.supplierId,companyId]);
       if(!supplier.rows[0])throw new NotFoundException('Active supplier not found in this company.');
       if(dto.supplierInvoiceNumber?.trim()){
         const normalizedInvoiceNumber = dto.supplierInvoiceNumber.trim().toLowerCase();
