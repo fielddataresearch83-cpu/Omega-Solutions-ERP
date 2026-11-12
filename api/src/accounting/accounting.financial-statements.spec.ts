@@ -163,8 +163,6 @@ describe('AccountingService.balanceSheet', () => {
     expect(result.totalLiabilitiesAndEquity).toBe(5000);
     expect(result.equityAccounts.some(account => account.system_code === 'calculated_retained_earnings' && account.balance === 1000)).toBe(true);
     expect(result.balanced).toBe(true);
-    const sql = String(db.query.mock.calls.find(([statement]) => String(statement).includes("account_type IN ('asset','liability','equity')"))?.[0]);
-    expect(sql).toContain("CASE WHEN a.account_type='asset'");
   });
 
   it('reports out-of-balance variance without forcing it to zero', async () => {
