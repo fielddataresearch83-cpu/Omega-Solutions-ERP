@@ -12,7 +12,7 @@ import { api } from "@/lib/api-client";
 import { formatKES, formatDate } from "@/lib/format";
 
 type Supplier={id:string;name:string;is_active:boolean;status:string};
-type POLine={id:string;product_name:string;sku:string|null;quantity:string|number;received_quantity:string|number;unit_cost:string|number;tax_rate?:string|number};
+type POLine={id:string;product_name:string;sku:string|null;quantity:string|number;received_quantity:string|number;billed_quantity?:string|number;unit_cost:string|number;tax_rate?:string|number};
 type PO={id:string;order_number:string;supplier_id:string;supplier_name:string;status:string;items?:POLine[]};
 type BillLine={description:string;quantity:string;unitCost:string;taxRate:string;taxTreatment:"legacy"|"standard"|"zero_rated"|"exempt"|"out_of_scope";purchaseOrderItemId?:string};
 type Bill={id:string;bill_number:string;supplier_name:string;supplier_id:string;purchase_order_id:string|null;supplier_invoice_number:string|null;bill_date:string;due_date:string|null;status:"open"|"partially_paid"|"paid"|"void";total:string|number;paid_amount:string|number;balance:string|number;item_count:number};
@@ -61,7 +61,7 @@ export default function SupplierBillsPage(){
   try{
    const po=await api.get<PO>(`/purchase-orders/${id}`);
    setSupplierId(po.supplier_id);
-   const received=(po.items??[]).filter(i=>Number(i.received_quantity)>0).map(i=>({description:i.product_name,quantity:String(i.received_quantity),unitCost:String(i.unit_cost),taxRate:String(i.tax_rate??0),taxTreatment:"legacy" as const,purchaseOrderItemId:i.id}));
+   const received=(po.items??[]).map(i=>({...i,unbilledQuantity:Math.max(0,Number(i.received_quantity)-Number(i.billed_quantity??0))})).filter(i=>i.unbilledQuantity>0).map(i=>({description:i.product_name,quantity:String(i.unbilledQuantity),unitCost:String(i.unit_cost),taxRate:String(i.tax_rate??0),taxTreatment:"legacy" as const,purchaseOrderItemId:i.id}));
    if(!received.length){setError("This order has no received quantities available to bill yet.");setLines([{description:"",quantity:"1",unitCost:"0",taxRate:"16",taxTreatment:"legacy"}]);return}
    setLines(received);
   }catch(e){setError(messageOf(e))}
