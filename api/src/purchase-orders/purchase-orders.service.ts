@@ -58,7 +58,7 @@ export class PurchaseOrdersService {
   async create(user: AuthenticatedUser,dto: CreatePurchaseOrderDto) {
     const membership=await this.companyFor(user); this.assertCompanyWideProcurement(membership); const companyId=membership.companyId;
     const id=await this.db.transaction(async client=>{
-      const supplier=await client.query("SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true AND status='active'",[dto.supplierId,companyId]);
+      const supplier=await client.query("SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true AND status='active' FOR SHARE",[dto.supplierId,companyId]);
       if(!supplier.rows[0]) throw new NotFoundException('Active supplier not found in this company.');
       const year=new Date().getFullYear();
       const seq=await client.query<{next_number:number}>(`INSERT INTO purchase_order_sequences(company_id,order_year,next_number) VALUES($1,$2,1) ON CONFLICT(company_id,order_year) DO UPDATE SET next_number=purchase_order_sequences.next_number+1 RETURNING next_number`,[companyId,year]);
@@ -113,7 +113,7 @@ export class PurchaseOrdersService {
       );
       if (existing.rows[0]) throw new BadRequestException('A purchase order already exists for this requisition.');
       const supplier = await client.query(
-        "SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true AND status='active'",
+        "SELECT id FROM suppliers WHERE id=$1 AND company_id=$2 AND is_active=true AND status='active' FOR SHARE",
         [dto.supplierId, companyId],
       );
       if (!supplier.rows[0]) throw new NotFoundException('Active supplier not found in this company.');
