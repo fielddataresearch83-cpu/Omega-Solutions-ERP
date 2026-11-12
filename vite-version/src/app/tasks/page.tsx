@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { z } from "zod"
-import { ArrowUp, BarChart3, CheckCircle2, Clock, ListTodo } from "lucide-react"
+import { BarChart3, CheckCircle2, Clock, ListTodo } from "lucide-react"
 
 import { BaseLayout } from "@/components/layouts/base-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"

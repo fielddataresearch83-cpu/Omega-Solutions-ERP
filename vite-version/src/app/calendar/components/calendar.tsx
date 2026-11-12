@@ -70,7 +70,7 @@ export function Calendar({ events }: CalendarProps) {
               onDateSelect={calendar.handleDateSelect}
               onNewCalendar={calendar.handleNewCalendar}
               onNewEvent={calendar.handleNewEvent}
-              events={eventDates}
+              events={calendar.events.map((event) => ({ date: event.date, count: 1 }))}
               className="h-full"
             />
           </SheetContent>
