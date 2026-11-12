@@ -466,7 +466,7 @@ export class AccountingService {
        WHEN account.system_code IN ('accounts_receivable','accounts_payable','inventory','input_tax','output_tax','goods_received_not_invoiced','customer_credits','withholding_tax_payable') THEN 'operating'
        WHEN account.account_type IN ('income','expense') THEN 'operating'
        WHEN account.account_type='equity' THEN 'financing'
-       WHEN account.account_type='asset' THEN 'investing'
+       WHEN account.account_type IN ('asset','liability') THEN NULL
        ELSE 'operating'
       END AS category,
       SUM(line.credit-line.debit) AS amount
