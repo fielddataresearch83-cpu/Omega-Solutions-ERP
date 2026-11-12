@@ -31,18 +31,13 @@ export default function TaskPage() {
   useEffect(() => { void loadTasks() }, [loadTasks])
 
   const handleAddTask = async (newTask: Task) => {
-    try {
-      setError("")
-      await api.post("/projects/tasks", {
-        title: newTask.title,
-        status: newTask.status === "in progress" ? "in_progress" : newTask.status,
-        category: newTask.category,
-        priority: newTask.priority,
-      })
-      await loadTasks()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to create task.")
-    }
+    await api.post("/projects/tasks", {
+      title: newTask.title,
+      status: newTask.status === "in progress" ? "in_progress" : newTask.status,
+      category: newTask.category,
+      priority: newTask.priority,
+    })
+    await loadTasks()
   }
 
   const stats = {
