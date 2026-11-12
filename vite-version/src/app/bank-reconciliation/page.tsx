@@ -45,7 +45,7 @@ function parseCsvRows(text:string):string[][] {
 function csvDate(value:string):string {
  const raw=value.trim()
  if(/^\d{4}-\d{2}-\d{2}$/.test(raw))return raw
- const match=raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/)
+ const match=raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/)
  if(match)return match[3]+"-"+match[2].padStart(2,"0")+"-"+match[1].padStart(2,"0")
  const parsed=new Date(raw)
  if(Number.isNaN(parsed.getTime()))throw new Error("A statement date could not be read. Use YYYY-MM-DD or DD/MM/YYYY.")
