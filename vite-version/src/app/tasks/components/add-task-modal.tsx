@@ -104,6 +104,7 @@ export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalP
         category: "feature",
         priority: "normal",
         assignedTo: "",
+        dueAt: "",
       })
       setErrors({})
       setOpen(false)
