@@ -43,7 +43,7 @@ export default function FinancePlanningPage(){
   }catch(e){setError(errorText(e))}
   finally{setLoading(false)}
  },[year,month])
- React.useEffect(()=>{void load()},[load])
+ React.useEffect(()=>{const timer=window.setTimeout(()=>{void load()},0);return()=>window.clearTimeout(timer)},[load])
 
  const createCentre=async()=>{
   if(!centreForm.code.trim()||!centreForm.name.trim()){setError("Enter a cost centre code and name.");return}
