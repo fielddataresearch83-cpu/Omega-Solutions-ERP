@@ -63,6 +63,14 @@ export const columns: ColumnDef<DataTableFeatures, Task>[] = [
     },
   },
   {
+  {
+    accessorKey: "project_name",
+    header: "Project",
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">{row.original.project_name || "No project"}</span>
+    ),
+    enableSorting: true,
+  },
     accessorKey: "category",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Category" />
