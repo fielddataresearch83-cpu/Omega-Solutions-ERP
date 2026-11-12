@@ -10,6 +10,8 @@ export const taskSchema = z.object({
   priority: z.string(),
   description: z.string().nullable().optional(),
   assigned_to: z.string().nullable().optional(),
+  project_id: z.string().nullable().optional(),
+  project_name: z.string().nullable().optional(),
   assignee_name: z.string().nullable().optional(),
   due_at: z.string().nullable().optional(),
 })
