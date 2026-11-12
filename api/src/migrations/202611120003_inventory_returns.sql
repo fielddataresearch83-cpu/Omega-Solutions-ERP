@@ -1,12 +1,15 @@
 -- Physical inventory returns and inspection ledger. Apply manually to development after review.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_id_company_return_fk ON customers(id,company_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_suppliers_id_company_return_fk ON suppliers(id,company_id);
+
 CREATE TABLE IF NOT EXISTS inventory_returns (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
   return_number VARCHAR(48) NOT NULL,
   return_type VARCHAR(16) NOT NULL CHECK (return_type IN ('customer','supplier')),
-  customer_id UUID REFERENCES customers(id) ON DELETE RESTRICT,
-  supplier_id UUID REFERENCES suppliers(id) ON DELETE RESTRICT,
+  customer_id UUID,
+  supplier_id UUID,
   supplier_bill_id UUID,
   warehouse_id UUID NOT NULL,
   source_reference VARCHAR(120),
@@ -21,6 +24,8 @@ CREATE TABLE IF NOT EXISTS inventory_returns (
     (return_type='customer' AND customer_id IS NOT NULL AND supplier_id IS NULL) OR
     (return_type='supplier' AND supplier_id IS NOT NULL AND customer_id IS NULL)
   ),
+  CONSTRAINT inventory_returns_customer_company_fk FOREIGN KEY (customer_id,company_id) REFERENCES customers(id,company_id) ON DELETE RESTRICT,
+  CONSTRAINT inventory_returns_supplier_company_fk FOREIGN KEY (supplier_id,company_id) REFERENCES suppliers(id,company_id) ON DELETE RESTRICT,
   CONSTRAINT inventory_returns_supplier_bill_company_fk FOREIGN KEY (supplier_bill_id,company_id) REFERENCES supplier_bills(id,company_id) ON DELETE RESTRICT,
   CONSTRAINT inventory_returns_warehouse_company_fk FOREIGN KEY (warehouse_id,company_id)
     REFERENCES warehouses(id,company_id) ON DELETE RESTRICT,
