@@ -91,4 +91,43 @@ describe('ProjectsService', () => {
     expect(client.query.mock.calls[1][1]).toEqual(['user-from-another-company', 'company-1']);
     expect(audit.logInTransaction).not.toHaveBeenCalled();
   });
+  it('persists calendar attendees and reminder preferences in the audited transaction', async () => {
+    const client = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [{ id: 'event-1' }], rowCount: 1 }),
+    };
+    db.transaction.mockImplementation(async (callback) => callback(client));
+
+    await service.createEvent(user, {
+      title: 'Project kickoff',
+      startAt: '2026-11-13T09:00:00.000Z',
+      attendees: ['ops@example.test', 'finance@example.test'],
+      reminderEnabled: false,
+    });
+
+    expect(client.query.mock.calls[0][0]).toContain('attendees,reminder_enabled,created_by');
+    expect(client.query.mock.calls[0][1]).toContain(JSON.stringify(['ops@example.test', 'finance@example.test']));
+    expect(client.query.mock.calls[0][1]).toContain(false);
+    expect(audit.logInTransaction).toHaveBeenCalledWith(client, expect.objectContaining({
+      action: 'projects.event.create',
+      entityId: 'event-1',
+    }));
+  });
+
+  it('validates project ownership against active membership before inserting', async () => {
+    const client = {
+      query: vi.fn()
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }),
+    };
+    db.transaction.mockImplementation(async (callback) => callback(client));
+
+    await expect(service.createProject(user, {
+      name: 'Cross-company project',
+      ownerUserId: 'user-from-another-company',
+    })).rejects.toThrow('Project owner must be an active member of this company.');
+
+    expect(client.query.mock.calls[0][1]).toEqual(['user-from-another-company', 'company-1']);
+    expect(audit.logInTransaction).not.toHaveBeenCalled();
+  });
+
 });
