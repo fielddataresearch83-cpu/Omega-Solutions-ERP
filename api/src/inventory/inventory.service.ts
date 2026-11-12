@@ -145,6 +145,28 @@ export class InventoryService {
     values.push(warehouseId,companyId,branchId);
     try {
       return await this.db.transaction(async client => {
+        if (dto.branchId && dto.branchId !== existing.branch_id) {
+          const lockedWarehouse = await client.query<{ id: string }>(
+            'SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 FOR UPDATE',
+            [warehouseId, companyId],
+          );
+          if (!lockedWarehouse.rows[0]) throw new NotFoundException('Warehouse not found.');
+          const stockHistory = await client.query<{ id: string }>(
+            'SELECT id FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 LIMIT 1',
+            [companyId, warehouseId],
+          );
+          const movementHistory = await client.query<{ id: string }>(
+            'SELECT id FROM inventory_stock_movements WHERE company_id=$1 AND warehouse_id=$2 LIMIT 1',
+            [companyId, warehouseId],
+          );
+          const countHistory = await client.query<{ id: string }>(
+            'SELECT id FROM inventory_stocktakes WHERE company_id=$1 AND warehouse_id=$2 LIMIT 1',
+            [companyId, warehouseId],
+          );
+          if (stockHistory.rows.length || movementHistory.rows.length || countHistory.rows.length) {
+            throw new ConflictException('A warehouse with stock records or movement history cannot be reassigned to another branch.');
+          }
+        }
         if (dto.isActive === false && existing.is_active) {
           const lockedWarehouse = await client.query<{ id: string }>(
             'SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',

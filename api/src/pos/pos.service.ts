@@ -227,7 +227,7 @@ export class PosService {
       if(!register.rows[0]) throw new BadRequestException('The shift register is no longer active.');
       if(branchId && register.rows[0].branch_id!==branchId) throw new ForbiddenException('Your selected branch does not have access to this POS register.');
       const warehouse=await client.query<{id:string;branch_id:string|null}>(
-        'SELECT id,branch_id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true',
+        'SELECT id,branch_id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE',
         [dto.warehouseId,companyId]);
       if(!warehouse.rows[0]) throw new BadRequestException('Choose an active warehouse belonging to this company.');
       if(!user.permissions.includes('sales:team-read') && warehouse.rows[0].branch_id !== register.rows[0].branch_id) {

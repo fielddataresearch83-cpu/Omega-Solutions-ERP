@@ -143,7 +143,7 @@ export class SalesOrdersService {
       if (next === 'fulfilled') {
         if (!warehouseId) throw new BadRequestException('Choose a warehouse before fulfilling this order.');
         const warehouse = await client.query<{ id: string }>(
-          'SELECT id FROM warehouses WHERE id = $1 AND company_id = $2 AND is_active = true',
+          'SELECT id FROM warehouses WHERE id = $1 AND company_id = $2 AND is_active = true FOR SHARE',
           [warehouseId, membership.companyId],
         );
         if (!warehouse.rows[0]) throw new NotFoundException('Active warehouse not found in this company.');

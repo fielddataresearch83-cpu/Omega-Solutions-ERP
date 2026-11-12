@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
@@ -215,6 +215,26 @@ describe('ProductsService initial stock', () => {
     await expect(service.create(user, { ...dto, taxTreatment: 'standard', taxRate: 0 } as any))
       .rejects.toThrow('Standard-rated products require an explicitly configured tax rate');
     expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it('blocks product deactivation while stock is on hand or reserved', async () => {
+    const existing = {
+      id: 'product-1', company_id: 'company-1', sku: 'TEST-001', name: 'Test product',
+      tax_treatment: 'legacy', tax_rate: 0, is_active: true, is_service: false,
+      stock_quantity: 5,
+    };
+    db.query
+      .mockResolvedValueOnce({ rows: [existing], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ settings: null }], rowCount: 1 });
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT id FROM products WHERE id=')) return { rows: [{ id: 'product-1' }], rowCount: 1 };
+      if (sql.includes('SELECT id FROM inventory_stock_levels')) return { rows: [{ id: 'stock-1' }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    });
+
+    await expect(service.update(user, 'product-1', { isActive: false } as any)).rejects.toThrow(ConflictException);
+
+    expect(client.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE products SET'))).toBe(false);
   });
 
 });

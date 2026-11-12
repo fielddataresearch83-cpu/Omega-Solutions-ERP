@@ -118,6 +118,8 @@ export class ManufacturingService {
    const order=await client.query<{id:string;status:string;warehouse_id:string;planned_quantity:string|number;bom_id:string}>(`SELECT id,status,warehouse_id,planned_quantity,bom_id FROM manufacturing_production_orders WHERE company_id=$1 AND id=$2 AND EXISTS (SELECT 1 FROM warehouses w WHERE w.company_id=manufacturing_production_orders.company_id AND w.id=manufacturing_production_orders.warehouse_id AND ($3::uuid IS NULL OR w.branch_id=$3)) FOR UPDATE`,[companyId,id,branchId]);
    if(!order.rows[0])throw new NotFoundException('Production order not found.');
    if(order.rows[0].status!=='planned')throw new ConflictException('Only planned production orders can be started.');
+   const activeWarehouse=await client.query('SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE',[order.rows[0].warehouse_id,companyId]);
+   if(!activeWarehouse.rows[0])throw new NotFoundException('Active production warehouse not found.');
    const materials=await client.query<{material_product_id:string;required_quantity:string|number;reserved_quantity:string|number}>(`SELECT material_product_id,required_quantity,reserved_quantity FROM manufacturing_order_materials WHERE company_id=$1 AND production_order_id=$2 ORDER BY material_product_id FOR UPDATE`,[companyId,id]);
    if(!materials.rows.length)throw new BadRequestException('Production order has no material requirements.');
    for(const material of materials.rows){
