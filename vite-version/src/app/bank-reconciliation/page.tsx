@@ -63,7 +63,7 @@ function parseStatementCsv(text:string):DraftLine[] {
  const creditIndex=find(["credit","deposit","money in"])
  const balanceIndex=find(["balance","running balance"])
  if(dateIndex<0||descriptionIndex<0||debitIndex<0||creditIndex<0)throw new Error("CSV headers must include date, description, debit and credit columns.")
- return rows.slice(1).map((row,index)=>({
+ return rows.slice(1).map(row=>({
   transactionDate:csvDate(row[dateIndex]??""),
   description:(row[descriptionIndex]??"").trim(),
   reference:referenceIndex>=0?(row[referenceIndex]??"").trim():"",
