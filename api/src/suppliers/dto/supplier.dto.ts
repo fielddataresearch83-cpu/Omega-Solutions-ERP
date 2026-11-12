@@ -5,6 +5,7 @@ import {
   IsIn,
   MinLength,
   MaxLength,
+  Matches,
 } from 'class-validator';
 
 export class CreateSupplierDto {
@@ -16,6 +17,12 @@ export class CreateSupplierDto {
   @IsEmail()
   @IsOptional()
   email?: string;
+
+  @IsString()
+  @Matches(/^[A-Z]\\d{9}[A-Z]$/i)
+  @MaxLength(20)
+  @IsOptional()
+  kraPin?: string;
 
   @IsString()
   @MaxLength(30)
@@ -63,6 +70,12 @@ export class UpdateSupplierDto {
   @IsEmail()
   @IsOptional()
   email?: string;
+
+  @IsString()
+  @Matches(/^[A-Z]\\d{9}[A-Z]$/i)
+  @MaxLength(20)
+  @IsOptional()
+  kraPin?: string;
 
   @IsString()
   @MaxLength(30)
