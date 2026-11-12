@@ -188,7 +188,7 @@ export class SupplierBillsService {
       const payment=await client.query<{id:string}>(`INSERT INTO supplier_bill_payments(company_id,supplier_bill_id,amount,cash_amount,withholding_tax_amount,withholding_certificate_number,payment_date,method,reference,notes,created_by)
        VALUES($1,$2,$3,$4,$5,$6,COALESCE($7::date,CURRENT_DATE),$8,$9,$10,$11) RETURNING id`,[m.companyId,id,dto.amount,cashAmount,withholdingTaxAmount,certificateNumber,dto.paymentDate??null,dto.method,dto.reference??null,dto.notes??null,user.userId]);
       const cashAccount=dto.method==='cash'?'cash':dto.method==='mpesa'?'mpesa':'bank';
-      const paymentLines=[{systemCode:'accounts_payable',debit:dto.amount,credit:0,description:'Reduce supplier payable'}];
+      const paymentLines: {systemCode:string;debit:number;credit:number;description:string}[]=[{systemCode:'accounts_payable',debit:dto.amount,credit:0,description:'Reduce supplier payable'}];
       if(cashAmount>0)paymentLines.push({systemCode:cashAccount,debit:0,credit:cashAmount,description:`Net payment by ${dto.method}`});
       if(withholdingTaxAmount>0)paymentLines.push({systemCode:'withholding_tax_payable',debit:0,credit:withholdingTaxAmount,description:'Withholding tax payable to KRA'});
       await this.postJournal(client,{companyId:m.companyId,date:dto.paymentDate??null,description:`Payment against supplier bill ${id}`,sourceType:'supplier_bill_payment',sourceId:payment.rows[0].id,userId:user.userId,lines:paymentLines});
