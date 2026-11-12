@@ -760,6 +760,9 @@ export class AccountingService {
    if (original.source_type === 'journal_reversal') {
     throw new BadRequestException('A reversal journal cannot itself be reversed. Post a correcting journal instead.');
    }
+   if (original.source_type !== 'manual_journal') {
+    throw new BadRequestException('Only manual journals can be reversed here. Correct system-generated transactions in their originating module.');
+   }
    const originalLines = await client.query<{
     account_id: string; description: string | null; debit: string | number; credit: string | number; cost_centre_id: string | null;
    }>(
