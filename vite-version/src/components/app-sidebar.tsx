@@ -34,6 +34,7 @@ import {
   CreditCard,
   FileSignature,
   Layers3,
+  RotateCcw,
 } from "lucide-react"
 import { Link } from "react-router-dom"
 import { NavMain } from "@/components/nav-main"
@@ -107,6 +108,7 @@ const navGroups: NavGroup[] = [
       { title: "Products", url: "/products", icon: Package },
       { title: "Stock Levels", url: "/stock-levels", icon: Boxes },
       { title: "Stocktakes", url: "/stocktakes", icon: ClipboardList },
+      { title: "Physical Returns", url: "/inventory-returns", icon: RotateCcw },
       { title: "Warehouses", url: "/warehouses", icon: Building },
       { title: "Stock Movements", url: "/stock-movements", icon: ArrowLeftRight },
       { title: "Manufacturing", url: "/manufacturing", icon: Factory, module: "manufacturing" },
