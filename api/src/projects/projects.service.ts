@@ -138,7 +138,7 @@ export class ProjectsService {
     if(from&&Number.isNaN(Date.parse(from)))throw new BadRequestException('Invalid start date.');
     if(to&&Number.isNaN(Date.parse(to)))throw new BadRequestException('Invalid end date.');
     const r=await this.db.query(
-      `SELECT id,company_id,project_id,title,description,event_type,start_at,end_at,all_day,location,created_by,is_cancelled,created_at,updated_at
+      `SELECT id,company_id,project_id,title,description,event_type,start_at,end_at,all_day,location,attendees,reminder_enabled,created_by,is_cancelled,created_at,updated_at
        FROM project_events WHERE company_id=$1 AND is_cancelled=false
        AND ($2::timestamptz IS NULL OR start_at >= $2) AND ($3::timestamptz IS NULL OR start_at <= $3)
        ORDER BY start_at ASC LIMIT 500`,[companyId,from??null,to??null]);
@@ -150,9 +150,9 @@ export class ProjectsService {
     return this.db.transaction(async client=>{
       await this.ensureProject(companyId,dto.projectId,client);
       const r=await client.query(
-        `INSERT INTO project_events(company_id,project_id,title,description,event_type,start_at,end_at,all_day,location,created_by)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-        [companyId,dto.projectId??null,dto.title.trim(),dto.description?.trim()||null,dto.eventType??'meeting',dto.startAt,dto.endAt??null,dto.allDay??false,dto.location?.trim()||null,user.userId]);
+        `INSERT INTO project_events(company_id,project_id,title,description,event_type,start_at,end_at,all_day,location,attendees,reminder_enabled,created_by)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12) RETURNING *`,
+        [companyId,dto.projectId??null,dto.title.trim(),dto.description?.trim()||null,dto.eventType??'meeting',dto.startAt,dto.endAt??null,dto.allDay??false,dto.location?.trim()||null,JSON.stringify(dto.attendees??[]),dto.reminderEnabled??true,user.userId]);
       const row=r.rows[0] as Record<string,unknown>;
       await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'projects.event.create',entityType:'project_event',entityId:String(row.id),oldValues:null,newValues:{title:dto.title,startAt:dto.startAt},ipAddress:null});
       return row;
@@ -161,13 +161,31 @@ export class ProjectsService {
 
   async updateEvent(user:AuthenticatedUser,id:string,dto:UpdateProjectEventDto){
     const {companyId}=await this.scope(user);
-    const fields:Record<string,string>={title:'title',description:'description',projectId:'project_id',eventType:'event_type',startAt:'start_at',endAt:'end_at',allDay:'all_day',location:'location',isCancelled:'is_cancelled'};
+    const fields:Record<string,string>={title:'title',description:'description',projectId:'project_id',eventType:'event_type',startAt:'start_at',endAt:'end_at',allDay:'all_day',location:'location',isCancelled:'is_cancelled',attendees:'attendees',reminderEnabled:'reminder_enabled'};
     return this.db.transaction(async client=>{
       const before=await client.query('SELECT * FROM project_events WHERE id=$1 AND company_id=$2 FOR UPDATE',[id,companyId]);
       if(!before.rows.length)throw new NotFoundException('Calendar event not found.');
       if(dto.projectId)await this.ensureProject(companyId,dto.projectId,client);
       const sets:string[]=[];const values:unknown[]=[];
-      for(const key of Object.keys(fields) as Array<keyof UpdateProjectEventDto>){if(dto[key]!==undefined){values.push(typeof dto[key]==='string'?String(dto[key]).trim():dto[key]);sets.push(fields[key]+'=$'+values.length);}}
+      for(const key of Object.keys(fields) as Array<keyof UpdateProjectEventDto>){if(dto[key]!==undefined){values.push(key==='attendees'?JSON.stringify(dto[key]):typeof dto[key]==='string'?String(dto[key]).trim():dto[key]);sets.push(fields[key]+(key==='attendees'?'=
+      if(!sets.length)return before.rows[0];
+      sets.push('updated_at=NOW()');values.push(id,companyId);
+      const r=await client.query(`UPDATE project_events SET ${sets.join(',')} WHERE id=$${values.length-1} AND company_id=$${values.length} RETURNING *`,values);
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'projects.event.update',entityType:'project_event',entityId:id,oldValues:before.rows[0] as Record<string,unknown>,newValues:dto as Record<string,unknown>,ipAddress:null});
+      return r.rows[0];
+    });
+  }
+}
++values.length+'::jsonb':'=
+      if(!sets.length)return before.rows[0];
+      sets.push('updated_at=NOW()');values.push(id,companyId);
+      const r=await client.query(`UPDATE project_events SET ${sets.join(',')} WHERE id=$${values.length-1} AND company_id=$${values.length} RETURNING *`,values);
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'projects.event.update',entityType:'project_event',entityId:id,oldValues:before.rows[0] as Record<string,unknown>,newValues:dto as Record<string,unknown>,ipAddress:null});
+      return r.rows[0];
+    });
+  }
+}
++values.length));}}
       if(!sets.length)return before.rows[0];
       sets.push('updated_at=NOW()');values.push(id,companyId);
       const r=await client.query(`UPDATE project_events SET ${sets.join(',')} WHERE id=$${values.length-1} AND company_id=$${values.length} RETURNING *`,values);
