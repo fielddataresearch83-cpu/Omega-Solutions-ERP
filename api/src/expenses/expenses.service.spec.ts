@@ -51,10 +51,32 @@ describe('ExpensesService',()=>{
   const result=await service.create(user,{description:'Office supplies',category:'Supplies',amount:25.5,paymentMethod:'cash',expenseDate:'2026-10-15'});
   expect(result.journal_entry_id).toBe('journal-1');
   const lines=client.query.mock.calls.find((call:[string,unknown[]])=>call[0].includes('INSERT INTO journal_entry_lines'));
-  expect(lines?.[0]).toContain('VALUES($1,$2,$3,$4,$5,0),($1,$2,$6,$7,0,$5)');
-  expect(lines?.[1]).toEqual(['company-active','journal-1','expense-account','Office supplies',25.5,'cash-account','Paid by cash']);
+  expect(lines?.[0]).toContain('VALUES($1,$2,$3,$4,$5,0,$8),($1,$2,$6,$7,0,$5,NULL)');
+  expect(lines?.[1]).toEqual(['company-active','journal-1','expense-account','Office supplies',25.5,'cash-account','Paid by cash',null]);
   expect(client.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE expenses SET journal_entry_id=$1'),['journal-1','expense-1','company-active']);
   expect(audit.logInTransaction).toHaveBeenCalledWith(client,expect.objectContaining({action:'expenses.create',companyId:'company-active'}));
+ });
+
+ it('tags the expense debit and expense record with the selected cost centre',async()=>{
+  const client={query:vi.fn().mockImplementation(async(sql:string,params:unknown[] = [])=>{
+   if(sql.includes("system_code='operating_expense'"))return {rows:[{id:'expense-account',code:'5100',name:'Operating Expenses'}],rowCount:1};
+   if(sql.includes('system_code=$2'))return {rows:[{id:'bank-account'}],rowCount:1};
+   if(sql.includes('FROM cost_centres'))return {rows:[{id:'centre-1'}],rowCount:1};
+   if(sql.includes('INSERT INTO expense_sequences'))return {rows:[{next_number:2}],rowCount:1};
+   if(sql.includes('INSERT INTO expenses'))return {rows:[{id:'expense-2'}],rowCount:1};
+   if(sql.includes('INSERT INTO journal_entry_sequences'))return {rows:[{next_number:3}],rowCount:1};
+   if(sql.includes('INSERT INTO journal_entries'))return {rows:[{id:'journal-2'}],rowCount:1};
+   return {rows:[],rowCount:1};
+  })};
+  db.transaction.mockImplementation(async(callback:(client:unknown)=>Promise<unknown>)=>callback(client));
+  db.query.mockResolvedValue({rows:[{id:'expense-2',cost_centre_id:'centre-1',journal_entry_id:'journal-2'}],rowCount:1});
+  const result=await service.create(user,{description:'Department travel',category:'Travel',amount:120,paymentMethod:'bank',expenseDate:'2026-11-01',costCentreId:'centre-1'});
+  expect(result.cost_centre_id).toBe('centre-1');
+  const expenseInsert=client.query.mock.calls.find((call:[string,unknown[]])=>call[0].includes('INSERT INTO expenses'));
+  expect(expenseInsert?.[0]).toContain('cost_centre_id');
+  expect(expenseInsert?.[1]).toContain('centre-1');
+  const lines=client.query.mock.calls.find((call:[string,unknown[]])=>call[0].includes('INSERT INTO journal_entry_lines'));
+  expect(lines?.[1]).toEqual(['company-active','journal-2','expense-account','Department travel',120,'bank-account','Paid by bank','centre-1']);
  });
  it('rejects a missing payment account before posting or auditing',async()=>{
   const client={query:vi.fn().mockImplementation(async(sql:string)=>{
