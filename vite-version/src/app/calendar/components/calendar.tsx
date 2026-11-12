@@ -66,7 +66,6 @@ export function Calendar({ events }: CalendarProps) {
             <CalendarSidebar
               selectedDate={calendar.selectedDate}
               onDateSelect={calendar.handleDateSelect}
-              onNewCalendar={calendar.handleNewCalendar}
               onNewEvent={calendar.handleNewEvent}
               events={calendar.events.map((event) => ({ date: event.date, count: 1 }))}
               className="h-full"

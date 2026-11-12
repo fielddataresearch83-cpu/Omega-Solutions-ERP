@@ -40,8 +40,6 @@ export function CalendarSidebar({
         events={events}
       />
 
-      <Separator />
-
     </div>
   )
 }
