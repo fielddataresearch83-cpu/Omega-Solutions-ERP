@@ -87,7 +87,7 @@ describe('AccountingService cost centres and budgets', () => {
     expect(result[0].actual_amount).toBe('12000');
     expect(db.query.mock.calls[0][1]).toEqual(['company-1', 2026, 11]);
     expect(db.query.mock.calls[0][0]).toContain("j.status='posted'");
-    expect(db.query.mock.calls[0][0]).toContain('l.cost_centre_id IS NOT DISTINCT FROM b.cost_centre_id');
+    expect(db.query.mock.calls[0][0]).toContain('(b.cost_centre_id IS NULL OR l.cost_centre_id=b.cost_centre_id)');
   });
 
   it('rejects a budget for an inactive or non-P&L account', async () => {
