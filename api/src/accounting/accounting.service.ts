@@ -291,14 +291,18 @@ export class AccountingService {
    const line=lineResult.rows[0];
    if(!line)throw new NotFoundException('Statement line not found.');
    if(line.status==='matched')throw new ConflictException('This statement line is already matched.');
+   const journalLock=await client.query<{id:string}>(
+    'SELECT id FROM journal_entries WHERE company_id=$1 AND id=$2 AND status=\'posted\' FOR SHARE',
+    [companyId,journalEntryId],
+   );
+   if(!journalLock.rows[0])throw new BadRequestException('The selected journal entry is not posted or does not belong to this company.');
    const journal=await client.query<{id:string}>(
     `SELECT j.id FROM journal_entries j
      JOIN journal_entry_lines l ON l.journal_entry_id=j.id AND l.company_id=j.company_id AND l.account_id=$3
      WHERE j.company_id=$1 AND j.id=$2 AND j.status='posted'
        AND j.entry_date BETWEEN $4::date-INTERVAL '7 days' AND $4::date+INTERVAL '7 days'
      GROUP BY j.id
-     HAVING ABS(SUM(l.debit-l.credit)-$5::numeric)<=0.01
-     FOR SHARE OF j`,
+     HAVING ABS(SUM(l.debit-l.credit)-$5::numeric)<=0.01`,
     [companyId,journalEntryId,line.bank_account_id,line.transaction_date,Number(line.credit)-Number(line.debit)],
    );
    if(!journal.rows[0])throw new BadRequestException('The selected journal does not match this bank account, date window and statement amount.');
