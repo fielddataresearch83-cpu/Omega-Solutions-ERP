@@ -41,7 +41,7 @@ const taskFormSchema = z.object({
 type TaskFormData = z.infer<typeof taskFormSchema>
 
 interface AddTaskModalProps {
-  onAddTask?: (task: Task) => void
+  onAddTask?: (task: Task) => void | Promise<void>
   trigger?: React.ReactElement
 }
 
@@ -64,7 +64,7 @@ export function AddTaskModal({ onAddTask, trigger }: AddTaskModalProps) {
     return `${prefix}-${number}`
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     try {
@@ -83,7 +83,7 @@ export function AddTaskModal({ onAddTask, trigger }: AddTaskModalProps) {
         priority: validatedData.priority,
       }
 
-      onAddTask?.(newTask)
+      await onAddTask?.(newTask)
 
       // Reset form and close modal
       setFormData({
@@ -100,13 +100,15 @@ export function AddTaskModal({ onAddTask, trigger }: AddTaskModalProps) {
       if (error instanceof z.ZodError) {
         const newErrors: Record<string, string> = {}
         error.issues.forEach((issue) => {
-          if (issue.path[0]) {
-            newErrors[issue.path[0] as string] = issue.message
-          }
+          if (issue.path[0]) newErrors[issue.path[0] as string] = issue.message
         })
         setErrors(newErrors)
+      } else {
+        setErrors((previous) => ({
+          ...previous,
+          form: error instanceof Error ? error.message : "Unable to create task.",
+        }))
       }
-    }
   }
 
   const handleCancel = () => {
@@ -269,7 +271,7 @@ export function AddTaskModal({ onAddTask, trigger }: AddTaskModalProps) {
             </Field>
           </div>
 
-          <FieldGroup>{/* Action Buttons */}</FieldGroup>
+          {errors.form && <p role="alert" className="text-sm text-destructive">{errors.form}</p>}
           <div className="flex justify-end gap-2 pt-4">
             <Button
               type="button"
