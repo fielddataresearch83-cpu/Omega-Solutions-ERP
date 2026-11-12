@@ -197,16 +197,16 @@ export class AccountingService {
   const entryDate = this.validateDate(reversalDate ?? new Date().toISOString().slice(0, 10), 'reversalDate');
   const reversalId = await this.db.transaction(async client => {
    const originalResult = await client.query<{
-    id: string; entry_number: string; description: string; status: string; reversal_journal_id: string | null;
+    id: string; entry_number: string; description: string; source_type: string | null; status: string; reversal_journal_id: string | null;
    }>(
-    'SELECT id,entry_number,description,status,reversal_journal_id FROM journal_entries WHERE company_id=$1 AND id=$2 FOR UPDATE',
+    'SELECT id,entry_number,description,source_type,status,reversal_journal_id FROM journal_entries WHERE company_id=$1 AND id=$2 FOR UPDATE',
     [companyId, id],
    );
    const original = originalResult.rows[0];
    if (!original) throw new NotFoundException('Journal entry not found.');
    if (original.status !== 'posted') throw new ConflictException('Only posted journal entries can be reversed.');
    if (original.reversal_journal_id) throw new ConflictException('This journal entry has already been reversed.');
-   if (original.entry_number.startsWith('JE-') && original.description.startsWith('Reversal:')) {
+   if (original.source_type === 'journal_reversal') {
     throw new BadRequestException('A reversal journal cannot itself be reversed. Post a correcting journal instead.');
    }
    const originalLines = await client.query<{
