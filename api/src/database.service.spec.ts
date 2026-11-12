@@ -20,6 +20,7 @@ vi.mock('pg', () => ({
 }));
 
 import { DatabaseService } from './database.service.js';
+import { tenantDatabaseContext } from './database/tenant-database-context.js';
 
 describe('DatabaseService transaction boundary', () => {
   beforeEach(() => {
@@ -84,6 +85,51 @@ describe('DatabaseService transaction boundary', () => {
 
     expect(client.query.mock.calls.map(([sql]) => sql)).toEqual(['BEGIN', 'ROLLBACK']);
     expect(client.release).toHaveBeenCalledWith(rollbackFailure);
+  });
+
+  it('sets verified tenant context transaction-locally for authenticated queries', async () => {
+    const db = new DatabaseService();
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql === 'SELECT 42') return { rows: [{ value: 42 }], rowCount: 1 };
+      return { rows: [], rowCount: 0 };
+    });
+
+    const result = await tenantDatabaseContext.run(
+      { userId: 'user-1', companyId: 'company-1', branchId: 'branch-1' },
+      () => db.query('SELECT 42'),
+    );
+
+    expect(result.rows).toEqual([{ value: 42 }]);
+    expect(pool.query).not.toHaveBeenCalled();
+    expect(client.query.mock.calls.map(([sql]) => sql)).toEqual([
+      'BEGIN',
+      expect.stringContaining("set_config('app.user_id'"),
+      'SELECT 42',
+      'COMMIT',
+    ]);
+    expect(client.query.mock.calls[1][1]).toEqual(['user-1', 'company-1', 'branch-1']);
+    expect(client.release).toHaveBeenCalledOnce();
+  });
+
+  it('sets verified tenant context before callback SQL in managed transactions', async () => {
+    const db = new DatabaseService();
+    const callback = vi.fn(async (tx: typeof client) => {
+      await tx.query('SELECT 1');
+      return 'ok';
+    });
+
+    await tenantDatabaseContext.run(
+      { userId: 'user-2', companyId: 'company-2', branchId: null },
+      () => db.transaction(callback),
+    );
+
+    expect(client.query.mock.calls.map(([sql]) => sql)).toEqual([
+      'BEGIN',
+      expect.stringContaining("set_config('app.user_id'"),
+      'SELECT 1',
+      'COMMIT',
+    ]);
+    expect(client.query.mock.calls[1][1]).toEqual(['user-2', 'company-2', '']);
   });
 
   it('does not try to roll back if acquiring a client fails', async () => {
