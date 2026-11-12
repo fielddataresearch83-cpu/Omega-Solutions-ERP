@@ -2,7 +2,7 @@ import {
   Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards,
 } from '@nestjs/common';
 import { InventoryService } from './inventory.service.js';
-import { AdjustStockDto, CountStocktakeLineDto, CreateStockMovementDto, CreateStocktakeDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
+import { AdjustStockDto, CountStocktakeLineDto, CreateInventoryReturnDto, CreateStockMovementDto, CreateStocktakeDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -85,6 +85,37 @@ export class InventoryController {
   @Post('stocktakes/:stocktakeId/cancel')
   @RequirePermissions('inventory:write')
   cancelStocktake(@Req() req: { user: AuthenticatedUser }, @Param('stocktakeId', ParseUUIDPipe) id: string) { return this.inventory.cancelStocktake(req.user, id); }
+
+
+  @Get('returns')
+  @RequirePermissions('inventory:read')
+  returns(@Req() req: { user: AuthenticatedUser }) {
+    return this.inventory.listReturns(req.user);
+  }
+
+  @Post('returns')
+  @RequirePermissions('inventory:write')
+  createReturn(@Req() req: { user: AuthenticatedUser }, @Body() dto: CreateInventoryReturnDto) {
+    return this.inventory.createReturn(req.user, dto);
+  }
+
+  @Get('returns/:returnId')
+  @RequirePermissions('inventory:read')
+  getReturn(@Req() req: { user: AuthenticatedUser }, @Param('returnId', ParseUUIDPipe) id: string) {
+    return this.inventory.getReturn(req.user, id);
+  }
+
+  @Post('returns/:returnId/post')
+  @RequirePermissions('inventory:write')
+  postReturn(@Req() req: { user: AuthenticatedUser }, @Param('returnId', ParseUUIDPipe) id: string) {
+    return this.inventory.postReturn(req.user, id);
+  }
+
+  @Post('returns/:returnId/cancel')
+  @RequirePermissions('inventory:write')
+  cancelReturn(@Req() req: { user: AuthenticatedUser }, @Param('returnId', ParseUUIDPipe) id: string) {
+    return this.inventory.cancelReturn(req.user, id);
+  }
 
   @Post('receipts')
   @RequirePermissions('inventory:write')
