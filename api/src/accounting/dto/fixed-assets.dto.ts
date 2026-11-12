@@ -52,3 +52,16 @@ export class RunDepreciationDto {
   @IsDateString()
   periodEnd!: string;
 }
+
+export class DisposeFixedAssetDto {
+  @IsDateString()
+  disposalDate!: string;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  proceeds!: number;
+
+  @IsUUID()
+  paymentAccountId!: string;
+}
