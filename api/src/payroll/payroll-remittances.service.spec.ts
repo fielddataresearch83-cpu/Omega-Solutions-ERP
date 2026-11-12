@@ -12,7 +12,7 @@ describe('PayrollRemittancesService', () => {
   it('lists obligations only for the active company', async () => {
     const db = { query: vi.fn().mockResolvedValue({ rows: [] }), transaction: vi.fn() } as never;
     const memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-a' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     await service.list(user);
     const query = (db as { query: ReturnType<typeof vi.fn> }).query;
     expect(query.mock.calls[0][1]).toEqual(['company-a']);
@@ -42,7 +42,7 @@ describe('PayrollRemittancesService', () => {
       transaction: vi.fn(),
     } as never;
     const memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-a' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     const result = await service.previewForRun(user, 'run-a');
     expect(result.previewOnly).toBe(true);
     expect(result.persisted).toBe(false);
@@ -55,7 +55,7 @@ describe('PayrollRemittancesService', () => {
   it('does not preview payroll runs outside the active company or before approval', async () => {
     const db = { query: vi.fn().mockResolvedValue({ rows: [] }), transaction: vi.fn() } as never;
     const memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-a' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     await expect(service.previewForRun(user, 'run-other')).rejects.toThrow('approved or posted payroll run');
     expect((db as { query: ReturnType<typeof vi.fn> }).query.mock.calls[0][1]).toEqual(['run-other', 'company-a']);
     expect((db as { transaction: ReturnType<typeof vi.fn> }).transaction).not.toHaveBeenCalled();
@@ -65,7 +65,7 @@ describe('PayrollRemittancesService', () => {
     const client = { query: vi.fn().mockResolvedValue({ rows: [{ id: 'run-a', status: 'draft' }] }) };
     const db = { query: vi.fn(), transaction: vi.fn(async (callback: (client: MockClient) => unknown) => callback(client)) } as never;
     const memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-a' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     await expect(service.generateForRun(user, 'run-a')).rejects.toThrow('only be generated from a posted payroll run');
     expect(client.query).toHaveBeenCalledTimes(1);
   });
@@ -81,7 +81,7 @@ describe('PayrollRemittancesService', () => {
     };
     const db = { query: vi.fn(), transaction: vi.fn(async (callback: (client: MockClient) => unknown) => callback(client)) } as never;
     const memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-a' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     const result = await service.generateForRun(user, 'run-a');
     expect(client.query).toHaveBeenCalledTimes(5);
     expect(result.created).toHaveLength(3);
@@ -104,7 +104,7 @@ describe('PayrollRemittancesService', () => {
     };
     const db = { query: vi.fn(), transaction: vi.fn(async (callback: (client: MockClient) => unknown) => callback(client)) } as never;
     const memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-a' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     await expect(service.recordPayment(user, 'obligation-a', {
       amount: 30, paymentReference: 'MPESA-REF-1',
     })).rejects.toThrow('exceeds the outstanding obligation balance');
@@ -121,7 +121,7 @@ describe('PayrollRemittancesService', () => {
     };
     const db = { query: vi.fn(), transaction: vi.fn(async (callback: (client: MockClient) => unknown) => callback(client)) } as never;
     const memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-a' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     const result = await service.recordPayment(user, 'obligation-a', { amount: 0.29, paymentReference: 'MPESA-REF-29' });
     expect(result.verificationStatus).toBe('recorded_not_independently_verified');
     expect(client.query).toHaveBeenCalledTimes(3);
@@ -130,7 +130,7 @@ describe('PayrollRemittancesService', () => {
   it('requires a non-empty payment reference', async () => {
     const db = { query: vi.fn(), transaction: vi.fn() } as never;
     const memberships = { getMembership: vi.fn() } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     await expect(service.recordPayment(user, 'obligation-a', { amount: 1, paymentReference: '  ' })).rejects.toThrow('paymentReference is required');
     expect((db as { transaction: ReturnType<typeof vi.fn> }).transaction).not.toHaveBeenCalled();
   });
@@ -144,7 +144,7 @@ describe('PayrollRemittancesService', () => {
     };
     const db = { query: vi.fn(), transaction: vi.fn(async (callback: (client: MockClient) => unknown) => callback(client)) } as never;
     const memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-a' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     const result = await service.recordPayment(user, 'obligation-a', { amount: 30, paymentReference: 'BANK-REF-30' });
     expect(result).toMatchObject({ id: 'payment-b', amount: '30.00', verificationStatus: 'recorded_not_independently_verified' });
     expect(client.query.mock.calls[0][1]).toEqual(['obligation-a', 'company-a']);
@@ -156,7 +156,7 @@ describe('PayrollRemittancesService', () => {
     const client: MockClient = { query: vi.fn().mockResolvedValue({ rows: [] }) };
     const db = { query: vi.fn(), transaction: vi.fn(async (callback: (client: MockClient) => unknown) => callback(client)) } as never;
     const memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-a' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     await expect(service.recordPayment(user, 'obligation-from-company-b', {
       amount: 10, paymentReference: 'CROSS-TENANT-REF',
     })).rejects.toThrow('Remittance obligation not found in this company.');
@@ -176,7 +176,7 @@ describe('PayrollRemittancesService', () => {
     };
     const db = { query: vi.fn(), transaction: vi.fn(async (callback: (client: MockClient) => unknown) => callback(client)) } as never;
     const memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-a' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     await expect(service.recordPayment(user, 'obligation-a', {
       amount: 10, paymentReference: 'DUPLICATE-REF',
     })).rejects.toThrow('This payment reference has already been recorded for this company.');
@@ -194,7 +194,7 @@ describe('PayrollRemittancesService', () => {
     const transaction = vi.fn(async (callback: (client: MockClient) => unknown) => callback(client));
     const db = { query: vi.fn(), transaction } as never;
     const memberships = { getMembership: vi.fn().mockResolvedValue({ companyId: 'company-a' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
 
     await expect(service.recordPayment(user, 'obligation-a', {
       amount: 10, paymentReference: 'WRITE-FAILURE-REF',
@@ -207,7 +207,7 @@ describe('PayrollRemittancesService', () => {
   it('blocks company-wide remittance access for branch-bound memberships', async () => {
     const db = { query: vi.fn(), transaction: vi.fn() } as never;
     const memberships = { getMembershipForCompany: vi.fn().mockResolvedValue({ companyId: 'company-a', branchId: 'branch-a', role: 'staff' }) } as never;
-    const service = new PayrollRemittancesService(db, memberships);
+    const service = new PayrollRemittancesService(db, memberships, {log:vi.fn().mockResolvedValue(undefined),logInTransaction:vi.fn().mockResolvedValue(undefined)} as never);
     const branchUser = { ...user, companyId: 'company-a', branchId: 'branch-a', role: 'staff' };
     await expect(service.list(branchUser)).rejects.toThrow('Payroll remittances are company-wide');
     expect((db as { query: ReturnType<typeof vi.fn> }).query).not.toHaveBeenCalled();
