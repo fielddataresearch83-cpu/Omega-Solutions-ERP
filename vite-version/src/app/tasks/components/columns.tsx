@@ -156,11 +156,36 @@ export const columns: ColumnDef<DataTableFeatures, Task>[] = [
 ]
 
 
+type CompanyMember = { id: string; full_name: string; email: string; role: string }
+
 export function columnsWithUpdates(
   onStatusChange: (task: Task, status: string) => void | Promise<void>,
+  onAssigneeChange: (task: Task, assignedTo: string) => void | Promise<void>,
+  members: CompanyMember[],
 ): ColumnDef<DataTableFeatures, Task>[] {
   return [
     ...columns,
+    {
+      id: "assignee",
+      header: "Assigned to",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Select
+          value={row.original.assigned_to ?? "unassigned"}
+          onValueChange={(value) => value && void onAssigneeChange(row.original, value === "unassigned" ? "" : value)}
+        >
+          <SelectTrigger aria-label={`Assign ${row.original.title}`} className="w-[170px]">
+            <SelectValue placeholder="Unassigned" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
+            {members.map((member) => (
+              <SelectItem key={member.id} value={member.id}>{member.full_name || member.email}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
     {
       id: "updateStatus",
       header: "Update status",
