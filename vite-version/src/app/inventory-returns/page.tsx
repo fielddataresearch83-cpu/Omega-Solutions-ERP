@@ -54,7 +54,7 @@ export default function InventoryReturnsPage(){
    setWarehouseId(current=>current||w.find(x=>x.is_active)?.id||"")
   }catch(e){setError(errorText(e))}finally{setLoading(false)}
  },[])
- React.useEffect(()=>{void load()},[load])
+ React.useEffect(()=>{void Promise.resolve().then(()=>load())},[load])
  async function create(e:React.FormEvent){
   e.preventDefault();setSaving(true);setError("");setNotice("")
   try{
