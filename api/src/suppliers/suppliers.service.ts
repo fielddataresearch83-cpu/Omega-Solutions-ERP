@@ -96,6 +96,7 @@ export class SuppliersService {
         dto.postalCode ?? null,
         dto.contactPerson ?? null,
         dto.paymentTerms ?? null,
+        dto.kraPin?.trim().toUpperCase() ?? null,
       ],
     );
 
