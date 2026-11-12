@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { api } from "@/lib/api-client"
 
+type CompanyMember = { id: string; full_name: string; email: string; role: string }
+
 type Project = {
   id: string
   name: string
@@ -16,6 +18,7 @@ type Project = {
   priority: string
   start_date: string | null
   due_date: string | null
+  owner_user_id: string | null
   owner_name: string | null
   task_count: number
   completed_tasks: number
@@ -23,6 +26,8 @@ type Project = {
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
+  const [members, setMembers] = useState<CompanyMember[]>([])
+  const [ownerUserId, setOwnerUserId] = useState("")
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [dueDate, setDueDate] = useState("")
@@ -33,7 +38,9 @@ export default function ProjectsPage() {
   const reload = useCallback(async () => {
     try {
       setError("")
-      setProjects(await api.get<Project[]>("/projects"))
+      const [rows, companyMembers] = await Promise.all([api.get<Project[]>("/projects"), api.get<CompanyMember[]>("/projects/members")])
+      setProjects(rows)
+      setMembers(companyMembers)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load projects.")
     } finally { setLoading(false) }
@@ -45,12 +52,21 @@ export default function ProjectsPage() {
     if (!name.trim()) return
     setSaving(true)
     try {
-      await api.post("/projects", { name: name.trim(), description: description.trim() || undefined, dueDate: dueDate || undefined })
-      setName(""); setDescription(""); setDueDate("")
+      await api.post("/projects", { name: name.trim(), description: description.trim() || undefined, dueDate: dueDate || undefined, ownerUserId: ownerUserId || undefined })
+      setName(""); setDescription(""); setDueDate(""); setOwnerUserId("")
       await reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create project.")
     } finally { setSaving(false) }
+  }
+
+  const changeOwner = async (project: Project, ownerUserId: string) => {
+    try {
+      await api.patch(`/projects/${project.id}`, { ownerUserId: ownerUserId || null })
+      await reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update project owner.")
+    }
   }
 
   const changeStatus = async (project: Project, status: Project["status"]) => {
@@ -72,6 +88,10 @@ export default function ProjectsPage() {
             <form onSubmit={createProject} className="grid gap-3 md:grid-cols-2">
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Project name" required maxLength={180} />
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} aria-label="Due date" />
+              <select className="h-10 rounded-md border bg-background px-3 text-sm md:col-span-2" value={ownerUserId} onChange={(e) => setOwnerUserId(e.target.value)} aria-label="Project owner">
+                <option value="">Assign project owner (default: you)</option>
+                {members.map((member) => <option key={member.id} value={member.id}>{member.full_name || member.email} · {member.role}</option>)}
+              </select>
               <div className="md:col-span-2"><Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What needs to be delivered?" rows={2} /></div>
               <div className="md:col-span-2"><Button type="submit" disabled={saving || !name.trim()}>{saving ? "Creating…" : "Create project"}</Button></div>
             </form>
@@ -85,6 +105,12 @@ export default function ProjectsPage() {
                 <div className="flex justify-between text-sm"><span className="text-muted-foreground">Tasks completed</span><span className="font-medium">{project.completed_tasks}/{project.task_count}</span></div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: project.task_count ? `${Math.round(project.completed_tasks / project.task_count * 100)}%` : "0%" }} /></div>
                 <div className="text-xs text-muted-foreground">Owner: {project.owner_name || "Unassigned"} · Due: {project.due_date ? new Date(project.due_date).toLocaleDateString() : "Not set"}</div>
+                <label className="grid gap-1 text-xs text-muted-foreground">Project owner
+                  <select className="h-9 rounded-md border bg-background px-2 text-sm text-foreground" value={project.owner_user_id || ""} onChange={(e) => void changeOwner(project, e.target.value)} aria-label={`Owner for ${project.name}`}>
+                    <option value="">Unassigned</option>
+                    {members.map((member) => <option key={member.id} value={member.id}>{member.full_name || member.email}</option>)}
+                  </select>
+                </label>
                 <select className="h-9 rounded-md border bg-background px-3 text-sm" value={project.status} onChange={(e) => void changeStatus(project, e.target.value as Project["status"])} aria-label={`Status for ${project.name}`}>
                   {["planned","active","on_hold","completed","cancelled"].map((status) => <option key={status} value={status}>{status.replace("_", " ")}</option>)}
                 </select>
