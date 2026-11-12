@@ -12,7 +12,7 @@ const user: AuthenticatedUser = {
 
 function makeService(
   accountRows: Record<string, unknown>[],
-  options?: { branchId?: string | null; companyId?: string; currentEarnings?: string | number },
+  options?: { branchId?: string | null; companyId?: string; currentEarnings?: string | number; cashFlowCategories?: { category: string; amount: string | number }[] },
 ) {
   const companyId = options?.companyId ?? 'company-active';
   const branchId = options?.branchId ?? null;
@@ -20,6 +20,7 @@ function makeService(
     query: vi.fn(async (sql: string, _params?: unknown[]) => {
       if (sql.includes('SELECT currency FROM companies')) return { rows: [{ currency: 'KES' }], rowCount: 1 };
       if (sql.includes('AS current_earnings')) return { rows: [{ current_earnings: options?.currentEarnings ?? '0' }], rowCount: 1 };
+      if (sql.includes('WITH cash_entries')) return { rows: options?.cashFlowCategories ?? [], rowCount: options?.cashFlowCategories?.length ?? 0 };
       if (sql.includes('chart_of_accounts')) return { rows: accountRows, rowCount: accountRows.length };
       return { rows: [], rowCount: 0 };
     }),
@@ -67,6 +68,29 @@ describe('AccountingService.profitAndLoss', () => {
     await service.profitAndLoss(user, '2026-01-01', '2026-12-31');
     const sql = String(db.query.mock.calls.find(([s]) => String(s).includes('chart_of_accounts'))?.[0]);
     expect(sql).toContain("j.status='posted'");
+  });
+
+  it('classifies direct cash movements into operating, investing and financing activities', async () => {
+    const { service, db } = makeService([
+      { account_code: '1010', account_name: 'Bank Account', opening_balance: '100', closing_balance: '700', net_movement: '600' },
+    ], { cashFlowCategories: [
+      { category: 'operating', amount: '500' },
+      { category: 'investing', amount: '-100' },
+      { category: 'financing', amount: '200' },
+    ] });
+
+    const result = await service.cashFlow(user, '2026-01-01', '2026-12-31');
+
+    expect(result.netCashMovement).toBe(600);
+    expect(result.cashFlowCategories).toEqual([
+      { category: 'operating', amount: 500 },
+      { category: 'investing', amount: -100 },
+      { category: 'financing', amount: 200 },
+    ]);
+    expect(result.classificationVariance).toBe(0);
+    const sql = String(db.query.mock.calls.find(([statement]) => String(statement).includes('WITH cash_entries'))?.[0]);
+    expect(sql).toContain('account.cash_flow_category');
+    expect(sql).toContain("account.account_type='equity'");
   });
 
   it('rejects invalid date formats', async () => {
