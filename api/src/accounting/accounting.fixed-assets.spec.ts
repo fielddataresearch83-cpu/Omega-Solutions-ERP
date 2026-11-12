@@ -66,6 +66,7 @@ describe('AccountingService fixed asset depreciation', () => {
         depreciation_expense_account_id: 'expense-account', status: 'active',
       }], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [{ period_end: null }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'accum-account' }, { id: 'expense-account' }], rowCount: 2 })
       .mockResolvedValueOnce({ rows: [{ next_number: 1 }], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [{ id: 'journal-1' }], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [{ id: 'depreciation-1' }], rowCount: 1 })
