@@ -78,16 +78,16 @@ export default function WorkforcePage() {
   React.useEffect(() => { let active=true; void api.get<MonthlyImport[]>(`/attendance/monthly-imports?period=${encodeURIComponent(importPeriod)}`).then(result=>{if(active){setMonthlyImports(result);setImportError(null);}}).catch(e=>{if(active)setImportError(errorMessage(e));});return()=>{active=false;}; }, [importPeriod]);
 
   function parseChecklistCsv(text: string) {
-    const source = text.replace(/^\\uFEFF/, "");
+    const source = text.replace(/^\uFEFF/, "");
     const records: string[][] = [];
     let row: string[] = [], cell = "", quoted = false;
     for (let i = 0; i < source.length; i++) {
       const ch = source[i];
-      if (ch === '"' && quoted && text[i + 1] === '"') { cell += '"'; i++; }
+      if (ch === '"' && quoted && source[i + 1] === '"') { cell += '"'; i++; }
       else if (ch === '"') quoted = !quoted;
       else if (ch === "," && !quoted) { row.push(cell.trim()); cell = ""; }
       else if ((ch === "\n" || ch === "\r") && !quoted) {
-        if (ch === "\r" && text[i + 1] === "\n") i++;
+        if (ch === "\r" && source[i + 1] === "\n") i++;
         row.push(cell.trim()); if (row.some(value => value !== "")) records.push(row);
         row = []; cell = "";
       } else cell += ch;
