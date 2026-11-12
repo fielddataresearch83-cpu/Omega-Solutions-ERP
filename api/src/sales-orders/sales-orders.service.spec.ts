@@ -62,6 +62,54 @@ describe('SalesOrdersService inventory fulfilment', () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 
+  it('reserves stock transactionally when processing starts', async () => {
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM sales_orders WHERE id = $1') && sql.includes('FOR UPDATE')) return { rows: [{ id: 'order-1', status: 'confirmed', order_number: 'SO-2026-00001' }], rowCount: 1 };
+      if (sql.includes('FROM warehouses WHERE id = $1')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
+      if (sql.includes('FROM sales_order_items soi')) return { rows: [{ id: 'line-1', product_id: 'product-1', quantity: '2', is_service: false, is_active: true, product_name: 'Widget' }], rowCount: 1 };
+      if (sql.includes('FROM inventory_stock_levels')) return { rows: [{ id: 'stock-1', quantity: '10', reserved_quantity: '1' }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    });
+
+    await service.updateStatus(user, 'order-1', 'processing', 'warehouse-1');
+    const calls = client.query.mock.calls as unknown as [string, unknown[]?][];
+    expect(calls.some(([sql, params]) => sql.includes('SET reserved_quantity = reserved_quantity +') && params?.[0] === 2)).toBe(true);
+    expect(calls.some(([sql, params]) => sql.includes('INSERT INTO sales_order_reservations') && params?.[2] === 'line-1' && params?.[5] === 2)).toBe(true);
+    expect(calls.some(([sql, params]) => sql.includes('UPDATE sales_orders SET status') && params?.[0] === 'processing')).toBe(true);
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'sales_order.stock_reserved' }));
+  });
+
+  it('does not reserve stock when available quantity is insufficient', async () => {
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM sales_orders WHERE id = $1') && sql.includes('FOR UPDATE')) return { rows: [{ id: 'order-1', status: 'confirmed', order_number: 'SO-2026-00001' }], rowCount: 1 };
+      if (sql.includes('FROM warehouses WHERE id = $1')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
+      if (sql.includes('FROM sales_order_items soi')) return { rows: [{ id: 'line-1', product_id: 'product-1', quantity: '2', is_service: false, is_active: true, product_name: 'Widget' }], rowCount: 1 };
+      if (sql.includes('FROM inventory_stock_levels')) return { rows: [{ id: 'stock-1', quantity: '2', reserved_quantity: '1' }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    });
+
+    await expect(service.updateStatus(user, 'order-1', 'processing', 'warehouse-1')).rejects.toThrow(BadRequestException);
+    const calls = client.query.mock.calls as unknown as [string, unknown[]?][];
+    expect(calls.some(([sql]) => sql.includes('INSERT INTO sales_order_reservations'))).toBe(false);
+    expect(calls.some(([sql]) => sql.includes('UPDATE sales_orders SET status'))).toBe(false);
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('releases active reservations when a processing order is cancelled', async () => {
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM sales_orders WHERE id = $1') && sql.includes('FOR UPDATE')) return { rows: [{ id: 'order-1', status: 'processing', order_number: 'SO-2026-00001' }], rowCount: 1 };
+      if (sql.includes('FROM sales_order_reservations')) return { rows: [{ id: 'reservation-1', product_id: 'product-1', warehouse_id: 'warehouse-1', quantity: '2' }], rowCount: 1 };
+      if (sql.includes('UPDATE inventory_stock_levels')) return { rows: [{ id: 'stock-1' }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    });
+
+    await service.updateStatus(user, 'order-1', 'cancelled');
+    const calls = client.query.mock.calls as unknown as [string, unknown[]?][];
+    expect(calls.some(([sql, params]) => sql.includes('SET reserved_quantity = reserved_quantity -') && params?.[0] === 2)).toBe(true);
+    expect(calls.some(([sql, params]) => sql.includes("SET status = 'released'") && params?.[0] === 'reservation-1')).toBe(true);
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'sales_order.cancelled' }));
+  });
+
   it('deducts available stock, records an issue movement, and marks the order fulfilled atomically', async () => {
     await service.updateStatus(user, 'order-1', 'fulfilled', 'warehouse-1');
     const calls = client.query.mock.calls as unknown as [string, unknown[]?][];
