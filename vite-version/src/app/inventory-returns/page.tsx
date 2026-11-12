@@ -10,7 +10,7 @@ import { formatDate, formatNumber } from "@/lib/format"
 
 type Warehouse={id:string;code:string;name:string;is_active:boolean}
 type Product={id:string;name:string;sku:string;cost_price:number|string;is_active?:boolean;is_service?:boolean}
-type Party={id:string;name:string;is_active?:boolean}
+type Party={id:string;name:string;is_active?:boolean}\ntype SupplierBill={id:string;supplier_id:string;bill_number:string;total:string|number;paid_amount:string|number;status:string}
 type ReturnLine={id:string;product_id:string;product_name:string;sku:string;quantity:string|number;unit_cost:string|number;disposition:string;inspection_notes:string|null}
 type QuarantineBalance={warehouse_id:string;warehouse_name:string;product_id:string;product_name:string;sku:string;quantity:string|number;average_unit_cost:string|number}\ntype InventoryReturn={id:string;return_number:string;return_type:"customer"|"supplier";customer_id:string|null;supplier_id:string|null;customer_name:string|null;supplier_name:string|null;warehouse_id:string;warehouse_name:string;source_reference:string|null;reason:string;status:"draft"|"posted"|"cancelled";created_at:string;items?:ReturnLine[]}
 function errorText(e:unknown){return e&&typeof e==="object"&&"message"in e?String((e as {message:unknown}).message):"Request failed."}
@@ -20,7 +20,7 @@ export default function InventoryReturnsPage(){
  const [warehouses,setWarehouses]=React.useState<Warehouse[]>([])
  const [products,setProducts]=React.useState<Product[]>([])
  const [customers,setCustomers]=React.useState<Party[]>([])
- const [suppliers,setSuppliers]=React.useState<Party[]>([])
+ const [suppliers,setSuppliers]=React.useState<Party[]>([])\n const [supplierBills,setSupplierBills]=React.useState<SupplierBill[]>([])\n const [supplierBillId,setSupplierBillId]=React.useState("")
  const [selected,setSelected]=React.useState<InventoryReturn|null>(null)
  const [returnType,setReturnType]=React.useState<"customer"|"supplier">("customer")
  const [warehouseId,setWarehouseId]=React.useState("")
@@ -37,25 +37,25 @@ export default function InventoryReturnsPage(){
  const load=React.useCallback(async()=>{
   setLoading(true);setError("")
   try{
-   const [r,w,p,c,s,q]=await Promise.all([
+   const [r,w,p,c,s,q,b]=await Promise.all([
     api.get<InventoryReturn[]>("/inventory/returns"),
     api.get<Warehouse[]>("/inventory/warehouses"),
     api.get<Product[]>("/products"),
     api.get<Party[]>("/customers"),
     api.get<Party[]>("/suppliers"),
-    api.get<QuarantineBalance[]>("/inventory/quarantine"),
+    api.get<QuarantineBalance[]>("/inventory/quarantine"),\n    api.get<SupplierBill[]>("/supplier-bills"),
    ])
-   setReturns(r);setQuarantine(q);setWarehouses(w.filter(x=>x.is_active));setProducts(p.filter(x=>x.is_active!==false&&!x.is_service));setCustomers(c.filter(x=>x.is_active!==false));setSuppliers(s.filter(x=>x.is_active!==false))
+   setReturns(r);setQuarantine(q);setSupplierBills(b.filter(x=>x.status!=="void"&&Number(x.total)>Number(x.paid_amount)));setWarehouses(w.filter(x=>x.is_active));setProducts(p.filter(x=>x.is_active!==false&&!x.is_service));setCustomers(c.filter(x=>x.is_active!==false));setSuppliers(s.filter(x=>x.is_active!==false))
    setWarehouseId(current=>current||w.find(x=>x.is_active)?.id||"")
   }catch(e){setError(errorText(e))}finally{setLoading(false)}
  },[])
  React.useEffect(()=>{void load()},[load])
- React.useEffect(()=>{setPartyId("");setDisposition(returnType==="customer"?"restock":"return_to_supplier")},[returnType])
+ React.useEffect(()=>{setPartyId("");setSupplierBillId("");setDisposition(returnType==="customer"?"restock":"return_to_supplier")},[returnType])
  React.useEffect(()=>{const p=products.find(x=>x.id===productId);if(p&&unitCost==="")setUnitCost(String(p.cost_price??0))},[productId,products,unitCost])
  async function create(e:React.FormEvent){
   e.preventDefault();setSaving(true);setError("");setNotice("")
   try{
-   const payload={returnType,customerId:returnType==="customer"?partyId:undefined,supplierId:returnType==="supplier"?partyId:undefined,warehouseId,sourceReference:sourceReference.trim()||undefined,reason:reason.trim(),items:[{productId,quantity:Number(quantity),unitCost:Number(unitCost),disposition,inspectionNotes:inspectionNotes.trim()||undefined}]}
+   const payload={returnType,customerId:returnType==="customer"?partyId:undefined,supplierId:returnType==="supplier"?partyId:undefined,supplierBillId:returnType==="supplier"?supplierBillId:undefined,warehouseId,sourceReference:sourceReference.trim()||undefined,reason:reason.trim(),items:[{productId,quantity:Number(quantity),unitCost:Number(unitCost),disposition,inspectionNotes:inspectionNotes.trim()||undefined}]}
    const created=await api.post<InventoryReturn>("/inventory/returns",payload)
    setSelected(created);setReason("");setSourceReference("");setInspectionNotes("");setQuantity("1");setUnitCost("")
    await load();setNotice("Draft return recorded. Review the inspection and post it when ready.")
@@ -84,7 +84,7 @@ export default function InventoryReturnsPage(){
    <form onSubmit={create} className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
     <label className="grid gap-1 text-sm">Return type<select className="h-9 rounded-md border bg-background px-3" value={returnType} onChange={e=>setReturnType(e.target.value as "customer"|"supplier")}><option value="customer">Customer return</option><option value="supplier">Supplier return</option></select></label>
     <label className="grid gap-1 text-sm">{returnType==="customer"?"Customer":"Supplier"}<select required className="h-9 rounded-md border bg-background px-3" value={partyId} onChange={e=>setPartyId(e.target.value)}><option value="">Select {returnType}</option>{parties.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-    <label className="grid gap-1 text-sm">Warehouse<select required className="h-9 rounded-md border bg-background px-3" value={warehouseId} onChange={e=>setWarehouseId(e.target.value)}><option value="">Select warehouse</option>{warehouses.map(w=><option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}</select></label>
+    {returnType==="supplier"&&<label className="grid gap-1 text-sm">Original supplier bill<select required className="h-9 rounded-md border bg-background px-3" value={supplierBillId} onChange={e=>setSupplierBillId(e.target.value)}><option value="">Select open bill</option>{supplierBills.filter(b=>b.supplier_id===partyId).map(b=><option key={b.id} value={b.id}>{b.bill_number} · Balance KES {formatNumber(Number(b.total)-Number(b.paid_amount))}</option>)}</select></label>}\n    <label className="grid gap-1 text-sm">Warehouse<select required className="h-9 rounded-md border bg-background px-3" value={warehouseId} onChange={e=>setWarehouseId(e.target.value)}><option value="">Select warehouse</option>{warehouses.map(w=><option key={w.id} value={w.id}>{w.code} — {w.name}</option>)}</select></label>
     <label className="grid gap-1 text-sm">Product<select required className="h-9 rounded-md border bg-background px-3" value={productId} onChange={e=>{setProductId(e.target.value);setUnitCost("")}}><option value="">Select product</option>{products.map(p=><option key={p.id} value={p.id}>{p.sku} — {p.name}</option>)}</select></label>
     <label className="grid gap-1 text-sm">Quantity<Input required type="number" min="0.0001" step="0.0001" value={quantity} onChange={e=>setQuantity(e.target.value)}/></label>
     <label className="grid gap-1 text-sm">Unit cost (KES)<Input required type="number" min="0" step="0.0001" value={unitCost} onChange={e=>setUnitCost(e.target.value)} /></label>
@@ -92,9 +92,9 @@ export default function InventoryReturnsPage(){
     <label className="grid gap-1 text-sm">Original invoice / supplier reference (optional)<Input value={sourceReference} onChange={e=>setSourceReference(e.target.value)} maxLength={120}/></label>
     <label className="grid gap-1 text-sm md:col-span-2 xl:col-span-3">Reason<Input required value={reason} onChange={e=>setReason(e.target.value)} maxLength={1000} placeholder="Reason for return"/></label>
     <label className="grid gap-1 text-sm md:col-span-2 xl:col-span-3">Inspection notes<Input value={inspectionNotes} onChange={e=>setInspectionNotes(e.target.value)} maxLength={2000} placeholder="Condition, damage, batch or quality observations"/></label>
-    <div className="md:col-span-2 xl:col-span-3"><Button disabled={saving||!warehouseId||!partyId||!productId||!reason.trim()||!unitCost.trim()}>{saving?"Saving…":"Save draft return"}</Button></div>
+    <div className="md:col-span-2 xl:col-span-3"><Button disabled={saving||!warehouseId||!partyId||(returnType==="supplier"&&!supplierBillId)||!productId||!reason.trim()||!unitCost.trim()}>{saving?"Saving…":"Save draft return"}</Button></div>
    </form>
-   <p className="mt-3 text-xs text-muted-foreground">Customer returns can be restocked, quarantined or rejected. Supplier returns are dispatched back to the supplier after inspection. Only posted returns change inventory.</p>
+   <p className="mt-3 text-xs text-muted-foreground">Customer returns can be restocked, quarantined or rejected. Supplier returns must be linked to an open supplier bill and are dispatched back to the supplier after inspection. Only posted returns change inventory.</p>
   </CardContent></Card>
   <Card><CardHeader><CardTitle>Quarantined stock</CardTitle></CardHeader><CardContent>{quarantine.length===0?<p className="text-sm text-muted-foreground">No quarantined stock awaiting inspection.</p>:<div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th className="p-2">Product</th><th className="p-2">Warehouse</th><th className="p-2 text-right">Qty held</th><th className="p-2 text-right">Actions</th></tr></thead><tbody>{quarantine.map(q=><tr key={q.warehouse_id+q.product_id} className="border-b"><td className="p-2"><div className="font-medium">{q.product_name}</div><div className="text-xs text-muted-foreground">{q.sku}</div></td><td className="p-2">{q.warehouse_name}</td><td className="p-2 text-right tabular-nums">{formatNumber(Number(q.quantity))}</td><td className="p-2"><div className="flex justify-end gap-2"><Button size="sm" variant="outline" disabled={saving} onClick={()=>void resolveQuarantine(q,"restock")}>Release to stock</Button><Button size="sm" variant="destructive" disabled={saving} onClick={()=>void resolveQuarantine(q,"reject")}>Reject</Button></div></td></tr>)}</tbody></table></div>}</CardContent></Card>
   <div className="grid gap-4 xl:grid-cols-[380px_1fr]">
