@@ -32,9 +32,9 @@ export default function EmployeesPage(){
  const [leaveNotice,setLeaveNotice]=React.useState<string|null>(null);
  const [leaveForm,setLeaveForm]=React.useState({employeeId:"",leaveType:"annual",startDate:"",endDate:"",reason:""});
  const load=React.useCallback(async()=>{setLoading(true);setError(null);try{setRows(await api.get<Employee[]>("/employees"));}catch(e){setError(message(e));}finally{setLoading(false);}},[]);
- React.useEffect(()=>{void load();},[load]);
+ React.useEffect(()=>{void Promise.resolve().then(load);},[load]);
  const loadLeaveRequests=React.useCallback(async()=>{setLeaveLoading(true);setLeaveError(null);try{setLeaveRows(await api.get<LeaveRequest[]>("/employees/leave-requests"));}catch(e){setLeaveError(message(e));}finally{setLeaveLoading(false);}},[]);
- React.useEffect(()=>{void loadLeaveRequests();},[loadLeaveRequests]);
+ React.useEffect(()=>{void Promise.resolve().then(loadLeaveRequests);},[loadLeaveRequests]);
  async function submitLeaveRequest(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setLeaveSaving(true);setLeaveError(null);setLeaveNotice(null);try{await api.post("/employees/leave-requests",{...leaveForm,reason:leaveForm.reason.trim()||undefined});setLeaveForm({employeeId:"",leaveType:"annual",startDate:"",endDate:"",reason:""});setLeaveNotice("Leave request submitted for review.");await loadLeaveRequests();}catch(e){setLeaveError(message(e));}finally{setLeaveSaving(false);}}
  async function reviewLeaveRequest(id:string,status:"approved"|"rejected"){setLeaveSaving(true);setLeaveError(null);setLeaveNotice(null);try{await api.patch("/employees/leave-requests/"+id+"/review",{status});setLeaveNotice("Leave request "+status+".");await loadLeaveRequests();}catch(e){setLeaveError(message(e));}finally{setLeaveSaving(false);}}
  async function saveNationalId(employeeId:string){
