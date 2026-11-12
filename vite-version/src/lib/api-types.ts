@@ -57,6 +57,7 @@ export interface CustomerRow {
   company_id: string;
   name: string;
   email: string | null;
+  kra_pin: string | null;
   phone: string | null;
   city: string | null;
   county: string | null;
