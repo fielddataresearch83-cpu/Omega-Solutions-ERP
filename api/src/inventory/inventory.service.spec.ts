@@ -169,7 +169,7 @@ describe('InventoryService', () => {
 
     await service.updateWarehouse(user, 'warehouse-1', { name: 'Renamed' });
 
-    expect(client.query.mock.calls[0][0]).toContain('WHERE id=$2 AND company_id=$3 AND ($4::uuid IS NULL OR branch_id=$4)');
+    expect(client.query.mock.calls[0][0]).toContain('WHERE id=2 AND company_id=3 AND (4::uuid IS NULL OR branch_id=4)');
     expect(client.query.mock.calls[0][1]).toEqual(['Renamed', 'warehouse-1', 'company-1', branchId]);
     expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'inventory.warehouse.update' }));
   });

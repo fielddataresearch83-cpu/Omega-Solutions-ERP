@@ -2,7 +2,7 @@ import {
   Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req, UseGuards,
 } from '@nestjs/common';
 import { InventoryService } from './inventory.service.js';
-import { AdjustStockDto, CreateStockMovementDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
+import { AdjustStockDto, CountStocktakeLineDto, CreateStockMovementDto, CreateStocktakeDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -61,6 +61,30 @@ export class InventoryController {
   movements(@Req() req: { user: AuthenticatedUser }, @Query('limit') limit?: string) {
     return this.inventory.listMovements(req.user, limit);
   }
+
+  @Get('stocktakes')
+  @RequirePermissions('inventory:read')
+  stocktakes(@Req() req: { user: AuthenticatedUser }) { return this.inventory.listStocktakes(req.user); }
+
+  @Post('stocktakes')
+  @RequirePermissions('inventory:write')
+  createStocktake(@Req() req: { user: AuthenticatedUser }, @Body() dto: CreateStocktakeDto) { return this.inventory.createStocktake(req.user, dto); }
+
+  @Get('stocktakes/:stocktakeId')
+  @RequirePermissions('inventory:read')
+  stocktake(@Req() req: { user: AuthenticatedUser }, @Param('stocktakeId', ParseUUIDPipe) id: string) { return this.inventory.getStocktake(req.user, id); }
+
+  @Patch('stocktakes/:stocktakeId/lines/:lineId')
+  @RequirePermissions('inventory:write')
+  countStocktakeLine(@Req() req: { user: AuthenticatedUser }, @Param('stocktakeId', ParseUUIDPipe) id: string, @Param('lineId', ParseUUIDPipe) lineId: string, @Body() dto: CountStocktakeLineDto) { return this.inventory.countStocktakeLine(req.user, id, lineId, dto); }
+
+  @Post('stocktakes/:stocktakeId/post')
+  @RequirePermissions('inventory:write')
+  postStocktake(@Req() req: { user: AuthenticatedUser }, @Param('stocktakeId', ParseUUIDPipe) id: string) { return this.inventory.postStocktake(req.user, id); }
+
+  @Post('stocktakes/:stocktakeId/cancel')
+  @RequirePermissions('inventory:write')
+  cancelStocktake(@Req() req: { user: AuthenticatedUser }, @Param('stocktakeId', ParseUUIDPipe) id: string) { return this.inventory.cancelStocktake(req.user, id); }
 
   @Post('receipts')
   @RequirePermissions('inventory:write')

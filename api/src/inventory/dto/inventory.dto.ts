@@ -46,3 +46,6 @@ export class TransferStockDto {
   @IsOptional() @IsString() @MaxLength(120) reference?: string;
   @IsOptional() @IsString() @MaxLength(2000) notes?: string;
 }
+
+export class CreateStocktakeDto { @IsUUID() warehouseId!: string; @IsOptional() @IsString() @MaxLength(120) reference?: string; @IsOptional() @IsString() @MaxLength(2000) notes?: string; }
+export class CountStocktakeLineDto { @Type(() => Number) @IsNumber({ maxDecimalPlaces: 4 }) @Min(0) countedQuantity!: number; @IsOptional() @IsString() @MaxLength(2000) notes?: string; }

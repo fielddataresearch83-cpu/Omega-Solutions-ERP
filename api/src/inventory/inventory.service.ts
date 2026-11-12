@@ -19,6 +19,7 @@ type StockRow = {
   quantity: string | number; reserved_quantity: string | number; reorder_level: string | number;
   updated_at: string; warehouse_name: string; warehouse_code: string; sku: string;
   product_name: string; unit: string; cost_price: string | number; selling_price: string | number;
+  average_unit_cost: string | number;
   available_quantity?: string | number; status?: string;
 };
 type MovementRow = {
@@ -181,7 +182,7 @@ export class InventoryService {
     const result = await this.db.query<StockRow>(
       `SELECT s.*,w.name AS warehouse_name,w.code AS warehouse_code,p.sku,p.name AS product_name,p.unit,p.cost_price,p.selling_price,
         (s.quantity-s.reserved_quantity) AS available_quantity,
-        CASE WHEN s.quantity<=0 THEN 'out_of_stock' WHEN s.quantity<=s.reorder_level THEN 'low_stock' ELSE 'in_stock' END AS status
+        CASE WHEN s.quantity-s.reserved_quantity<=0 THEN 'out_of_stock' WHEN s.quantity-s.reserved_quantity<=s.reorder_level THEN 'low_stock' ELSE 'in_stock' END AS status
        FROM inventory_stock_levels s JOIN warehouses w ON w.id=s.warehouse_id AND w.company_id=s.company_id
        JOIN products p ON p.id=s.product_id AND p.company_id=s.company_id
        WHERE ${filters} ORDER BY p.name,w.name`, values,
@@ -206,8 +207,8 @@ export class InventoryService {
     const { companyId, branchId } = await this.resolveMembership(user);
     const result = await this.db.query<Record<string, string|number>>(
       `SELECT COUNT(DISTINCT s.product_id)::int AS stocked_products,
-        COUNT(*) FILTER(WHERE s.quantity>0 AND s.quantity<=s.reorder_level)::int AS low_stock_lines,
-        COUNT(*) FILTER(WHERE s.quantity=0)::int AS out_of_stock_lines,
+        COUNT(*) FILTER(WHERE s.quantity-s.reserved_quantity>0 AND s.quantity-s.reserved_quantity<=s.reorder_level)::int AS low_stock_lines,
+        COUNT(*) FILTER(WHERE s.quantity-s.reserved_quantity<=0)::int AS out_of_stock_lines,
         COALESCE(SUM(s.quantity*s.average_unit_cost),0) AS inventory_cost_value,
         (SELECT COUNT(*)::int FROM warehouses WHERE company_id=$1 AND is_active=true AND ($2::uuid IS NULL OR branch_id=$2)) AS active_warehouses,
         (SELECT COUNT(*)::int FROM inventory_stock_movements m JOIN warehouses mw ON mw.id=m.warehouse_id AND mw.company_id=m.company_id WHERE m.company_id=$1 AND ($2::uuid IS NULL OR mw.branch_id=$2) AND m.created_at >= NOW()-INTERVAL '30 days') AS movements_last_30_days
@@ -276,6 +277,99 @@ export class InventoryService {
       legacyProductQuantities:{mismatchCount:legacyMismatchCount,absoluteQuantityVariance:Number(legacyRow?.absolute_quantity_variance ?? 0),reconciled:legacyMismatchCount===0},
       valuation:{basis:'weighted_average_cost',stockCostValue,inventoryAccountBalance,variance:valuationVariance,reconciled:Math.abs(valuationVariance)<=0.01},
     };
+  }
+
+
+  async listStocktakes(user: AuthenticatedUser) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    const result = await this.db.query(
+      "SELECT t.id,t.warehouse_id,t.reference,t.status,t.notes,t.created_at,t.posted_at,w.code AS warehouse_code,w.name AS warehouse_name,u.name AS created_by_name,COUNT(l.id)::int AS line_count,COUNT(l.id) FILTER(WHERE l.counted_quantity IS NOT NULL)::int AS counted_lines FROM inventory_stocktakes t JOIN warehouses w ON w.id=t.warehouse_id AND w.company_id=t.company_id LEFT JOIN users u ON u.id=t.created_by LEFT JOIN inventory_stocktake_lines l ON l.stocktake_id=t.id AND l.company_id=t.company_id WHERE t.company_id=$1 AND ($2::uuid IS NULL OR w.branch_id=$2) GROUP BY t.id,w.code,w.name,u.name ORDER BY t.created_at DESC LIMIT 100",
+      [companyId, branchId],
+    );
+    return result.rows;
+  }
+
+  async getStocktake(user: AuthenticatedUser, stocktakeId: string) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    const header = await this.db.query("SELECT t.*,w.code AS warehouse_code,w.name AS warehouse_name FROM inventory_stocktakes t JOIN warehouses w ON w.id=t.warehouse_id AND w.company_id=t.company_id WHERE t.id=$1 AND t.company_id=$2 AND ($3::uuid IS NULL OR w.branch_id=$3)", [stocktakeId, companyId, branchId]);
+    if (!header.rows[0]) throw new NotFoundException('Stocktake not found.');
+    const lines = await this.db.query("SELECT l.id,l.product_id,l.snapshot_quantity,l.counted_quantity,l.counted_at,l.average_unit_cost,l.notes,p.sku,p.name AS product_name,p.unit FROM inventory_stocktake_lines l JOIN products p ON p.id=l.product_id AND p.company_id=l.company_id WHERE l.stocktake_id=$1 AND l.company_id=$2 ORDER BY p.name", [stocktakeId, companyId]);
+    return { ...header.rows[0], lines: lines.rows };
+  }
+
+  async createStocktake(user: AuthenticatedUser, dto: CreateStocktakeDto) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    const id = await this.db.transaction(async client => {
+      const warehouse = await client.query("SELECT id,branch_id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true AND ($3::uuid IS NULL OR branch_id=$3) FOR SHARE", [dto.warehouseId, companyId, branchId]);
+      if (!warehouse.rows[0]) throw new NotFoundException('Active warehouse not found in your company and assigned branch.');
+      const existing = await client.query("SELECT id FROM inventory_stocktakes WHERE company_id=$1 AND warehouse_id=$2 AND status='draft' FOR UPDATE", [companyId, dto.warehouseId]);
+      if (existing.rows.length) throw new ConflictException('This warehouse already has an open stocktake.');
+      const inserted = await client.query("INSERT INTO inventory_stocktakes(company_id,branch_id,warehouse_id,reference,notes,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id", [companyId, warehouse.rows[0].branch_id, dto.warehouseId, dto.reference?.trim() || null, dto.notes?.trim() || null, user.userId]);
+      const stocktakeId = inserted.rows[0].id;
+      await client.query("INSERT INTO inventory_stocktake_lines(company_id,stocktake_id,product_id,snapshot_quantity,average_unit_cost) SELECT $1,$2,p.id,COALESCE(s.quantity,0),COALESCE(s.average_unit_cost,0) FROM products p LEFT JOIN inventory_stock_levels s ON s.company_id=p.company_id AND s.product_id=p.id AND s.warehouse_id=$3 WHERE p.company_id=$1 AND p.is_active=true AND p.is_service=false", [companyId, stocktakeId, dto.warehouseId]);
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:warehouse.rows[0].branch_id,action:'inventory.stocktake.create',entityType:'inventory_stocktake',entityId:stocktakeId,oldValues:null,newValues:{warehouseId:dto.warehouseId,reference:dto.reference ?? null},ipAddress:null});
+      return stocktakeId;
+    });
+    return this.getStocktake(user, id);
+  }
+
+  async countStocktakeLine(user: AuthenticatedUser, stocktakeId: string, lineId: string, dto: CountStocktakeLineDto) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    return this.db.transaction(async client => {
+      const session = await client.query("SELECT t.id,t.status FROM inventory_stocktakes t JOIN warehouses w ON w.id=t.warehouse_id AND w.company_id=t.company_id WHERE t.id=$1 AND t.company_id=$2 AND ($3::uuid IS NULL OR w.branch_id=$3) FOR UPDATE OF t", [stocktakeId, companyId, branchId]);
+      if (!session.rows[0]) throw new NotFoundException('Stocktake not found.');
+      if (session.rows[0].status !== 'draft') throw new ConflictException('Only draft stocktakes can be counted.');
+      const updated = await client.query("UPDATE inventory_stocktake_lines SET counted_quantity=$1,counted_at=NOW(),notes=$2,updated_at=NOW() WHERE id=$3 AND stocktake_id=$4 AND company_id=$5 RETURNING id,counted_quantity,counted_at,notes", [dto.countedQuantity, dto.notes?.trim() || null, lineId, stocktakeId, companyId]);
+      if (!updated.rows[0]) throw new NotFoundException('Stocktake line not found.');
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId,action:'inventory.stocktake.count',entityType:'inventory_stocktake_line',entityId:lineId,oldValues:null,newValues:{countedQuantity:dto.countedQuantity},ipAddress:null});
+      return updated.rows[0];
+    });
+  }
+
+  async postStocktake(user: AuthenticatedUser, stocktakeId: string) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    await this.db.transaction(async client => {
+      const session = await client.query("SELECT t.id,t.status,t.warehouse_id,t.branch_id,t.reference FROM inventory_stocktakes t JOIN warehouses w ON w.id=t.warehouse_id AND w.company_id=t.company_id WHERE t.id=$1 AND t.company_id=$2 AND ($3::uuid IS NULL OR w.branch_id=$3) FOR UPDATE OF t", [stocktakeId, companyId, branchId]);
+      if (!session.rows[0]) throw new NotFoundException('Stocktake not found.');
+      if (session.rows[0].status !== 'draft') throw new ConflictException('This stocktake has already been posted or cancelled.');
+      const lines = await client.query("SELECT l.id,l.product_id,l.counted_quantity,l.counted_at,p.name AS product_name,p.cost_price,p.unit FROM inventory_stocktake_lines l JOIN products p ON p.id=l.product_id AND p.company_id=l.company_id WHERE l.stocktake_id=$1 AND l.company_id=$2 ORDER BY l.product_id FOR UPDATE OF l", [stocktakeId, companyId]);
+      if (!lines.rows.length) throw new ConflictException('This stocktake has no count lines.');
+      if (lines.rows.some(line => line.counted_quantity === null || !line.counted_at)) throw new ConflictException('Count every stocktake line before posting.');
+      await client.query("SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE", [session.rows[0].warehouse_id, companyId]);
+      for (const line of lines.rows) {
+        await this.ensureStockRow(client, companyId, session.rows[0].warehouse_id, line.product_id);
+        const current = await client.query("SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE", [companyId, session.rows[0].warehouse_id, line.product_id]);
+        const changed = await client.query("SELECT id FROM inventory_stock_movements WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 AND created_at>$4 LIMIT 1", [companyId, session.rows[0].warehouse_id, line.product_id, line.counted_at]);
+        if (changed.rows.length) throw new ConflictException('Stock for ' + line.product_name + ' moved after it was counted. Recount this line before posting.');
+        const delta = Number(line.counted_quantity) - Number(current.rows[0].quantity);
+        if (Math.abs(delta) < 0.00005) continue;
+        if (Number(line.counted_quantity) < Number(current.rows[0].reserved_quantity)) throw new ConflictException('Counted quantity for ' + line.product_name + ' is below its reserved quantity.');
+        let unitCost = Number(current.rows[0].average_unit_cost ?? 0);
+        if (delta > 0 && unitCost <= 0) unitCost = Number(line.cost_price ?? 0);
+        if (delta > 0 && unitCost <= 0) throw new BadRequestException('A positive cost is required to post the stock increase for ' + line.product_name + '.');
+        if (delta > 0) {
+          await client.query("UPDATE inventory_stock_levels SET average_unit_cost=CASE WHEN quantity+$1>0 THEN ((quantity*average_unit_cost)+($1*$2))/(quantity+$1) ELSE $2 END,quantity=$3,updated_at=NOW() WHERE company_id=$4 AND warehouse_id=$5 AND product_id=$6", [delta, unitCost, line.counted_quantity, companyId, session.rows[0].warehouse_id, line.product_id]);
+        } else {
+          await client.query("UPDATE inventory_stock_levels SET quantity=$1,updated_at=NOW() WHERE company_id=$2 AND warehouse_id=$3 AND product_id=$4", [line.counted_quantity, companyId, session.rows[0].warehouse_id, line.product_id]);
+        }
+        const movement = await this.insertMovement(client,{companyId,productId:line.product_id,warehouseId:session.rows[0].warehouse_id,type:'adjustment',quantity:delta,unitCost,reference:session.rows[0].reference || 'STOCKTAKE-' + stocktakeId,notes:'Stocktake variance: counted ' + line.counted_quantity + ' ' + line.unit,userId:user.userId});
+        await this.postMovementJournal(client,{companyId,userId:user.userId,movementId:movement.id,quantity:delta,unitCost,description:'Stocktake variance ' + (session.rows[0].reference || stocktakeId)});
+        await this.syncLegacyProductQuantity(client,companyId,line.product_id);
+      }
+      await client.query("UPDATE inventory_stocktakes SET status='posted',posted_at=NOW(),posted_by=$1,updated_at=NOW() WHERE id=$2 AND company_id=$3", [user.userId, stocktakeId, companyId]);
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:session.rows[0].branch_id,action:'inventory.stocktake.post',entityType:'inventory_stocktake',entityId:stocktakeId,oldValues:{status:'draft'},newValues:{status:'posted'},ipAddress:null});
+    });
+    return this.getStocktake(user, stocktakeId);
+  }
+
+  async cancelStocktake(user: AuthenticatedUser, stocktakeId: string) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    return this.db.transaction(async client => {
+      const result = await client.query("UPDATE inventory_stocktakes t SET status='cancelled',updated_at=NOW() FROM warehouses w WHERE t.warehouse_id=w.id AND t.company_id=w.company_id AND t.id=$1 AND t.company_id=$2 AND ($3::uuid IS NULL OR w.branch_id=$3) AND t.status='draft' RETURNING t.id,t.status", [stocktakeId, companyId, branchId]);
+      if (!result.rows[0]) throw new ConflictException('Draft stocktake not found or already closed.');
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId,action:'inventory.stocktake.cancel',entityType:'inventory_stocktake',entityId:stocktakeId,oldValues:{status:'draft'},newValues:{status:'cancelled'},ipAddress:null});
+      return result.rows[0];
+    });
   }
 
   receive(user: AuthenticatedUser, dto: CreateStockMovementDto) {

@@ -106,6 +106,7 @@ const navGroups: NavGroup[] = [
     items: [
       { title: "Products", url: "/products", icon: Package },
       { title: "Stock Levels", url: "/stock-levels", icon: Boxes },
+      { title: "Stocktakes", url: "/stocktakes", icon: ClipboardList },
       { title: "Warehouses", url: "/warehouses", icon: Building },
       { title: "Stock Movements", url: "/stock-movements", icon: ArrowLeftRight },
       { title: "Manufacturing", url: "/manufacturing", icon: Factory, module: "manufacturing" },
