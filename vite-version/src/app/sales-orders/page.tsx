@@ -40,7 +40,7 @@ export default function SalesOrdersPage() {
   const changeStatus = async (order: SalesOrder, status: SalesOrderStatus) => {
     setBusyId(order.id); setError("");
     try {
-      await api.patch(`/sales-orders/${order.id}/status`, status === "fulfilled" ? { status, warehouseId: fulfillmentWarehouseId } : { status });
+      await api.patch(`/sales-orders/${order.id}/status`, status === "fulfilled" || status === "processing" ? { status, warehouseId: fulfillmentWarehouseId } : { status });
       await refresh();
     }
     catch (e) { setError(messageOf(e)); }
