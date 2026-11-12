@@ -4,6 +4,7 @@ import { CreateAccountDto } from './dto/create-account.dto.js';
 import { CreateJournalDto } from './dto/create-journal.dto.js';
 import { CreateBankStatementDto, MatchBankStatementLineDto } from './dto/create-bank-statement.dto.js';
 import { CreateFixedAssetDto, RunDepreciationDto } from './dto/fixed-assets.dto.js';
+import { CreateBudgetDto, CreateCostCentreDto } from './dto/budgets-cost-centres.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -21,6 +22,11 @@ export class AccountingController {
  @Get('reconciliation/payables') @RequirePermissions('accounting:read') payablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.payablesReconciliation(req.user);}
  @Get('reconciliation/receivables') @RequirePermissions('accounting:read') receivablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.receivablesReconciliation(req.user);}
  @Get('journals') @RequirePermissions('accounting:read') journals(@Req() req:{user:AuthenticatedUser}){return this.accounting.listJournals(req.user);}
+ @Get('cost-centres') @RequirePermissions('accounting:read') costCentres(@Req() req:{user:AuthenticatedUser}){return this.accounting.listCostCentres(req.user);}
+ @Post('cost-centres') @RequirePermissions('accounting:write') createCostCentre(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateCostCentreDto){return this.accounting.createCostCentre(req.user,dto);}
+ @Get('budgets') @RequirePermissions('accounting:read') budgets(@Req() req:{user:AuthenticatedUser},@Query('fiscalYear') fiscalYear?:string,@Query('periodMonth') periodMonth?:string){return this.accounting.budgetVsActual(req.user,fiscalYear?Number(fiscalYear):undefined,periodMonth?Number(periodMonth):undefined);}
+ @Post('budgets') @RequirePermissions('accounting:write') createBudget(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateBudgetDto){return this.accounting.createBudget(req.user,dto);}
+ @Post('budgets/:id/approve') @RequirePermissions('accounting:write') approveBudget(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.accounting.approveBudget(req.user,id);}
  @Get('fixed-assets') @RequirePermissions('accounting:read') fixedAssets(@Req() req:{user:AuthenticatedUser}){return this.accounting.listFixedAssets(req.user);}
  @Post('fixed-assets') @RequirePermissions('accounting:write') createFixedAsset(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateFixedAssetDto){return this.accounting.createFixedAsset(req.user,dto);}
  @Get('fixed-assets/:id') @RequirePermissions('accounting:read') fixedAsset(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.accounting.getFixedAsset(req.user,id);}
