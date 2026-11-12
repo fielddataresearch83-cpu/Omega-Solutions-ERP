@@ -19,6 +19,7 @@ const DEFAULT_ACCOUNTS = [
  {code:'2050',name:'Customer Credits Payable',type:'liability',side:'credit',system:'customer_credits',cashFlowCategory:'operating'},
  {code:'2010',name:'Goods Received Not Invoiced',type:'liability',side:'credit',system:'goods_received_not_invoiced',cashFlowCategory:'operating'},
  {code:'2100',name:'Output VAT Payable',type:'liability',side:'credit',system:'output_tax',cashFlowCategory:'operating'},
+ {code:'2060',name:'Withholding Tax Payable',type:'liability',side:'credit',system:'withholding_tax_payable',cashFlowCategory:'operating'},
  {code:'3000',name:'Owner Equity',type:'equity',side:'credit',system:'equity',cashFlowCategory:'financing'},
  {code:'4000',name:'Sales Revenue',type:'income',side:'credit',system:'sales_revenue',cashFlowCategory:'operating'},
  {code:'5000',name:'Purchases and Cost of Goods',type:'expense',side:'debit',system:'purchases_expense',cashFlowCategory:'operating'},
