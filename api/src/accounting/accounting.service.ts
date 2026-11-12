@@ -326,7 +326,7 @@ export class AccountingService {
   const cost=Math.round(Number(dto.cost)*100)/100;
   const residualValue=Math.round(Number(dto.residualValue??0)*100)/100;
   const usefulLifeMonths=Number(dto.usefulLifeMonths);
-  if(!Number.isFinite(cost)||cost<=0||!Number.isFinite(residualValue)||residualValue<0||residualValue>cost||!Number.isInteger(usefulLifeMonths)||usefulLifeMonths<1)throw new BadRequestException('Enter a positive asset cost, a valid residual value and a whole-number useful life in months.');
+  if(!Number.isFinite(cost)||cost<=0||!Number.isFinite(residualValue)||residualValue<0||residualValue>=cost||!Number.isInteger(usefulLifeMonths)||usefulLifeMonths<1)throw new BadRequestException('Enter a positive asset cost, a valid residual value and a whole-number useful life in months.');
   const assetCode=dto.assetCode.trim();
   const name=dto.name.trim();
   if(!assetCode||!name)throw new BadRequestException('Asset code and name are required.');
