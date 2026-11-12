@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import type { PoolClient } from 'pg';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import type { CreateProjectDto, CreateProjectEventDto, CreateProjectTaskDto, UpdateProjectDto, UpdateProjectEventDto, UpdateProjectTaskDto } from './dto/projects.dto.js';
 
@@ -15,16 +16,7 @@ export class ProjectsService {
       : this.memberships.getMembership(user.userId);
   }
 
-  private async auditEntry(user: AuthenticatedUser, companyId: string, action: string, entityType: string, entityId: string, values: Record<string, unknown>) {
-    await this.db.transaction(async client => {
-      await this.audit.logInTransaction(client, {
-        userId: user.userId, companyId, branchId: null, action, entityType, entityId,
-        oldValues: null, newValues: values, ipAddress: null,
-      });
-    });
-  }
-
-  private async ensureProject(companyId: string, projectId: string | undefined, client?: { query: (sql: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[] }> }) {
+  private async ensureProject(companyId: string, projectId: string | undefined, client?: PoolClient) {
     if (!projectId) return;
     const result = client
       ? await client.query('SELECT id FROM projects WHERE id=$1 AND company_id=$2', [projectId, companyId])

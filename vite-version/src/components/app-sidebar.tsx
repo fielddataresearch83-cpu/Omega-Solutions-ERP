@@ -67,6 +67,15 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Project Management",
+    module: "core",
+    items: [
+      { title: "Projects", url: "/projects", icon: Briefcase },
+      { title: "Tasks", url: "/tasks", icon: ClipboardList },
+      { title: "Calendar", url: "/calendar", icon: CalendarDays },
+    ],
+  },
+  {
     label: "CRM",
     module: "crm",
     items: [

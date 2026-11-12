@@ -1,203 +1,76 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { z } from "zod"
 import { ArrowUp, BarChart3, CheckCircle2, Clock, ListTodo } from "lucide-react"
 
 import { BaseLayout } from "@/components/layouts/base-layout"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { columns } from "./components/columns"
 import { DataTable } from "./components/data-table"
 import { taskSchema, type Task } from "./data/schema"
-import tasksData from "./data/tasks.json"
-
-// Use static import for tasks data (works in both Vite and Next.js)
-async function getTasks() {
-  return z.array(taskSchema).parse(tasksData)
-}
+import { api } from "@/lib/api-client"
 
 export default function TaskPage() {
-  const [tasks, setTasks] = useState<z.infer<typeof taskSchema>[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  useEffect(() => {
-    const loadTasks = async () => {
-      try {
-        const taskList = await getTasks()
-        setTasks(taskList)
-      } catch (error) {
-        console.error("Failed to load tasks:", error)
-      } finally {
-        setLoading(false)
-      }
+  const loadTasks = useCallback(async () => {
+    try {
+      setError("")
+      const rows = await api.get<Task[]>("/projects/tasks")
+      setTasks(z.array(taskSchema).parse(rows))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load company tasks.")
+    } finally {
+      setLoading(false)
     }
-
-    loadTasks()
   }, [])
 
-  const handleAddTask = (newTask: Task) => {
-    setTasks((prev) => [newTask, ...prev])
+  useEffect(() => { void loadTasks() }, [loadTasks])
+
+  const handleAddTask = async (newTask: Task) => {
+    try {
+      setError("")
+      await api.post("/projects/tasks", {
+        title: newTask.title,
+        status: newTask.status === "in progress" ? "in_progress" : newTask.status,
+        category: newTask.category,
+        priority: newTask.priority,
+      })
+      await loadTasks()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create task.")
+    }
   }
 
-  // Calculate statistics
   const stats = {
     total: tasks.length,
     completed: tasks.filter((t) => t.status === "completed").length,
-    inProgress: tasks.filter((t) => t.status === "in progress").length,
-    pending: tasks.filter((t) => t.status === "pending").length,
+    inProgress: tasks.filter((t) => t.status === "in_progress" || t.status === "in progress").length,
+    pending: tasks.filter((t) => t.status === "pending" || t.status === "todo").length,
   }
 
   if (loading) {
-    return (
-      <BaseLayout
-        title="Tasks"
-        description="A powerful task and issue tracker built with Tanstack Table."
-      >
-        <div className="flex items-center justify-center h-96">
-          <div className="text-muted-foreground">Loading tasks...</div>
-        </div>
-      </BaseLayout>
-    )
+    return <BaseLayout title="Tasks" description="Company tasks and delivery tracking">
+      <div className="flex h-96 items-center justify-center text-muted-foreground">Loading company tasks…</div>
+    </BaseLayout>
   }
 
   return (
-    <BaseLayout
-      title="Tasks"
-      description="A powerful task and issue tracker built with Tanstack Table."
-    >
-      {/* Mobile view placeholder - shows message instead of images */}
-      <div className="md:hidden">
-        <div className="flex items-center justify-center h-96 border rounded-lg bg-muted/20">
-          <div className="text-center p-8">
-            <h3 className="text-lg font-semibold mb-2">Tasks Dashboard</h3>
-            <p className="text-muted-foreground">
-              Please use a larger screen to view the full tasks interface.
-            </p>
-          </div>
+    <BaseLayout title="Tasks" description="Company tasks and delivery tracking">
+      <div className="flex flex-col gap-6 px-4 md:px-6">
+        {error && <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">{error}</div>}
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <Card><CardContent><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Total tasks</p><p className="mt-1 text-2xl font-bold">{stats.total}</p></div><ListTodo className="size-6 text-muted-foreground" /></div></CardContent></Card>
+          <Card><CardContent><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">Completed</p><p className="mt-1 text-2xl font-bold">{stats.completed}</p></div><CheckCircle2 className="size-6 text-muted-foreground" /></div></CardContent></Card>
+          <Card><CardContent><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">In progress</p><p className="mt-1 text-2xl font-bold">{stats.inProgress}</p></div><Clock className="size-6 text-muted-foreground" /></div></CardContent></Card>
+          <Card><CardContent><div className="flex items-center justify-between"><div><p className="text-sm text-muted-foreground">To do / pending</p><p className="mt-1 text-2xl font-bold">{stats.pending}</p></div><BarChart3 className="size-6 text-muted-foreground" /></div></CardContent></Card>
         </div>
-      </div>
-
-      {/* Desktop view */}
-      <div className="hidden h-full flex-1 flex-col gap-6 px-4 md:px-6 md:flex">
-        {/* Stats Cards */}
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-          <Card>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">
-                    Total Tasks
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">{stats.total}</span>
-                    <span className="flex items-center gap-0.5 text-sm text-success">
-                      <ArrowUp className="size-3.5" />
-                      {stats.total > 0
-                        ? Math.round((stats.completed / stats.total) * 100)
-                        : 0}
-                      %
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-secondary rounded-lg p-3">
-                  <ListTodo className="size-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">
-                    Completed
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">
-                      {stats.completed}
-                    </span>
-                    <span className="flex items-center gap-0.5 text-sm text-success">
-                      <ArrowUp className="size-3.5" />
-                      {Math.round((stats.completed / stats.total) * 100)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-secondary rounded-lg p-3">
-                  <CheckCircle2 className="size-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">
-                    In Progress
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">
-                      {stats.inProgress}
-                    </span>
-                    <span className="flex items-center gap-0.5 text-sm text-success">
-                      <ArrowUp className="size-3.5" />
-                      {Math.round((stats.inProgress / stats.total) * 100)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-secondary rounded-lg p-3">
-                  <Clock className="size-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-muted-foreground text-sm font-medium">
-                    Pending
-                  </p>
-                  <div className="mt-1 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">{stats.pending}</span>
-                    <span className="flex items-center gap-0.5 text-sm text-warning">
-                      <ArrowUp className="size-3.5" />
-                      {Math.round((stats.pending / stats.total) * 100)}%
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-secondary rounded-lg p-3">
-                  <BarChart3 className="size-6" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Data Table */}
         <Card>
-          <CardHeader>
-            <CardTitle>Task Management</CardTitle>
-            <CardDescription>
-              View, filter, and manage all your project tasks in one place
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              data={tasks}
-              columns={columns}
-              onAddTask={handleAddTask}
-            />
-          </CardContent>
+          <CardHeader><CardTitle>Task management</CardTitle><CardDescription>Tasks are stored against the selected company and shared with its authorized members.</CardDescription></CardHeader>
+          <CardContent><DataTable data={tasks} columns={columns} onAddTask={handleAddTask} /></CardContent>
         </Card>
       </div>
     </BaseLayout>

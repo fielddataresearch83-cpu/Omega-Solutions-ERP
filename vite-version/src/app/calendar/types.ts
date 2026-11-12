@@ -1,5 +1,5 @@
 export interface CalendarEvent {
-  id: number
+  id: string | number
   title: string
   date: Date
   time: string
