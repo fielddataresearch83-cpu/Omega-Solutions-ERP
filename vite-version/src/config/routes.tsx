@@ -46,6 +46,7 @@ export const routes: RouteObject[] = [
       { path: "/chart-of-accounts", lazy: page(() => import("@/app/chart-of-accounts/page")) },
       { path: "/expenses", lazy: page(() => import("@/app/expenses/page")) },
       { path: "/financial-reports", lazy: page(() => import("@/app/financial-reports/page")) },
+      { path: "/bank-reconciliation", lazy: page(() => import("@/app/bank-reconciliation/page")) },
       { path: "/employees", lazy: page(() => import("@/app/employees/page")) },
       { path: "/workforce", lazy: page(() => import("@/app/workforce/page")) },
       { path: "/payroll", lazy: page(() => import("@/app/payroll/page")) },
