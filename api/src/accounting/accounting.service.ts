@@ -276,6 +276,36 @@ export class AccountingService {
   )).rows;
  }
 
+ async unmatchBankStatementLine(user: AuthenticatedUser, importId: string, lineId: string) {
+  const membership = await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const { companyId } = membership;
+  await this.db.transaction(async client => {
+   const line = await client.query<{id:string;status:string;matched_journal_entry_id:string|null}>(
+    'SELECT id,status,matched_journal_entry_id FROM bank_statement_lines WHERE company_id=$1 AND statement_import_id=$2 AND id=$3 FOR UPDATE',
+    [companyId,importId,lineId],
+   );
+   if(!line.rows[0])throw new NotFoundException('Statement line not found.');
+   if(line.rows[0].status!=='matched')throw new ConflictException('Only a matched statement line can be unmatched.');
+   await client.query(
+    `UPDATE bank_statement_lines SET status='unmatched',matched_journal_entry_id=NULL,matched_by=NULL,matched_at=NULL
+     WHERE company_id=$1 AND statement_import_id=$2 AND id=$3`,
+    [companyId,importId,lineId],
+   );
+   await client.query(
+    `UPDATE bank_statement_imports SET status='imported',reconciled_at=NULL WHERE company_id=$1 AND id=$2`,
+    [companyId,importId],
+   );
+   await this.audit.logInTransaction(client,{
+    userId:user.userId,companyId,branchId:null,action:'accounting.bank_statement.unmatch',
+    entityType:'bank_statement_line',entityId:lineId,
+    oldValues:{status:'matched',journalEntryId:line.rows[0].matched_journal_entry_id},
+    newValues:{status:'unmatched'},ipAddress:null,
+   });
+  });
+  return this.getBankStatementImport(user,importId);
+ }
+
  async matchBankStatementLine(user: AuthenticatedUser, importId: string, lineId: string, journalEntryId: string) {
   const membership = await this.companyFor(user);
   this.assertCompanyWideAccounting(membership);
