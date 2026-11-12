@@ -581,6 +581,7 @@ export class InventoryService {
 
   async postReturn(user: AuthenticatedUser, returnId: string) {
     const { companyId, branchId } = await this.resolveMembership(user);
+    let supplierReturnValue = 0;
     await this.db.transaction(async client => {
       const result = await client.query<{
         id: string; return_number: string; return_type: 'customer' | 'supplier'; warehouse_id: string;
@@ -654,7 +655,7 @@ export class InventoryService {
             'UPDATE inventory_stock_levels SET quantity=quantity-$1,updated_at=NOW() WHERE company_id=$2 AND warehouse_id=$3 AND product_id=$4',
             [quantity, companyId, header.warehouse_id, line.product_id],
           );
-          const movement = await this.insertMovement(client, {
+          await this.insertMovement(client, {
             companyId, productId: line.product_id, warehouseId: header.warehouse_id,
             type: 'issue', quantity: -quantity, unitCost: cost, reference: header.return_number,
             notes: 'Supplier return dispatched after inspection', userId: user.userId,
