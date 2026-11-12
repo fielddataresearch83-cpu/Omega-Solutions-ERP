@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { AccountingService } from './accounting.service.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { CreateJournalDto } from './dto/create-journal.dto.js';
@@ -26,7 +26,13 @@ export class AccountingController {
  @Get('reconciliation/payables') @RequirePermissions('accounting:read') payablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.payablesReconciliation(req.user);}
  @Get('reconciliation/receivables') @RequirePermissions('accounting:read') receivablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.receivablesReconciliation(req.user);}
  @Get('journals') @RequirePermissions('accounting:read') journals(@Req() req:{user:AuthenticatedUser}){return this.accounting.listJournals(req.user);}
- @Get('budgets') @RequirePermissions('accounting:read') budgets(@Req() req:{user:AuthenticatedUser},@Query('fiscalYear') fiscalYear?:string,@Query('periodMonth') periodMonth?:string){return this.accounting.budgetVsActual(req.user,fiscalYear?Number(fiscalYear):undefined,periodMonth?Number(periodMonth):undefined);}
+ @Get('budgets') @RequirePermissions('accounting:read') budgets(@Req() req:{user:AuthenticatedUser},@Query('fiscalYear') fiscalYear?:string,@Query('periodMonth') periodMonth?:string){
+  const year=fiscalYear===undefined?undefined:Number(fiscalYear);
+  const month=periodMonth===undefined?undefined:Number(periodMonth);
+  if(year!==undefined&&(!Number.isInteger(year)||year<2000||year>2200))throw new BadRequestException('fiscalYear must be a whole year between 2000 and 2200.');
+  if(month!==undefined&&(!Number.isInteger(month)||month<1||month>12))throw new BadRequestException('periodMonth must be a whole number between 1 and 12.');
+  return this.accounting.budgetVsActual(req.user,year,month);
+ }
  @Get('fixed-assets') @RequirePermissions('accounting:read') fixedAssets(@Req() req:{user:AuthenticatedUser}){return this.accounting.listFixedAssets(req.user);}
  @Post('fixed-assets') @RequirePermissions('accounting:write') createFixedAsset(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateFixedAssetDto){return this.accounting.createFixedAsset(req.user,dto);}
  @Get('fixed-assets/:id') @RequirePermissions('accounting:read') fixedAsset(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.accounting.getFixedAsset(req.user,id);}
