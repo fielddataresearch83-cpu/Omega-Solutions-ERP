@@ -46,7 +46,7 @@ interface EventFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (event: Partial<CalendarEvent>) => void
-  onDelete?: (eventId: number) => void
+  onDelete?: (eventId: string | number) => void
 }
 
 const eventTypes = [

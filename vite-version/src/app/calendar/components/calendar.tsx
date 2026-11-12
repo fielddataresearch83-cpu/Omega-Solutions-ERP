@@ -18,7 +18,7 @@ interface CalendarProps {
   eventDates: Array<{ date: Date; count: number }>
 }
 
-export function Calendar({ events, eventDates }: CalendarProps) {
+export function Calendar({ events }: CalendarProps) {
   const calendar = useCalendar(events)
 
   return (
