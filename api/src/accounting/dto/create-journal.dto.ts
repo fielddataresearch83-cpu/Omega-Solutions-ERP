@@ -14,9 +14,6 @@ export class CreateJournalLineDto {
   @MaxLength(300)
   description?: string;
 
-  @IsOptional()
-  @IsUUID()
-
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   debit!: number;
