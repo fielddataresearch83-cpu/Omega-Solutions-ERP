@@ -143,6 +143,7 @@ describe('WorkforceService validation and attendance', () => {
     const client = { query: vi.fn().mockResolvedValueOnce({ rows: [{ start_date: '2026-10-01', end_date: '2026-10-10' }] }) };
     db.transaction.mockImplementation(async (work: (connection: { query: ReturnType<typeof vi.fn> }) => Promise<unknown>) => work(client));
     await expect(service.transfer(user, 'assignment-a', { effectiveDate: '2026-10-11', siteId: 'site-b', payBasis: 'monthly', payRate: 1000 })).rejects.toThrow(BadRequestException);
+    expect(client.query.mock.calls[0][0]).toContain('FOR UPDATE OF a,e');
     expect(client.query).toHaveBeenCalledTimes(1);
   });
 
