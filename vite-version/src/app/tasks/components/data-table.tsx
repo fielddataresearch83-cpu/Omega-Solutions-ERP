@@ -28,12 +28,14 @@ import { DataTableToolbar } from "./data-table-toolbar"
 import type { Task } from "../data/schema"
 
 type CompanyMember = { id: string; full_name: string; email: string; role: string }
+type ProjectOption = { id: string; name: string }
 
 interface DataTableProps<TData extends RowData> {
   columns: ColumnDef<DataTableFeatures, TData>[]
   data: TData[]
   onAddTask?: (task: Task) => void | Promise<void>
   members?: CompanyMember[]
+  projects?: ProjectOption[]
 }
 
 export function DataTable<TData extends RowData>({
@@ -41,6 +43,7 @@ export function DataTable<TData extends RowData>({
   data,
   onAddTask,
   members = [],
+  projects = [],
 }: DataTableProps<TData>) {
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [columnVisibility, setColumnVisibility] =
@@ -69,7 +72,7 @@ export function DataTable<TData extends RowData>({
 
   return (
     <div className="flex flex-col gap-4">
-      <DataTableToolbar table={table} onAddTask={onAddTask} members={members} />
+      <DataTableToolbar table={table} onAddTask={onAddTask} members={members} projects={projects} />
       <div className="rounded-md border">
         <Table>
           <TableHeader>
