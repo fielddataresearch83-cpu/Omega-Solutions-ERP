@@ -10,6 +10,8 @@ import { CreateProjectDto, CreateProjectEventDto, CreateProjectTaskDto, UpdatePr
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ProjectsController {
   constructor(private readonly projects: ProjectsService) {}
+  @Get('members') @RequirePermissions('projects:read')
+  listMembers(@Req() req:{user:AuthenticatedUser}) { return this.projects.listMembers(req.user); }
   @Get() @RequirePermissions('projects:read')
   listProjects(@Req() req:{user:AuthenticatedUser}) { return this.projects.listProjects(req.user); }
   @Post() @RequirePermissions('projects:write')
