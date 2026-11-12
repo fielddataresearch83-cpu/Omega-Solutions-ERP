@@ -41,12 +41,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { type CalendarEvent } from "../types"
 
+type ProjectOption = { id: string; name: string }
+
 interface EventFormProps {
   event?: CalendarEvent | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (event: Partial<CalendarEvent>) => void | Promise<void>
   onDelete?: (eventId: string | number) => void | Promise<void>
+  projects?: ProjectOption[]
 }
 
 const eventTypes = [
@@ -101,6 +104,7 @@ export function EventForm({
   onOpenChange,
   onSave,
   onDelete,
+  projects = [],
 }: EventFormProps) {
   const [formData, setFormData] = useState({
     title: event?.title || "",
@@ -113,6 +117,7 @@ export function EventForm({
     attendees: event?.attendees || [],
     allDay: false,
     reminder: event?.reminderEnabled ?? true,
+    projectId: event?.projectId ?? "",
   })
 
   useEffect(() => {
@@ -128,6 +133,7 @@ export function EventForm({
       attendees: event?.attendees || [],
       allDay: event?.allDay || false,
       reminder: event?.reminderEnabled ?? true,
+      projectId: event?.projectId ?? "",
     })
   }, [event, open])
 
@@ -143,6 +149,7 @@ export function EventForm({
       color: eventTypes.find((t) => t.value === formData.type)?.color || "bg-blue-500",
       allDay: formData.allDay,
       reminderEnabled: formData.reminder,
+      projectId: formData.projectId || null,
     }
     setSaving(true)
     setSaveError("")
@@ -383,6 +390,21 @@ export function EventForm({
             </FieldSet>
           </div>
 
+          <Field>
+            <FieldLabel htmlFor="event-project">Project</FieldLabel>
+            <Select
+              value={formData.projectId || "unassigned"}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, projectId: value === "unassigned" ? "" : value ?? "" }))}
+            >
+              <SelectTrigger className="w-full"><SelectValue placeholder="No project" /></SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="unassigned">No project</SelectItem>
+                  {projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
           {/* Location */}
           <Field>
             <FieldLabel htmlFor="location" className="flex items-center gap-2">
