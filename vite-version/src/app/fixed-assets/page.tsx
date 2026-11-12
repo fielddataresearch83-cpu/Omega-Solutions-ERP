@@ -51,7 +51,7 @@ export default function FixedAssetsPage(){
   }catch(e){setError(errorText(e))}
   finally{setLoading(false)}
  },[])
- React.useEffect(()=>{void load()},[load])
+ React.useEffect(()=>{const timer=window.setTimeout(()=>{void load()},0);return()=>window.clearTimeout(timer)},[load])
 
  const createAsset=async()=>{
   if(!form.assetCode.trim()||!form.name.trim()){setError("Asset code and name are required.");return}
