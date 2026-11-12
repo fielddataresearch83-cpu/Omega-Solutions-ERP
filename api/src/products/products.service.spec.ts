@@ -111,8 +111,8 @@ describe('ProductsService initial stock', () => {
     );
     expect(db.transaction).toHaveBeenCalledTimes(1);
     expect(client.query).toHaveBeenCalledWith(
-      expect.stringContaining('INSERT INTO inventory_stock_levels'),
-      ['company-1', 'warehouse-1', 'product-1', 5, 2],
+      expect.stringContaining('average_unit_cost'),
+      ['company-1', 'warehouse-1', 'product-1', 5, 80, 2],
     );
     expect(client.query).toHaveBeenCalledWith(
       expect.stringContaining("'opening_balance'"),

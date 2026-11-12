@@ -170,11 +170,12 @@ export class ProductsService {
         }
 
         await client.query(
-          `INSERT INTO inventory_stock_levels(company_id, warehouse_id, product_id, quantity, reorder_level)
-           VALUES($1, $2, $3, $4, $5)
+          `INSERT INTO inventory_stock_levels(company_id, warehouse_id, product_id, quantity, average_unit_cost, reorder_level)
+           VALUES($1, $2, $3, $4, $5, $6)
            ON CONFLICT(warehouse_id, product_id) DO UPDATE
-             SET quantity = EXCLUDED.quantity, reorder_level = EXCLUDED.reorder_level, updated_at = NOW()`,
-          [membership.companyId, warehouseId, created.id, initialStock, dto.reorderLevel ?? 0],
+             SET quantity = EXCLUDED.quantity, average_unit_cost = EXCLUDED.average_unit_cost,
+                 reorder_level = EXCLUDED.reorder_level, updated_at = NOW()`,
+          [membership.companyId, warehouseId, created.id, initialStock, dto.costPrice ?? 0, dto.reorderLevel ?? 0],
         );
 
         await client.query(
@@ -311,12 +312,22 @@ export class ProductsService {
     values.push(productId);
     values.push(membership.companyId);
 
-    const result = await this.db.query<ProductRow>(
-      `UPDATE products SET ${fields.join(', ')}
-       WHERE id = $${paramIndex} AND company_id = $${paramIndex + 1}
-       RETURNING ${PRODUCT_COLUMNS}`,
-      values,
-    );
+    const result = await this.db.transaction(async client => {
+      if (dto.isActive === false || dto.isService === true) {
+        await client.query('SELECT id FROM products WHERE id=$1 AND company_id=$2 FOR UPDATE', [productId, membership.companyId]);
+        const occupied = await client.query(
+          'SELECT id FROM inventory_stock_levels WHERE company_id=$1 AND product_id=$2 AND (quantity>0 OR reserved_quantity>0) FOR UPDATE',
+          [membership.companyId, productId],
+        );
+        if (occupied.rows.length) throw new ConflictException('Move or release all on-hand and reserved stock before deactivating or converting this product to a service.');
+      }
+      return client.query<ProductRow>(
+        `UPDATE products SET ${fields.join(', ')}
+         WHERE id = ${paramIndex} AND company_id = ${paramIndex + 1}
+         RETURNING ${PRODUCT_COLUMNS}`,
+        values,
+      );
+    });
 
     if (result.rows.length === 0) {
       throw new NotFoundException('Product not found.');
@@ -392,10 +403,15 @@ export class ProductsService {
     const membership = await this.resolveMembership(user);
     const existing = await this.getByIdInternal(membership.companyId, productId);
 
-    await this.db.query(
-      'DELETE FROM products WHERE id = $1 AND company_id = $2',
-      [productId, membership.companyId],
-    );
+    await this.db.transaction(async client => {
+      await client.query('SELECT id FROM products WHERE id=$1 AND company_id=$2 FOR UPDATE', [productId, membership.companyId]);
+      const occupied = await client.query(
+        'SELECT id FROM inventory_stock_levels WHERE company_id=$1 AND product_id=$2 AND (quantity>0 OR reserved_quantity>0) FOR UPDATE',
+        [membership.companyId, productId],
+      );
+      if (occupied.rows.length) throw new ConflictException('Move or release all on-hand and reserved stock before archiving this product.');
+      await client.query('UPDATE products SET is_active=false,updated_at=NOW() WHERE id=$1 AND company_id=$2', [productId, membership.companyId]);
+    });
 
     await this.audit.log({
       userId: user.userId,

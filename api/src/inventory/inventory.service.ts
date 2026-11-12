@@ -556,7 +556,7 @@ export class InventoryService {
   }
 
   private async assertProduct(client:PoolClient,companyId:string,productId:string) {
-    const result=await client.query<{id:string;is_service:boolean}>('SELECT id,is_service FROM products WHERE id=$1 AND company_id=$2 AND is_active=true',[productId,companyId]);
+    const result=await client.query<{id:string;is_service:boolean}>('SELECT id,is_service FROM products WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE',[productId,companyId]);
     if(!result.rows[0]) throw new NotFoundException('Active product not found in this company.');
     if(result.rows[0].is_service) throw new BadRequestException('Service items do not have stock.');
   }
