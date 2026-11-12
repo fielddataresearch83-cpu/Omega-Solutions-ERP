@@ -40,7 +40,6 @@ export default function InventoryReturnsPage(){
  const [loading,setLoading]=React.useState(true),[saving,setSaving]=React.useState(false)
  const [error,setError]=React.useState(""),[notice,setNotice]=React.useState("")
  const load=React.useCallback(async()=>{
-  setLoading(true);setError("")
   try{
    const [r,w,p,c,s,q,b]=await Promise.all([
     api.get<InventoryReturn[]>("/inventory/returns"),
@@ -81,7 +80,7 @@ export default function InventoryReturnsPage(){
  const parties=returnType==="customer"?customers:suppliers
  const availableDispositions=returnType==="customer"?["restock","quarantine","reject"]:["return_to_supplier"]
  return <BaseLayout><div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
-  <PageHeader title="Physical Returns" description="Record customer and supplier goods returns, inspect condition, quarantine items or post stock movements." action={<Button variant="outline" onClick={()=>void load()} disabled={loading||saving}><RefreshCw className="mr-2 size-4"/>Refresh</Button>}/>
+  <PageHeader title="Physical Returns" description="Record customer and supplier goods returns, inspect condition, quarantine items or post stock movements." action={<Button variant="outline" onClick={()=>{setLoading(true);setError("");void load()}} disabled={loading||saving}><RefreshCw className="mr-2 size-4"/>Refresh</Button>}/>
   {error&&<div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
   {notice&&<p role="status" className="text-sm text-emerald-700">{notice}</p>}
   <Card><CardHeader><CardTitle><ArrowDownToLine className="mr-2 inline size-5"/>Record a physical return</CardTitle></CardHeader><CardContent>
