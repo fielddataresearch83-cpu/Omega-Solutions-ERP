@@ -756,9 +756,9 @@ export class AccountingService {
     throw new BadRequestException('A reversal journal cannot itself be reversed. Post a correcting journal instead.');
    }
    const originalLines = await client.query<{
-    account_id: string; description: string | null; debit: string | number; credit: string | number;
+    account_id: string; description: string | null; debit: string | number; credit: string | number; cost_centre_id: string | null;
    }>(
-    'SELECT account_id,description,debit,credit FROM journal_entry_lines WHERE company_id=$1 AND journal_entry_id=$2 ORDER BY id FOR UPDATE',
+    'SELECT account_id,description,debit,credit,cost_centre_id FROM journal_entry_lines WHERE company_id=$1 AND journal_entry_id=$2 ORDER BY id FOR UPDATE',
     [companyId, id],
    );
    if (originalLines.rows.length < 2) throw new BadRequestException('The original journal has no complete posting lines.');
@@ -776,8 +776,8 @@ export class AccountingService {
    );
    for (const line of originalLines.rows) {
     await client.query(
-     `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit) VALUES($1,$2,$3,$4,$5,$6)`,
-     [companyId, reversal.rows[0].id, line.account_id, `Reversal: ${line.description ?? original.description}`, Number(line.credit), Number(line.debit)],
+     `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit,cost_centre_id) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+     [companyId, reversal.rows[0].id, line.account_id, `Reversal: ${line.description ?? original.description}`, Number(line.credit), Number(line.debit), line.cost_centre_id],
     );
    }
    await client.query(
