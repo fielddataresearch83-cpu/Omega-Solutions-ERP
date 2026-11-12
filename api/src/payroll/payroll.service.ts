@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import { calculateKenyaMonthlyPayroll } from './kenya-payroll-calculator.js';
@@ -18,7 +19,7 @@ const validDate=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN
 
 @Injectable()
 export class PayrollService {
- constructor(private readonly db:DatabaseService,private readonly memberships:MembershipsService){}
+ constructor(private readonly db:DatabaseService,private readonly memberships:MembershipsService,private readonly audit:AuditService){}
  private membershipFor(user:AuthenticatedUser){return user.companyId?this.memberships.getMembershipForCompany(user.userId,user.companyId):this.memberships.getMembership(user.userId);}
  private assertCompanyWidePayroll(membership:{branchId?:string|null}){if(membership.branchId)throw new ForbiddenException('Payroll runs and company statutory settings are company-wide. A company-wide payroll administrator must perform this action.');}
  private assertRunTotalsReconcile(run:Record<string,unknown>,items:Array<Record<string,unknown>>){
@@ -74,6 +75,7 @@ export class PayrollService {
    ON CONFLICT(company_id,effective_from) DO UPDATE SET nssf_method=EXCLUDED.nssf_method,nssf_employee_flat=EXCLUDED.nssf_employee_flat,nssf_employer_flat=EXCLUDED.nssf_employer_flat,nssf_employee_rate=EXCLUDED.nssf_employee_rate,nssf_employer_rate=EXCLUDED.nssf_employer_rate,nssf_pensionable_pay_cap=EXCLUDED.nssf_pensionable_pay_cap,housing_levy_enabled=EXCLUDED.housing_levy_enabled,housing_levy_employee_rate=EXCLUDED.housing_levy_employee_rate,housing_levy_employer_rate=EXCLUDED.housing_levy_employer_rate
    RETURNING id,company_id,effective_from,nssf_method,nssf_employee_flat,nssf_employer_flat,nssf_employee_rate,nssf_employer_rate,nssf_pensionable_pay_cap,housing_levy_enabled,housing_levy_employee_rate,housing_levy_employer_rate,created_at`,
    [companyId,effectiveFrom,String(nssfMethod),numeric.nssfEmployeeFlat,numeric.nssfEmployerFlat,numeric.nssfEmployeeRate,numeric.nssfEmployerRate,numeric.nssfPensionablePayCap,housingLevyEnabled===true,numeric.housingLevyEmployeeRate,numeric.housingLevyEmployerRate,user.userId]);
+  await this.audit.log({userId:user.userId,companyId,branchId:null,action:'payroll.statutory_settings.update',entityType:'company_payroll_statutory_settings',entityId:String(result.rows[0].id),oldValues:null,newValues:{effectiveFrom,nssfMethod,housingLevyEnabled},ipAddress:null});
   return result.rows[0];
  }
  async getEmployeePaySettings(user:AuthenticatedUser,employeeId:string){
@@ -104,6 +106,7 @@ export class PayrollService {
    ON CONFLICT(company_id,employee_id,effective_from) DO UPDATE SET monthly_basic_salary=EXCLUDED.monthly_basic_salary,monthly_taxable_allowances=EXCLUDED.monthly_taxable_allowances,monthly_taxable_benefits=EXCLUDED.monthly_taxable_benefits,employee_pension_contribution=EXCLUDED.employee_pension_contribution,post_retirement_medical_contribution=EXCLUDED.post_retirement_medical_contribution,qualifying_mortgage_interest=EXCLUDED.qualifying_mortgage_interest,eligible_insurance_premiums=EXCLUDED.eligible_insurance_premiums,resident_for_tax_purposes=EXCLUDED.resident_for_tax_purposes,effective_from=EXCLUDED.effective_from,updated_at=NOW()
    RETURNING id,company_id,employee_id,monthly_basic_salary,monthly_taxable_allowances,monthly_taxable_benefits,employee_pension_contribution,post_retirement_medical_contribution,qualifying_mortgage_interest,eligible_insurance_premiums,resident_for_tax_purposes,effective_from,created_at,updated_at`,
    [companyId,employeeId,...values,dto.residentForTaxPurposes===false?false:true,effectiveFrom,user.userId]);
+  await this.audit.log({userId:user.userId,companyId,branchId:membership.branchId??null,action:'payroll.employee_pay_settings.upsert',entityType:'employee_pay_settings',entityId:String(result.rows[0].id),oldValues:null,newValues:{employeeId,effectiveFrom,changedFields:keys,residentForTaxPurposes:dto.residentForTaxPurposes===false?false:true},ipAddress:null});
   return result.rows[0];
  }
  async listRuns(user:AuthenticatedUser){
@@ -188,6 +191,7 @@ export class PayrollService {
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb)`,
       [membership.companyId,run.id,employee.id,employee.employee_number,`${employee.first_name} ${employee.last_name}`,grossCashPay,snapshot.taxableBenefits,snapshot.nssfEmployee,snapshot.nssfEmployer,snapshot.shifEmployee,snapshot.housingLevyEmployee,snapshot.housingLevyEmployer,snapshot.paye,snapshot.employeePensionContribution,snapshot.postRetirementMedicalContribution,snapshot.employeeDeductions,snapshot.netPay,snapshot.employerStatutoryCost,JSON.stringify(snapshot)]);
     }
+    await this.audit.logInTransaction(client,{userId:user.userId,companyId:membership.companyId,branchId:null,action:'payroll.run.create',entityType:'payroll_run',entityId:String(run.id),oldValues:null,newValues:{periodStart:dto.periodStart,periodEnd:dto.periodEnd,employeeCount:calculated.length},ipAddress:null});
     return run;
    });
   }catch(error){if((error as {code?:string}).code==='23505')throw new ConflictException('A payroll run already exists for this company and period.');throw error;}
@@ -266,6 +270,7 @@ export class PayrollService {
    this.assertRunTotalsReconcile(run.rows[0] as Record<string,unknown>,items.rows as Array<Record<string,unknown>>);
    const updated=await client.query(`UPDATE payroll_runs SET status='approved',approved_by=$3,approved_at=NOW(),updated_at=NOW() WHERE id=$1 AND company_id=$2 AND status='draft'
     RETURNING id,company_id,period_start,period_end,status,employee_count,gross_total,employee_deductions_total,net_pay_total,employer_cost_total,approved_by,approved_at`,[id,membership.companyId,user.userId]);
+   await this.audit.logInTransaction(client,{userId:user.userId,companyId:membership.companyId,branchId:null,action:'payroll.run.approve',entityType:'payroll_run',entityId:id,oldValues:{status:'draft'},newValues:{status:'approved'},ipAddress:null});
    return updated.rows[0];
   });
  }
@@ -340,6 +345,7 @@ export class PayrollService {
     RETURNING id,company_id,period_start,period_end,status,employee_count,gross_total,employee_deductions_total,net_pay_total,employer_cost_total,journal_entry_id,posted_at`,
     [id,membership.companyId,journal.rows[0].id,user.userId]);
    if(!updated.rows.length)throw new ConflictException('Payroll run changed state before posting.');
+   await this.audit.logInTransaction(client,{userId:user.userId,companyId:membership.companyId,branchId:null,action:'payroll.run.post',entityType:'payroll_run',entityId:id,oldValues:{status:'approved'},newValues:{status:'posted',journalEntryId:journal.rows[0].id,debits:totalDebits,credits:totalCredits},ipAddress:null});
    return {...updated.rows[0],journal:journal.rows[0],debits:totalDebits,credits:totalCredits,balanced:true};
   });
  }
