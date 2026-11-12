@@ -60,6 +60,7 @@ export default function TaskPage() {
   const handleAddTask = async (newTask: Task) => {
     await api.post("/projects/tasks", {
       title: newTask.title,
+      description: newTask.description,
       status: newTask.status === "in progress" ? "in_progress" : newTask.status,
       category: newTask.category,
       priority: newTask.priority,
