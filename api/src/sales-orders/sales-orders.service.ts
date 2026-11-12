@@ -121,6 +121,7 @@ export class SalesOrdersService {
     this.assertCompanyWideAccess(membership);
     let fromStatus: SalesOrderStatus = 'confirmed';
     let costOfGoods = 0;
+
     const transition = await this.db.transaction(async (client) => {
       const current = await client.query<{ id: string; status: string; order_number: string }>(
         'SELECT id, status, order_number FROM sales_orders WHERE id = $1 AND company_id = $2 FOR UPDATE',
@@ -128,6 +129,7 @@ export class SalesOrdersService {
       );
       const order = current.rows[0];
       if (!order) throw new NotFoundException('Sales order not found.');
+
       const transitions: Record<SalesOrderStatus, SalesOrderStatus[]> = {
         confirmed: ['processing', 'cancelled'],
         processing: ['fulfilled', 'cancelled'],
@@ -137,7 +139,94 @@ export class SalesOrdersService {
       const from = order.status as SalesOrderStatus;
       fromStatus = from;
       if (!this.isStatus(next) || !transitions[from]?.includes(next as SalesOrderStatus)) {
-        throw new BadRequestException(`Cannot change sales order status from ${from} to ${next}.`);
+        throw new BadRequestException(\`Cannot change sales order status from \${from} to \${next}.\`);
+      }
+
+      if (next === 'processing') {
+        if (!warehouseId) throw new BadRequestException('Choose a warehouse before starting order processing.');
+        const warehouse = await client.query<{ id: string }>(
+          'SELECT id FROM warehouses WHERE id = $1 AND company_id = $2 AND is_active = true FOR SHARE',
+          [warehouseId, membership.companyId],
+        );
+        if (!warehouse.rows[0]) throw new NotFoundException('Active warehouse not found in this company.');
+
+        const items = await client.query<{
+          id: string; product_id: string | null; quantity: string | number;
+          is_service: boolean | null; is_active: boolean | null; product_name: string;
+        }>(
+          \`SELECT soi.id, soi.product_id, soi.quantity, p.is_service, p.is_active, soi.product_name
+           FROM sales_order_items soi
+           LEFT JOIN products p ON p.id = soi.product_id AND p.company_id = soi.company_id
+           WHERE soi.company_id = $1 AND soi.sales_order_id = $2
+           ORDER BY soi.product_id NULLS LAST, soi.id\`,
+          [membership.companyId, id],
+        );
+        if (!items.rows.length) throw new BadRequestException('This sales order has no line items to process.');
+
+        // Lock stock rows in a stable product order. Competing orders for the same
+        // stock therefore serialize before changing reserved_quantity.
+        for (const item of items.rows) {
+          if (!item.product_id) continue;
+          if (item.is_service === null || item.is_active === null) {
+            throw new BadRequestException(\`Product for order line "\${item.product_name}" no longer exists in this company.\`);
+          }
+          if (item.is_service) continue;
+          if (!item.is_active) throw new BadRequestException(\`Product "\${item.product_name}" is inactive and cannot be reserved.\`);
+
+          const quantity = Number(item.quantity);
+          const stock = await client.query<{ id: string; quantity: string | number; reserved_quantity: string | number }>(
+            'SELECT id, quantity, reserved_quantity FROM inventory_stock_levels WHERE company_id = $1 AND warehouse_id = $2 AND product_id = $3 FOR UPDATE',
+            [membership.companyId, warehouseId, item.product_id],
+          );
+          const row = stock.rows[0];
+          const available = row ? Number(row.quantity) - Number(row.reserved_quantity) : 0;
+          if (!row || available + 0.0000001 < quantity) {
+            throw new BadRequestException(\`Insufficient available stock to reserve "\${item.product_name}" in the selected warehouse.\`);
+          }
+
+          await client.query(
+            'UPDATE inventory_stock_levels SET reserved_quantity = reserved_quantity + $1, updated_at = NOW() WHERE company_id = $2 AND warehouse_id = $3 AND product_id = $4',
+            [quantity, membership.companyId, warehouseId, item.product_id],
+          );
+          await client.query(
+            \`INSERT INTO sales_order_reservations
+              (company_id, sales_order_id, sales_order_item_id, product_id, warehouse_id, quantity, status, created_by)
+             VALUES ($1, $2, $3, $4, $5, $6, 'reserved', $7)\`,
+            [membership.companyId, id, item.id, item.product_id, warehouseId, quantity, user.userId],
+          );
+        }
+      }
+
+      if (next === 'cancelled' && from === 'processing') {
+        const reservations = await client.query<{
+          id: string; product_id: string; warehouse_id: string; quantity: string | number;
+        }>(
+          \`SELECT id, product_id, warehouse_id, quantity
+           FROM sales_order_reservations
+           WHERE company_id = $1 AND sales_order_id = $2 AND status = 'reserved'
+           ORDER BY warehouse_id, product_id, sales_order_item_id
+           FOR UPDATE\`,
+          [membership.companyId, id],
+        );
+        for (const reservation of reservations.rows) {
+          const released = await client.query<{ id: string }>(
+            \`UPDATE inventory_stock_levels
+             SET reserved_quantity = reserved_quantity - $1, updated_at = NOW()
+             WHERE company_id = $2 AND warehouse_id = $3 AND product_id = $4
+               AND reserved_quantity >= $1
+             RETURNING id\`,
+            [Number(reservation.quantity), membership.companyId, reservation.warehouse_id, reservation.product_id],
+          );
+          if (!released.rows[0]) {
+            throw new BadRequestException('The stock reservation ledger is inconsistent; cancellation was rolled back.');
+          }
+          await client.query(
+            \`UPDATE sales_order_reservations
+             SET status = 'released', released_at = NOW(), updated_at = NOW()
+             WHERE id = $1 AND company_id = $2 AND status = 'reserved'\`,
+            [reservation.id, membership.companyId],
+          );
+        }
       }
 
       if (next === 'fulfilled') {
@@ -147,51 +236,99 @@ export class SalesOrdersService {
           [warehouseId, membership.companyId],
         );
         if (!warehouse.rows[0]) throw new NotFoundException('Active warehouse not found in this company.');
+
         const items = await client.query<{
-          product_id: string | null; quantity: string | number; is_service: boolean | null;
+          id: string; product_id: string | null; quantity: string | number; is_service: boolean | null;
           is_active: boolean | null; cost_price: string | number | null; product_name: string;
         }>(
-          `SELECT soi.product_id, soi.quantity, p.is_service, p.is_active, p.cost_price, soi.product_name
+          \`SELECT soi.id, soi.product_id, soi.quantity, p.is_service, p.is_active, p.cost_price, soi.product_name
            FROM sales_order_items soi
            LEFT JOIN products p ON p.id = soi.product_id AND p.company_id = soi.company_id
            WHERE soi.company_id = $1 AND soi.sales_order_id = $2
-           ORDER BY soi.created_at, soi.id`,
+           ORDER BY soi.product_id NULLS LAST, soi.id\`,
           [membership.companyId, id],
         );
         if (!items.rows.length) throw new BadRequestException('This sales order has no line items to fulfil.');
+
+        const reservationResult = await client.query<{
+          id: string; sales_order_item_id: string; product_id: string; warehouse_id: string; quantity: string | number;
+        }>(
+          \`SELECT id, sales_order_item_id, product_id, warehouse_id, quantity
+           FROM sales_order_reservations
+           WHERE company_id = $1 AND sales_order_id = $2 AND status = 'reserved'
+           ORDER BY warehouse_id, product_id, sales_order_item_id
+           FOR UPDATE\`,
+          [membership.companyId, id],
+        );
+        const reservationsByLine = new Map(reservationResult.rows.map(row => [row.sales_order_item_id, row]));
+
         for (const item of items.rows) {
           if (!item.product_id) continue;
           if (item.is_service === null || item.is_active === null) {
-            throw new BadRequestException(`Product for order line "${item.product_name}" no longer exists in this company.`);
+            throw new BadRequestException(\`Product for order line "\${item.product_name}" no longer exists in this company.\`);
           }
           if (item.is_service) continue;
-          if (!item.is_active) throw new BadRequestException(`Product "${item.product_name}" is inactive and cannot be fulfilled.`);
+          if (!item.is_active) throw new BadRequestException(\`Product "\${item.product_name}" is inactive and cannot be fulfilled.\`);
 
-          const stock = await client.query<{ quantity: string | number; reserved_quantity: string | number; average_unit_cost: string | number }>(
+          const quantity = Number(item.quantity);
+          const reservation = reservationsByLine.get(item.id);
+          if (reservation && reservation.warehouse_id !== warehouseId) {
+            throw new BadRequestException('Fulfil this order from the warehouse where its stock was reserved.');
+          }
+          if (reservation && Math.abs(Number(reservation.quantity) - quantity) > 0.0000001) {
+            throw new BadRequestException('The order quantity no longer matches its stock reservation.');
+          }
+
+          const stock = await client.query<{
+            quantity: string | number; reserved_quantity: string | number; average_unit_cost: string | number;
+          }>(
             'SELECT quantity, reserved_quantity, average_unit_cost FROM inventory_stock_levels WHERE company_id = $1 AND warehouse_id = $2 AND product_id = $3 FOR UPDATE',
             [membership.companyId, warehouseId, item.product_id],
           );
-          const available = stock.rows[0] ? Number(stock.rows[0].quantity) - Number(stock.rows[0].reserved_quantity) : 0;
-          const quantity = Number(item.quantity);
-          if (!stock.rows[0] || available + 0.0000001 < quantity) {
-            throw new BadRequestException(`Insufficient available stock for "${item.product_name}" in the selected warehouse.`);
+          const stockRow = stock.rows[0];
+          if (!stockRow) throw new BadRequestException(\`Stock for "\${item.product_name}" is no longer available in the selected warehouse.\`);
+          const reservedQuantity = reservation ? quantity : 0;
+          if (Number(stockRow.quantity) + 0.0000001 < quantity ||
+              Number(stockRow.reserved_quantity) + 0.0000001 < reservedQuantity) {
+            throw new BadRequestException(\`The reserved stock for "\${item.product_name}" is no longer available.\`);
           }
-          const issueCost = Number(stock.rows[0].average_unit_cost ?? item.cost_price ?? 0);
+          if (!reservation && Number(stockRow.quantity) - Number(stockRow.reserved_quantity) + 0.0000001 < quantity) {
+            throw new BadRequestException(\`Insufficient available stock for "\${item.product_name}" in the selected warehouse.\`);
+          }
+
+          const issueCost = Number(stockRow.average_unit_cost ?? item.cost_price ?? 0);
           costOfGoods += quantity * issueCost;
-          await client.query(
-            'UPDATE inventory_stock_levels SET quantity = quantity - $1, updated_at = NOW() WHERE company_id = $2 AND warehouse_id = $3 AND product_id = $4',
-            [quantity, membership.companyId, warehouseId, item.product_id],
+          const updated = await client.query<{ id: string }>(
+            \`UPDATE inventory_stock_levels
+             SET quantity = quantity - $1,
+                 reserved_quantity = reserved_quantity - $2,
+                 updated_at = NOW()
+             WHERE company_id = $3 AND warehouse_id = $4 AND product_id = $5
+               AND quantity >= $1 AND reserved_quantity >= $2
+             RETURNING id\`,
+            [quantity, reservedQuantity, membership.companyId, warehouseId, item.product_id],
           );
+          if (!updated.rows[0]) throw new BadRequestException('Stock changed during fulfilment; retry the operation.');
+
+          if (reservation) {
+            await client.query(
+              \`UPDATE sales_order_reservations
+               SET status = 'consumed', consumed_at = NOW(), updated_at = NOW()
+               WHERE id = $1 AND company_id = $2 AND status = 'reserved'\`,
+              [reservation.id, membership.companyId],
+            );
+          }
+
           await client.query(
-            `INSERT INTO inventory_stock_movements
+            \`INSERT INTO inventory_stock_movements
               (company_id, product_id, warehouse_id, movement_type, quantity, unit_cost, reference, notes, created_by)
-             VALUES ($1, $2, $3, 'issue', $4, $5, $6, $7, $8)`,
-            [membership.companyId, item.product_id, warehouseId, -quantity, issueCost, order.order_number, `Sales order fulfilment ${order.order_number}`, user.userId],
+             VALUES ($1, $2, $3, 'issue', $4, $5, $6, $7, $8)\`,
+            [membership.companyId, item.product_id, warehouseId, -quantity, issueCost, order.order_number, \`Sales order fulfilment \${order.order_number}\`, user.userId],
           );
           await client.query(
-            `UPDATE products SET stock_quantity = COALESCE(
+            \`UPDATE products SET stock_quantity = COALESCE(
                (SELECT SUM(quantity) FROM inventory_stock_levels WHERE company_id = $1 AND product_id = $2), 0
-             ), updated_at = NOW() WHERE company_id = $1 AND id = $2`,
+             ), updated_at = NOW() WHERE company_id = $1 AND id = $2\`,
             [membership.companyId, item.product_id],
           );
         }
@@ -201,30 +338,30 @@ export class SalesOrdersService {
         await this.accounting.ensureDefaults(membership.companyId, client);
         const year = new Date().getFullYear();
         const seq = await client.query<{ next_number: number }>(
-          `INSERT INTO journal_entry_sequences(company_id,entry_year,next_number)
+          \`INSERT INTO journal_entry_sequences(company_id,entry_year,next_number)
            VALUES($1,$2,1)
            ON CONFLICT(company_id,entry_year) DO UPDATE
            SET next_number=journal_entry_sequences.next_number+1
-           RETURNING next_number`,
+           RETURNING next_number\`,
           [membership.companyId, year],
         );
-        const entryNumber = `JE-${year}-${String(seq.rows[0].next_number).padStart(6, '0')}`;
+        const entryNumber = \`JE-\${year}-\${String(seq.rows[0].next_number).padStart(6, '0')}\`;
         const entry = await client.query<{ id: string }>(
-          `INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by)
-           VALUES($1,$2,CURRENT_DATE,$3,'sales_order_cogs',$4,'posted',NOW(),$5) RETURNING id`,
-          [membership.companyId, entryNumber, `Cost of goods sold for ${order.order_number}`, id, user.userId],
+          \`INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by)
+           VALUES($1,$2,CURRENT_DATE,$3,'sales_order_cogs',$4,'posted',NOW(),$5) RETURNING id\`,
+          [membership.companyId, entryNumber, \`Cost of goods sold for \${order.order_number}\`, id, user.userId],
         );
         const accounts = await client.query<{ id: string; system_code: string }>(
-          `SELECT id,system_code FROM chart_of_accounts
-           WHERE company_id=$1 AND system_code IN ('inventory','purchases_expense') AND is_active=true`,
+          \`SELECT id,system_code FROM chart_of_accounts
+           WHERE company_id=$1 AND system_code IN ('inventory','purchases_expense') AND is_active=true\`,
           [membership.companyId],
         );
         const inventory = accounts.rows.find(account => account.system_code === 'inventory');
         const cogs = accounts.rows.find(account => account.system_code === 'purchases_expense');
         if (!inventory || !cogs) throw new BadRequestException('Inventory and cost-of-goods accounts must be active.');
         await client.query(
-          `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit)
-           VALUES($1,$2,$3,'Cost of goods sold',$4,0),($1,$2,$5,'Inventory relieved on sale',0,$4)`,
+          \`INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit)
+           VALUES($1,$2,$3,'Cost of goods sold',$4,0),($1,$2,$5,'Inventory relieved on sale',0,$4)\`,
           [membership.companyId, entry.rows[0].id, cogs.id, Math.round(costOfGoods * 100) / 100, inventory.id],
         );
       }
@@ -238,10 +375,10 @@ export class SalesOrdersService {
 
     await this.audit.log({
       userId: user.userId, companyId: membership.companyId, branchId: null,
-      action: transition.to === 'fulfilled' ? 'sales_order.fulfilled' : 'sales_order.status.update',
+      action: transition.to === 'fulfilled' ? 'sales_order.fulfilled' : transition.to === 'processing' ? 'sales_order.stock_reserved' : transition.to === 'cancelled' ? 'sales_order.cancelled' : 'sales_order.status.update',
       entityType: 'sales_order', entityId: id,
       oldValues: { status: fromStatus },
-      newValues: { status: transition.to, ...(transition.to === 'fulfilled' ? { warehouseId } : {}) },
+      newValues: { status: transition.to, ...(warehouseId ? { warehouseId } : {}) },
       ipAddress: null,
     });
     return this.getById(user, id);
