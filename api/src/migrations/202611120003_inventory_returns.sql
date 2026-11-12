@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS inventory_returns (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   posted_at TIMESTAMPTZ,
   CONSTRAINT inventory_returns_party_check CHECK (
-    (return_type='customer' AND customer_id IS NOT NULL AND supplier_id IS NULL) OR
-    (return_type='supplier' AND supplier_id IS NOT NULL AND customer_id IS NULL)
+    (return_type='customer' AND customer_id IS NOT NULL AND supplier_id IS NULL AND supplier_bill_id IS NULL) OR
+    (return_type='supplier' AND supplier_id IS NOT NULL AND customer_id IS NULL AND supplier_bill_id IS NOT NULL)
   ),
   CONSTRAINT inventory_returns_customer_company_fk FOREIGN KEY (customer_id,company_id) REFERENCES customers(id,company_id) ON DELETE RESTRICT,
   CONSTRAINT inventory_returns_supplier_company_fk FOREIGN KEY (supplier_id,company_id) REFERENCES suppliers(id,company_id) ON DELETE RESTRICT,
