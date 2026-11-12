@@ -129,7 +129,6 @@ export const columns: ColumnDef<DataTableFeatures, Task>[] = [
       const priorityColors = {
         critical: "border-destructive text-destructive",
         urgent: "border-destructive text-destructive",
-        urgent: "border-destructive text-destructive",
         important: "border-warning text-warning",
         normal: "border-info text-info",
         minor: "border-gray-500 text-gray-700 dark:text-gray-400",
