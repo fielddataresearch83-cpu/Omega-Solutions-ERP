@@ -9,6 +9,7 @@ export interface CalendarEvent {
   location: string
   color: string
   description?: string
+  allDay?: boolean
 }
 
 export interface Calendar {

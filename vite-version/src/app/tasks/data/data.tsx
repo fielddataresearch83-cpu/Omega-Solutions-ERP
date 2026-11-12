@@ -1,6 +1,7 @@
 import { CheckCircle2, Circle, Clock, PlayCircle } from "lucide-react"
 
 export const categories = [
+  { value: "task", label: "Task" },
   {
     value: "bug",
     label: "Bug",
@@ -63,4 +64,5 @@ export const priorities = [
     label: "Critical",
     value: "critical",
   },
+  { label: "Urgent", value: "urgent" },
 ]

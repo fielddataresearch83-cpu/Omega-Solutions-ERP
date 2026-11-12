@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { CalendarIcon, Clock, MapPin, Users, Type, Tag } from "lucide-react"
 import { format } from "date-fns"
 
@@ -115,6 +115,22 @@ export function EventForm({
     reminder: true,
   })
 
+  useEffect(() => {
+    if (!open) return
+    setFormData({
+      title: event?.title || "",
+      date: event?.date || new Date(),
+      time: event?.time || "9:00 AM",
+      duration: event?.duration || "1 hour",
+      type: event?.type || "meeting",
+      location: event?.location || "",
+      description: event?.description || "",
+      attendees: event?.attendees || [],
+      allDay: event?.allDay || false,
+      reminder: true,
+    })
+  }, [event, open])
+
   const [showCalendar, setShowCalendar] = useState(false)
   const [newAttendee, setNewAttendee] = useState("")
 
@@ -125,6 +141,7 @@ export function EventForm({
       color:
         eventTypes.find((t) => t.value === formData.type)?.color ||
         "bg-blue-500",
+      allDay: formData.allDay,
     }
     onSave(eventData)
     onOpenChange(false)
