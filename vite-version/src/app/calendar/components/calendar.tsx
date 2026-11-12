@@ -10,6 +10,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { useEffect, useState } from "react"
+import { api } from "@/lib/api-client"
 import { type CalendarEvent } from "../types"
 import { useCalendar } from "../use-calendar"
 
@@ -17,8 +19,12 @@ interface CalendarProps {
   events: CalendarEvent[]
 }
 
+type ProjectOption = { id: string; name: string }
+
 export function Calendar({ events }: CalendarProps) {
   const calendar = useCalendar(events)
+  const [projects, setProjects] = useState<ProjectOption[]>([])
+  useEffect(() => { void api.get<ProjectOption[]>("/projects").then(setProjects).catch(() => setProjects([])) }, [])
 
   return (
     <>
@@ -81,6 +87,7 @@ export function Calendar({ events }: CalendarProps) {
         onOpenChange={calendar.setShowEventForm}
         onSave={calendar.handleSaveEvent}
         onDelete={calendar.handleDeleteEvent}
+        projects={projects}
       />
     </>
   )
