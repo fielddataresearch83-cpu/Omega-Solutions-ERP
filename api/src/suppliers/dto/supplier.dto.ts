@@ -19,7 +19,7 @@ export class CreateSupplierDto {
   email?: string;
 
   @IsString()
-  @Matches(/^[A-Z]\\d{9}[A-Z]$/i)
+  @Matches(/^[A-Z]\d{9}[A-Z]$/i)
   @MaxLength(20)
   @IsOptional()
   kraPin?: string;
@@ -72,7 +72,7 @@ export class UpdateSupplierDto {
   email?: string;
 
   @IsString()
-  @Matches(/^[A-Z]\\d{9}[A-Z]$/i)
+  @Matches(/^[A-Z]\d{9}[A-Z]$/i)
   @MaxLength(20)
   @IsOptional()
   kraPin?: string;
