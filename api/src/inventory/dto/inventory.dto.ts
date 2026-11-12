@@ -63,6 +63,7 @@ export class CreateInventoryReturnDto {
   @IsIn(['customer', 'supplier']) returnType!: 'customer' | 'supplier';
   @IsOptional() @IsUUID() customerId?: string;
   @IsOptional() @IsUUID() supplierId?: string;
+  @IsOptional() @IsUUID() supplierBillId?: string;
   @IsUUID() warehouseId!: string;
   @IsOptional() @IsString() @MaxLength(120) sourceReference?: string;
   @IsString() @MaxLength(1000) reason!: string;
