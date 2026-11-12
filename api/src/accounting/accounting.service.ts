@@ -48,7 +48,7 @@ export class AccountingService {
  }
  async listAccounts(user:AuthenticatedUser){
   const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
-  const {companyId}=membership;
+  const {companyId}=membership;await this.ensureDefaults(companyId);
   return (await this.db.query(
    `SELECT a.id,a.company_id,a.code,a.name,a.account_type,a.normal_side,a.system_code,a.cash_flow_category,a.is_active,a.created_at,
     COALESCE(SUM(l.debit) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS total_debits,COALESCE(SUM(l.credit) FILTER (WHERE j.status='posted'),0)::numeric(14,2) AS total_credits,
