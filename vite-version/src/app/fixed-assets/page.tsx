@@ -14,7 +14,7 @@ import { formatKES } from "@/lib/format"
 
 type Account={id:string;code:string;name:string;account_type:string;normal_side:string;system_code:string|null;is_active:boolean}
 type Depreciation={id:string;period_end:string;depreciation_amount:number|string;entry_number:string}
-type Asset={id:string;asset_code:string;name:string;description:string|null;acquisition_date:string;cost:number|string;residual_value:number|string;useful_life_months:number;accumulated_depreciation:number|string;net_book_value:number|string;status:string;asset_account_id:string;accumulated_depreciation_account_id:string;depreciation_expense_account_id:string;payment_account_id:string;asset_account_name:string;accumulated_depreciation_account_name:string;depreciation_expense_account_name:string;payment_account_name:string;depreciationSchedule?:Depreciation[]}
+type Asset={id:string;asset_code:string;name:string;description:string|null;acquisition_date:string;cost:number|string;residual_value:number|string;useful_life_months:number;accumulated_depreciation:number|string;net_book_value:number|string;status:string;disposal_date?:string|null;disposal_proceeds?:number|string|null;disposal_journal_entry_id?:string|null;asset_account_id:string;accumulated_depreciation_account_id:string;depreciation_expense_account_id:string;payment_account_id:string;asset_account_name:string;accumulated_depreciation_account_name:string;depreciation_expense_account_name:string;payment_account_name:string;depreciationSchedule?:Depreciation[]}
 const today=()=>new Date().toISOString().slice(0,10)
 const errorText=(e:unknown)=>e&&typeof e==="object"&&"message" in e?String((e as {message:unknown}).message):"The request failed."
 const nextMonthEnd=(value:string)=>{
@@ -30,6 +30,10 @@ export default function FixedAssetsPage(){
  const [showForm,setShowForm]=React.useState(false)
  const [selectedAsset,setSelectedAsset]=React.useState<Asset|null>(null)
  const [periodEnd,setPeriodEnd]=React.useState("")
+ const [showDispose,setShowDispose]=React.useState(false)
+ const [disposalDate,setDisposalDate]=React.useState(today())
+ const [disposalProceeds,setDisposalProceeds]=React.useState("0")
+ const [disposalPaymentAccountId,setDisposalPaymentAccountId]=React.useState("")
  const [form,setForm]=React.useState({assetCode:"",name:"",description:"",acquisitionDate:today(),cost:"",residualValue:"0",usefulLifeMonths:"60",assetAccountId:"",accumulatedDepreciationAccountId:"",depreciationExpenseAccountId:"",paymentAccountId:""})
 
  const load=React.useCallback(async()=>{
@@ -60,8 +64,15 @@ export default function FixedAssetsPage(){
  }
  const viewAsset=async(asset:Asset)=>{
   setError(null)
-  try{const detail=await api.get<Asset>("/accounting/fixed-assets/"+asset.id);setSelectedAsset(detail);setPeriodEnd(detail.depreciationSchedule?.length?nextMonthEnd(detail.depreciationSchedule[detail.depreciationSchedule.length-1].period_end):nextMonthEnd(detail.acquisition_date))}
+  try{const detail=await api.get<Asset>("/accounting/fixed-assets/"+asset.id);setSelectedAsset(detail);setPeriodEnd(detail.depreciationSchedule?.length?nextMonthEnd(detail.depreciationSchedule[detail.depreciationSchedule.length-1].period_end):nextMonthEnd(detail.acquisition_date));setShowDispose(false);setDisposalDate(today());setDisposalProceeds("0");setDisposalPaymentAccountId(accounts.find(a=>a.system_code==="bank")?.id||accounts.find(a=>a.system_code==="cash")?.id||"")}
   catch(e){setError(errorText(e))}
+ }
+ const disposeAsset=async()=>{
+  if(!selectedAsset)return
+  setSaving(true);setError(null)
+  try{const detail=await api.post<Asset>("/accounting/fixed-assets/"+selectedAsset.id+"/dispose",{disposalDate,proceeds:Number(disposalProceeds||0),paymentAccountId:disposalPaymentAccountId});setSelectedAsset(detail);setShowDispose(false);await load()}
+  catch(e){setError(errorText(e))}
+  finally{setSaving(false)}
  }
  const runDepreciation=async()=>{
   if(!selectedAsset)return
@@ -104,7 +115,9 @@ export default function FixedAssetsPage(){
   {selectedAsset&&<Card><CardContent className="flex flex-col gap-4 p-4">
    <div className="flex flex-wrap items-start justify-between gap-2"><div><h2 className="font-semibold">{selectedAsset.asset_code} · {selectedAsset.name}</h2><p className="text-sm text-muted-foreground">Cost {formatKES(Number(selectedAsset.cost))} · Residual {formatKES(Number(selectedAsset.residual_value))} · Life {selectedAsset.useful_life_months} months</p></div><Button variant="outline" size="sm" onClick={()=>setSelectedAsset(null)}>Close</Button></div>
    <div className="grid gap-3 sm:grid-cols-3"><Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Accumulated depreciation</p><p className="mt-1 font-semibold tabular-nums">{formatKES(Number(selectedAsset.accumulated_depreciation))}</p></CardContent></Card><Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Net book value</p><p className="mt-1 font-semibold tabular-nums">{formatKES(Number(selectedAsset.net_book_value))}</p></CardContent></Card><Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Status</p><p className="mt-1 font-semibold capitalize">{selectedAsset.status.replace("_"," ")}</p></CardContent></Card></div>
-   {selectedAsset.status==="active"&&<div className="flex flex-wrap items-end gap-3 rounded-lg border p-3"><div className="flex flex-col gap-1"><Label>Depreciation period end (month end)</Label><Input type="date" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)}/></div><Button onClick={()=>void runDepreciation()} disabled={saving||!periodEnd}><Calculator className="size-4"/>Post monthly depreciation</Button></div>}
+   {(selectedAsset.status==="active"||selectedAsset.status==="fully_depreciated")&&<div className="flex flex-wrap items-end gap-3 rounded-lg border p-3"><div className="flex flex-col gap-1"><Label>Depreciation period end (month end)</Label><Input type="date" value={periodEnd} onChange={e=>setPeriodEnd(e.target.value)}/></div><Button onClick={()=>void runDepreciation()} disabled={saving||!periodEnd||selectedAsset.status!=="active"}><Calculator className="size-4"/>Post monthly depreciation</Button><Button type="button" variant="outline" onClick={()=>setShowDispose(v=>!v)} disabled={saving}>{showDispose?"Close disposal":"Dispose asset"}</Button></div>}
+   {showDispose&&<div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-3"><div className="flex flex-col gap-1"><Label>Disposal date</Label><Input type="date" value={disposalDate} onChange={e=>setDisposalDate(e.target.value)}/></div><div className="flex flex-col gap-1"><Label>Sale / disposal proceeds (KES)</Label><Input type="number" min="0" step="0.01" value={disposalProceeds} onChange={e=>setDisposalProceeds(e.target.value)}/></div><div className="flex flex-col gap-1"><Label>Cash / bank receipt account</Label><select className="h-9 rounded-md border bg-background px-3 text-sm" value={disposalPaymentAccountId} onChange={e=>setDisposalPaymentAccountId(e.target.value)}><option value="">Select account</option>{paymentAccounts.map(a=><option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}</select></div><div className="sm:col-span-3 flex justify-end"><Button onClick={()=>void disposeAsset()} disabled={saving||!disposalPaymentAccountId}><Archive className="size-4"/>Post disposal</Button></div></div>}
+   {selectedAsset.status==="disposed"&&<p className="text-sm text-muted-foreground">Disposed on {selectedAsset.disposal_date} for {formatKES(Number(selectedAsset.disposal_proceeds??0))}. Disposal journal: {selectedAsset.disposal_journal_entry_id||"—"}.</p>}
    <div><h3 className="mb-2 font-medium">Depreciation history</h3>{(selectedAsset.depreciationSchedule??[]).length===0?<p className="text-sm text-muted-foreground">No depreciation has been posted.</p>:<Table><TableHeader><TableRow><TableHead>Period end</TableHead><TableHead>Journal</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader><TableBody>{selectedAsset.depreciationSchedule!.map(row=><TableRow key={row.id}><TableCell>{row.period_end}</TableCell><TableCell className="font-mono">{row.entry_number}</TableCell><TableCell className="text-right tabular-nums">{formatKES(Number(row.depreciation_amount))}</TableCell></TableRow>)}</TableBody></Table>}</div>
   </CardContent></Card>}
  </div></BaseLayout>
