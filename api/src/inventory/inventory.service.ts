@@ -6,7 +6,7 @@ import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AccountingService } from '../accounting/accounting.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
-import type { AdjustStockDto, CreateStockMovementDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
+import type { AdjustStockDto, CountStocktakeLineDto, CreateStockMovementDto, CreateStocktakeDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
 
 type WarehouseRow = {
   id: string; company_id: string; branch_id: string | null; code: string; name: string;
@@ -283,7 +283,7 @@ export class InventoryService {
   async listStocktakes(user: AuthenticatedUser) {
     const { companyId, branchId } = await this.resolveMembership(user);
     const result = await this.db.query(
-      "SELECT t.id,t.warehouse_id,t.reference,t.status,t.notes,t.created_at,t.posted_at,w.code AS warehouse_code,w.name AS warehouse_name,u.name AS created_by_name,COUNT(l.id)::int AS line_count,COUNT(l.id) FILTER(WHERE l.counted_quantity IS NOT NULL)::int AS counted_lines FROM inventory_stocktakes t JOIN warehouses w ON w.id=t.warehouse_id AND w.company_id=t.company_id LEFT JOIN users u ON u.id=t.created_by LEFT JOIN inventory_stocktake_lines l ON l.stocktake_id=t.id AND l.company_id=t.company_id WHERE t.company_id=$1 AND ($2::uuid IS NULL OR w.branch_id=$2) GROUP BY t.id,w.code,w.name,u.name ORDER BY t.created_at DESC LIMIT 100",
+      "SELECT t.id,t.warehouse_id,t.reference,t.status,t.notes,t.created_at,t.posted_at,w.code AS warehouse_code,w.name AS warehouse_name,u.full_name AS created_by_name,COUNT(l.id)::int AS line_count,COUNT(l.id) FILTER(WHERE l.counted_quantity IS NOT NULL)::int AS counted_lines FROM inventory_stocktakes t JOIN warehouses w ON w.id=t.warehouse_id AND w.company_id=t.company_id LEFT JOIN users u ON u.id=t.created_by LEFT JOIN inventory_stocktake_lines l ON l.stocktake_id=t.id AND l.company_id=t.company_id WHERE t.company_id=$1 AND ($2::uuid IS NULL OR w.branch_id=$2) GROUP BY t.id,w.code,w.name,u.full_name ORDER BY t.created_at DESC LIMIT 100",
       [companyId, branchId],
     );
     return result.rows;
@@ -339,7 +339,7 @@ export class InventoryService {
       for (const line of lines.rows) {
         await this.ensureStockRow(client, companyId, session.rows[0].warehouse_id, line.product_id);
         const current = await client.query("SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE", [companyId, session.rows[0].warehouse_id, line.product_id]);
-        const changed = await client.query("SELECT id FROM inventory_stock_movements WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 AND created_at>$4 LIMIT 1", [companyId, session.rows[0].warehouse_id, line.product_id, line.counted_at]);
+        const changed = await client.query("SELECT id FROM inventory_stock_movements WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 AND created_at>=$4 LIMIT 1", [companyId, session.rows[0].warehouse_id, line.product_id, line.counted_at]);
         if (changed.rows.length) throw new ConflictException('Stock for ' + line.product_name + ' moved after it was counted. Recount this line before posting.');
         const delta = Number(line.counted_quantity) - Number(current.rows[0].quantity);
         if (Math.abs(delta) < 0.00005) continue;
