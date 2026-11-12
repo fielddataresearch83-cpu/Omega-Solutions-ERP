@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ArrowDownToLine, ClipboardList, RefreshCw, CheckCircle2, XCircle } from "lucide-react"
+import { ArrowDownToLine, RefreshCw, CheckCircle2, XCircle } from "lucide-react"
 import { BaseLayout } from "@/components/layouts/base-layout"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
@@ -37,14 +37,15 @@ export default function InventoryReturnsPage(){
  const load=React.useCallback(async()=>{
   setLoading(true);setError("")
   try{
-   const [r,w,p,c,s]=await Promise.all([
+   const [r,w,p,c,s,q]=await Promise.all([
     api.get<InventoryReturn[]>("/inventory/returns"),
     api.get<Warehouse[]>("/inventory/warehouses"),
     api.get<Product[]>("/products"),
     api.get<Party[]>("/customers"),
     api.get<Party[]>("/suppliers"),
+    api.get<QuarantineBalance[]>("/inventory/quarantine"),
    ])
-   setReturns(r);setWarehouses(w.filter(x=>x.is_active));setProducts(p.filter(x=>x.is_active!==false&&!x.is_service));setCustomers(c.filter(x=>x.is_active!==false));setSuppliers(s.filter(x=>x.is_active!==false))
+   setReturns(r);setQuarantine(q);setWarehouses(w.filter(x=>x.is_active));setProducts(p.filter(x=>x.is_active!==false&&!x.is_service));setCustomers(c.filter(x=>x.is_active!==false));setSuppliers(s.filter(x=>x.is_active!==false))
    setWarehouseId(current=>current||w.find(x=>x.is_active)?.id||"")
   }catch(e){setError(errorText(e))}finally{setLoading(false)}
  },[])
@@ -74,7 +75,7 @@ export default function InventoryReturnsPage(){
   catch(e){setError(errorText(e))}finally{setSaving(false)}
  }
  const parties=returnType==="customer"?customers:suppliers
- const availableDispositions=returnType==="customer"?["restock","quarantine","reject"]:["return_to_supplier","quarantine"]
+ const availableDispositions=returnType==="customer"?["restock","quarantine","reject"]:["return_to_supplier"]
  return <BaseLayout><div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
   <PageHeader title="Physical Returns" description="Record customer and supplier goods returns, inspect condition, quarantine items or post stock movements." action={<Button variant="outline" onClick={()=>void load()} disabled={loading||saving}><RefreshCw className="mr-2 size-4"/>Refresh</Button>}/>
   {error&&<div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{error}</div>}
@@ -93,7 +94,7 @@ export default function InventoryReturnsPage(){
     <label className="grid gap-1 text-sm md:col-span-2 xl:col-span-3">Inspection notes<Input value={inspectionNotes} onChange={e=>setInspectionNotes(e.target.value)} maxLength={2000} placeholder="Condition, damage, batch or quality observations"/></label>
     <div className="md:col-span-2 xl:col-span-3"><Button disabled={saving||!warehouseId||!partyId||!productId||!reason.trim()||!unitCost.trim()}>{saving?"Saving…":"Save draft return"}</Button></div>
    </form>
-   <p className="mt-3 text-xs text-muted-foreground">Customer returns can be restocked, quarantined or rejected. Supplier returns can be quarantined or dispatched back to the supplier. Only posted returns change inventory.</p>
+   <p className="mt-3 text-xs text-muted-foreground">Customer returns can be restocked, quarantined or rejected. Supplier returns are dispatched back to the supplier after inspection. Only posted returns change inventory.</p>
   </CardContent></Card>
   <Card><CardHeader><CardTitle>Quarantined stock</CardTitle></CardHeader><CardContent>{quarantine.length===0?<p className="text-sm text-muted-foreground">No quarantined stock awaiting inspection.</p>:<div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th className="p-2">Product</th><th className="p-2">Warehouse</th><th className="p-2 text-right">Qty held</th><th className="p-2 text-right">Actions</th></tr></thead><tbody>{quarantine.map(q=><tr key={q.warehouse_id+q.product_id} className="border-b"><td className="p-2"><div className="font-medium">{q.product_name}</div><div className="text-xs text-muted-foreground">{q.sku}</div></td><td className="p-2">{q.warehouse_name}</td><td className="p-2 text-right tabular-nums">{formatNumber(Number(q.quantity))}</td><td className="p-2"><div className="flex justify-end gap-2"><Button size="sm" variant="outline" disabled={saving} onClick={()=>void resolveQuarantine(q,"restock")}>Release to stock</Button><Button size="sm" variant="destructive" disabled={saving} onClick={()=>void resolveQuarantine(q,"reject")}>Reject</Button></div></td></tr>)}</tbody></table></div>}</CardContent></Card>
   <div className="grid gap-4 xl:grid-cols-[380px_1fr]">
