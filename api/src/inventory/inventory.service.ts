@@ -713,7 +713,7 @@ export class InventoryService {
           [amount, header.supplier_bill_id, companyId],
         );
         if (!updatedBill.rows[0]) throw new BadRequestException('Supplier bill balance changed; retry the return.');
-        await this.refreshSupplierBalance(client, companyId, header.supplier_id);
+        await this.refreshSupplierBalance(client, companyId, header.supplier_id!);
 
         await this.accounting.ensureDefaults(companyId, client);
         const year = new Date().getFullYear();
