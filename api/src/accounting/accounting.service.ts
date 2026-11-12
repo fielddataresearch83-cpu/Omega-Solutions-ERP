@@ -159,17 +159,19 @@ export class AccountingService {
   const name = dto.name.trim();
   if (!code || !name) throw new BadRequestException('Cost centre code and name are required.');
   try {
-   const result = await this.db.query<{id:string;code:string;name:string;description:string|null;is_active:boolean;created_at:string}>(
-    `INSERT INTO cost_centres(company_id,code,name,description,created_by)
-     VALUES($1,$2,$3,$4,$5) RETURNING id,code,name,description,is_active,created_at`,
-    [membership.companyId, code, name, dto.description?.trim() || null, user.userId],
-   );
-   await this.audit.log({
-    userId:user.userId, companyId:membership.companyId, branchId:null,
-    action:'accounting.cost_centre.create', entityType:'cost_centre',
-    entityId:result.rows[0].id, oldValues:null, newValues:{code,name}, ipAddress:null,
+   return await this.db.transaction(async client => {
+    const result = await client.query<{id:string;code:string;name:string;description:string|null;is_active:boolean;created_at:string}>(
+     `INSERT INTO cost_centres(company_id,code,name,description,created_by)
+      VALUES($1,$2,$3,$4,$5) RETURNING id,code,name,description,is_active,created_at`,
+     [membership.companyId, code, name, dto.description?.trim() || null, user.userId],
+    );
+    await this.audit.logInTransaction(client,{
+     userId:user.userId,companyId:membership.companyId,branchId:null,
+     action:'accounting.cost_centre.create',entityType:'cost_centre',
+     entityId:result.rows[0].id,oldValues:null,newValues:{code,name},ipAddress:null,
+    });
+    return result.rows[0];
    });
-   return result.rows[0];
   } catch (error) {
    if ((error as {code?:string}).code === '23505') throw new ConflictException('A cost centre with this code already exists.');
    throw error;
