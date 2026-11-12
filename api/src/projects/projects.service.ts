@@ -166,31 +166,20 @@ export class ProjectsService {
       const before=await client.query('SELECT * FROM project_events WHERE id=$1 AND company_id=$2 FOR UPDATE',[id,companyId]);
       if(!before.rows.length)throw new NotFoundException('Calendar event not found.');
       if(dto.projectId)await this.ensureProject(companyId,dto.projectId,client);
-      const sets:string[]=[];const values:unknown[]=[];
-      for(const key of Object.keys(fields) as Array<keyof UpdateProjectEventDto>){if(dto[key]!==undefined){values.push(key==='attendees'?JSON.stringify(dto[key]):typeof dto[key]==='string'?String(dto[key]).trim():dto[key]);sets.push(fields[key]+(key==='attendees'?'=
+      const sets:string[]=[];
+      const values:unknown[]=[];
+      for(const key of Object.keys(fields) as Array<keyof UpdateProjectEventDto>){
+        if(dto[key]!==undefined){
+          values.push(key==='attendees'?JSON.stringify(dto[key]):typeof dto[key]==='string'?String(dto[key]).trim():dto[key]);
+          sets.push(fields[key]+(key==='attendees'?'=$'+values.length+'::jsonb':'=$'+values.length));
+        }
+      }
       if(!sets.length)return before.rows[0];
-      sets.push('updated_at=NOW()');values.push(id,companyId);
-      const r=await client.query(`UPDATE project_events SET ${sets.join(',')} WHERE id=$${values.length-1} AND company_id=$${values.length} RETURNING *`,values);
+      sets.push('updated_at=NOW()');
+      values.push(id,companyId);
+      const result=await client.query(`UPDATE project_events SET ${sets.join(',')} WHERE id=$${values.length-1} AND company_id=$${values.length} RETURNING *`,values);
       await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'projects.event.update',entityType:'project_event',entityId:id,oldValues:before.rows[0] as Record<string,unknown>,newValues:dto as Record<string,unknown>,ipAddress:null});
-      return r.rows[0];
-    });
-  }
-}
-+values.length+'::jsonb':'=
-      if(!sets.length)return before.rows[0];
-      sets.push('updated_at=NOW()');values.push(id,companyId);
-      const r=await client.query(`UPDATE project_events SET ${sets.join(',')} WHERE id=$${values.length-1} AND company_id=$${values.length} RETURNING *`,values);
-      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'projects.event.update',entityType:'project_event',entityId:id,oldValues:before.rows[0] as Record<string,unknown>,newValues:dto as Record<string,unknown>,ipAddress:null});
-      return r.rows[0];
-    });
-  }
-}
-+values.length));}}
-      if(!sets.length)return before.rows[0];
-      sets.push('updated_at=NOW()');values.push(id,companyId);
-      const r=await client.query(`UPDATE project_events SET ${sets.join(',')} WHERE id=$${values.length-1} AND company_id=$${values.length} RETURNING *`,values);
-      await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:null,action:'projects.event.update',entityType:'project_event',entityId:id,oldValues:before.rows[0] as Record<string,unknown>,newValues:dto as Record<string,unknown>,ipAddress:null});
-      return r.rows[0];
+      return result.rows[0];
     });
   }
 }
