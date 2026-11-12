@@ -12,6 +12,9 @@ describe('InvoicesService POS stock reversal warehouse', () => {
         if (sql.includes('SELECT warehouse_id FROM pos_sales')) {
           return { rows: [{ warehouse_id: 'branch-warehouse-2' }] };
         }
+        if (sql.includes('SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE')) {
+          return { rows: [{ id: 'branch-warehouse-2' }] };
+        }
         if (sql.includes('SELECT quantity,reserved_quantity,average_unit_cost FROM inventory_stock_levels')) {
           return { rows: [{ quantity: '4', reserved_quantity: '0', average_unit_cost: '12' }] };
         }
