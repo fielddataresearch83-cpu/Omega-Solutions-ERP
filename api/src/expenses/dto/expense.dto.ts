@@ -8,4 +8,5 @@ export class CreateExpenseDto {
   @IsOptional() @IsDateString() expenseDate?: string;
   @IsOptional() @IsString() @MaxLength(160) reference?: string;
   @IsOptional() @IsUUID() expenseAccountId?: string;
+  @IsOptional() @IsUUID() costCentreId?: string;
 }
