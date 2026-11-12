@@ -38,6 +38,8 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
 import { EntitlementsModule } from './subscriptions/entitlements.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { TenantDatabaseContextInterceptor } from './database/tenant-database-context.interceptor.js';
 
 @Module({
   imports: [
@@ -50,6 +52,6 @@ import { DashboardModule } from './dashboard/dashboard.module.js';
     CreditNotesModule, SearchModule, NotificationsModule, SubscriptionsModule, EntitlementsModule, DashboardModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_INTERCEPTOR, useClass: TenantDatabaseContextInterceptor }],
 })
 export class AppModule {}
