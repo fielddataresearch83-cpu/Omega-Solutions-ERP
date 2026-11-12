@@ -55,7 +55,7 @@ describe('SuppliersService supplier history preservation', () => {
       status: 'active', is_active: true,
     };
     const client = { query: vi.fn(async (sql: string) => {
-      if (sql.includes('SELECT id, company_id') && sql.includes('FOR UPDATE')) {
+      if (sql.includes('FROM suppliers WHERE id=$1 AND company_id=$2 FOR UPDATE')) {
         return { rows: [supplier], rowCount: 1 };
       }
       return { rows: [], rowCount: 1 };
