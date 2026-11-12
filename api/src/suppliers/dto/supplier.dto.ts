@@ -2,6 +2,7 @@ import {
   IsString,
   IsOptional,
   IsEmail,
+  IsIn,
   MinLength,
   MaxLength,
 } from 'class-validator';
@@ -99,6 +100,7 @@ export class UpdateSupplierDto {
   paymentTerms?: string;
 
   @IsString()
+  @IsIn(['active', 'inactive', 'blocked'])
   @IsOptional()
-  status?: string;
+  status?: 'active' | 'inactive' | 'blocked';
 }
