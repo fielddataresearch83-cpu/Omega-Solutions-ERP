@@ -3,6 +3,7 @@ export type Permission =
   | 'branches:read' | 'branches:write'
   | 'users:read' | 'users:write'
   | 'crm:read' | 'crm:write'
+  | 'projects:read' | 'projects:write'
   | 'customers:read' | 'customers:write'
   | 'suppliers:read' | 'suppliers:write'
   | 'products:read' | 'products:write'

@@ -27,6 +27,7 @@ import { EmployeesModule } from './employees/employees.module.js';
 import { ExpensesModule } from './expenses/expenses.module.js';
 import { PayrollModule } from './payroll/payroll.module.js';
 import { WorkforceModule } from './workforce/workforce.module.js';
+import { ProjectsModule } from './projects/projects.module.js';
 import { PosModule } from './pos/pos.module.js';
 import { RequisitionsModule } from './requisitions/requisitions.module.js';
 import { ContractsModule } from './contracts/contracts.module.js';
@@ -48,7 +49,7 @@ import { TenantDatabaseContextInterceptor } from './database/tenant-database-con
     CustomersModule, SuppliersModule, ProductsModule, InvoicesModule, QuotationsModule,
     SalesOrdersModule, CrmModule, InventoryModule, PurchaseOrdersModule, SupplierBillsModule,
     AccountingModule, ManufacturingModule, EmployeesModule, ExpensesModule, PayrollModule,
-    WorkforceModule, PosModule, RequisitionsModule, ContractsModule, ApprovalsModule, UsersRolesModule,
+    WorkforceModule, ProjectsModule, PosModule, RequisitionsModule, ContractsModule, ApprovalsModule, UsersRolesModule,
     CreditNotesModule, SearchModule, NotificationsModule, SubscriptionsModule, EntitlementsModule, DashboardModule,
   ],
   controllers: [AppController],
