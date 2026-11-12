@@ -43,7 +43,16 @@ export class PurchaseOrdersService {
     const membership=await this.companyFor(user); this.assertCompanyWideProcurement(membership); const {companyId}=membership;
     const result=await this.db.query(`SELECT po.*,s.name AS supplier_name FROM purchase_orders po JOIN suppliers s ON s.id=po.supplier_id AND s.company_id=po.company_id WHERE po.company_id=$1 AND po.id=$2`,[companyId,id]);
     if(!result.rows[0]) throw new NotFoundException('Purchase order not found.');
-    const items=await this.db.query('SELECT * FROM purchase_order_items WHERE company_id=$1 AND purchase_order_id=$2 ORDER BY created_at,id',[companyId,id]);
+    const items=await this.db.query(
+      `SELECT poi.*,
+         COALESCE((SELECT SUM(sbi.quantity)
+           FROM supplier_bill_items sbi
+           JOIN supplier_bills sb ON sb.id=sbi.supplier_bill_id AND sb.company_id=sbi.company_id
+           WHERE sbi.company_id=poi.company_id AND sbi.purchase_order_item_id=poi.id AND sb.status<>'void'),0) AS billed_quantity
+       FROM purchase_order_items poi
+       WHERE poi.company_id=$1 AND poi.purchase_order_id=$2 ORDER BY poi.created_at,poi.id`,
+      [companyId,id],
+    );
     return {...result.rows[0],items:items.rows};
   }
   async create(user: AuthenticatedUser,dto: CreatePurchaseOrderDto) {
