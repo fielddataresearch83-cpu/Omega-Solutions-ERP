@@ -57,6 +57,32 @@ describe('AccountingService manual journals', () => {
     }));
   });
 
+
+  it('validates and persists cost centre tags on manual journal lines', async () => {
+    const { service, client, db } = setup();
+    client.query
+      .mockResolvedValueOnce({ rows: [{ id: 'cash-account' }, { id: 'revenue-account' }], rowCount: 2 })
+      .mockResolvedValueOnce({ rows: [{ id: 'centre-1' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ next_number: 2 }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'journal-2' }], rowCount: 1 })
+      .mockResolvedValue({ rows: [], rowCount: 1 });
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'journal-2', entry_number: 'JE-2026-000002' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    await service.createJournal({ userId: 'user-1', companyId: 'company-1' } as any, {
+      entryDate: '2026-11-12', description: 'Department sale',
+      lines: [
+        { accountId: 'cash-account', costCentreId: 'centre-1', debit: 500, credit: 0 },
+        { accountId: 'revenue-account', costCentreId: 'centre-1', debit: 0, credit: 500 },
+      ],
+    } as any);
+
+    expect(client.query.mock.calls[1][0]).toContain('cost_centres');
+    const lineCalls = client.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO journal_entry_lines'));
+    expect(lineCalls.map(([,params])=>params[6])).toEqual(['centre-1','centre-1']);
+  });
+
   it('creates an equal-and-opposite posted reversal and preserves the original posted entry', async () => {
     const { service, db, client, audit } = setup();
     client.query
