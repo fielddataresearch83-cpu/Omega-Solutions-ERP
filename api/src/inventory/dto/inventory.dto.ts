@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateNested } from 'class-validator';
 
 export class CreateWarehouseDto {
   @IsString() @MaxLength(24) code!: string;
@@ -55,16 +55,16 @@ export class CreateInventoryReturnLineDto {
   @IsUUID() productId!: string;
   @Type(() => Number) @IsNumber({ maxDecimalPlaces: 4 }) @Min(0.0001) quantity!: number;
   @Type(() => Number) @IsNumber({ maxDecimalPlaces: 4 }) @Min(0) unitCost!: number;
-  @IsString() disposition!: 'restock' | 'quarantine' | 'reject' | 'return_to_supplier';
+  @IsIn(['restock', 'quarantine', 'reject', 'return_to_supplier']) disposition!: 'restock' | 'quarantine' | 'reject' | 'return_to_supplier';
   @IsOptional() @IsString() @MaxLength(2000) inspectionNotes?: string;
 }
 
 export class CreateInventoryReturnDto {
-  @IsString() returnType!: 'customer' | 'supplier';
+  @IsIn(['customer', 'supplier']) returnType!: 'customer' | 'supplier';
   @IsOptional() @IsUUID() customerId?: string;
   @IsOptional() @IsUUID() supplierId?: string;
   @IsUUID() warehouseId!: string;
   @IsOptional() @IsString() @MaxLength(120) sourceReference?: string;
   @IsString() @MaxLength(1000) reason!: string;
-  @Type(() => Array) items!: CreateInventoryReturnLineDto[];
+  @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => CreateInventoryReturnLineDto) items!: CreateInventoryReturnLineDto[];
 }
