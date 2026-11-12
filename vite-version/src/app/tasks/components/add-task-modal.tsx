@@ -109,6 +109,7 @@ export function AddTaskModal({ onAddTask, trigger }: AddTaskModalProps) {
           form: error instanceof Error ? error.message : "Unable to create task.",
         }))
       }
+    }
   }
 
   const handleCancel = () => {
