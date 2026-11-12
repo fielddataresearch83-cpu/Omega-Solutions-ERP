@@ -49,7 +49,7 @@ export class WorkforceService {
     if (!['monthly','daily','hourly','per_shift'].includes(basis)) throw new BadRequestException('Invalid payBasis.');
     const rate=this.rate(d.payRate);
     const row=await this.db.transaction(async c=>{
-      const old=await c.query("SELECT a.* FROM employee_assignments a JOIN employees e ON e.id=a.employee_id AND e.company_id=a.company_id WHERE a.id=$1 AND a.company_id=$2 AND a.status='active' AND ($3::uuid IS NULL OR e.branch_id=$3::uuid) FOR UPDATE OF a",[id,m.companyId,m.branchId ?? null]);
+      const old=await c.query("SELECT a.* FROM employee_assignments a JOIN employees e ON e.id=a.employee_id AND e.company_id=a.company_id WHERE a.id=$1 AND a.company_id=$2 AND a.status='active' AND ($3::uuid IS NULL OR e.branch_id=$3::uuid) FOR UPDATE OF a,e",[id,m.companyId,m.branchId ?? null]);
       if (!old.rows.length) throw new NotFoundException('Active assignment not found.');
       const start=String(old.rows[0].start_date).slice(0,10); if (effective<start) throw new BadRequestException('Transfer date precedes assignment start.'); const scheduledEnd=old.rows[0].end_date ? String(old.rows[0].end_date).slice(0,10) : null; if (scheduledEnd && effective>scheduledEnd) throw new BadRequestException('Transfer date is after the assignment end date.');
       const site=await c.query('SELECT id FROM client_sites WHERE id=$1 AND company_id=$2 AND is_active=true',[siteId,m.companyId]);
