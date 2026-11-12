@@ -291,17 +291,16 @@ export class AccountingService {
     [companyId,year],
    );
    const entryNumber=`JE-${year}-${String(sequence.rows[0].next_number).padStart(6,'0')}`;
+   const journal=await client.query<{id:string}>(
+    `INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by)
+     VALUES($1,$2,$3::date,$4,'fixed_asset_depreciation',NULL,'posted',NOW(),$5) RETURNING id`,
+    [companyId,entryNumber,periodEnd,`Monthly depreciation - ${asset.asset_code} - ${asset.name}`,user.userId],
+   );
    const depreciation=await client.query<{id:string}>(
     `INSERT INTO fixed_asset_depreciation(company_id,asset_id,period_end,depreciation_amount,journal_entry_id,posted_by)
      VALUES($1,$2,$3::date,$4,$5,$6) RETURNING id`,
-    [companyId,id,periodEnd,amount,'00000000-0000-0000-0000-000000000000',user.userId],
+    [companyId,id,periodEnd,amount,journal.rows[0].id,user.userId],
    );
-   const journal=await client.query<{id:string}>(
-    `INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by)
-     VALUES($1,$2,$3::date,$4,'fixed_asset_depreciation',$5,'posted',NOW(),$6) RETURNING id`,
-    [companyId,entryNumber,periodEnd,`Monthly depreciation - ${asset.asset_code} - ${asset.name}`,depreciation.rows[0].id,user.userId],
-   );
-   await client.query('UPDATE fixed_asset_depreciation SET journal_entry_id=$1 WHERE company_id=$2 AND id=$3',[journal.rows[0].id,companyId,depreciation.rows[0].id]);
    await client.query(
     `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit)
      VALUES($1,$2,$3,$4,$5,0),($1,$2,$6,$7,0,$5)`,
