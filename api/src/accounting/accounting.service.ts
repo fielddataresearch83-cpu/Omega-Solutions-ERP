@@ -8,21 +8,21 @@ import type { CreateAccountDto } from './dto/create-account.dto.js';
 import type { CreateJournalDto } from './dto/create-journal.dto.js';
 
 const DEFAULT_ACCOUNTS = [
- {code:'1000',name:'Cash on Hand',type:'asset',side:'debit',system:'cash'},
- {code:'1010',name:'Bank Account',type:'asset',side:'debit',system:'bank'},
- {code:'1020',name:'M-Pesa Clearing',type:'asset',side:'debit',system:'mpesa'},
- {code:'1100',name:'Accounts Receivable',type:'asset',side:'debit',system:'accounts_receivable'},
- {code:'1200',name:'Inventory',type:'asset',side:'debit',system:'inventory'},
- {code:'1250',name:'Work in Progress',type:'asset',side:'debit',system:'work_in_progress'},
- {code:'1300',name:'Input VAT Recoverable',type:'asset',side:'debit',system:'input_tax'},
- {code:'2000',name:'Accounts Payable',type:'liability',side:'credit',system:'accounts_payable'},
- {code:'2050',name:'Customer Credits Payable',type:'liability',side:'credit',system:'customer_credits'},
- {code:'2010',name:'Goods Received Not Invoiced',type:'liability',side:'credit',system:'goods_received_not_invoiced'},
- {code:'2100',name:'Output VAT Payable',type:'liability',side:'credit',system:'output_tax'},
- {code:'3000',name:'Owner Equity',type:'equity',side:'credit',system:'equity'},
- {code:'4000',name:'Sales Revenue',type:'income',side:'credit',system:'sales_revenue'},
- {code:'5000',name:'Purchases and Cost of Goods',type:'expense',side:'debit',system:'purchases_expense'},
- {code:'5100',name:'Operating Expenses',type:'expense',side:'debit',system:'operating_expense'}
+ {code:'1000',name:'Cash on Hand',type:'asset',side:'debit',system:'cash',cashFlowCategory:null},
+ {code:'1010',name:'Bank Account',type:'asset',side:'debit',system:'bank',cashFlowCategory:null},
+ {code:'1020',name:'M-Pesa Clearing',type:'asset',side:'debit',system:'mpesa',cashFlowCategory:null},
+ {code:'1100',name:'Accounts Receivable',type:'asset',side:'debit',system:'accounts_receivable',cashFlowCategory:'operating'},
+ {code:'1200',name:'Inventory',type:'asset',side:'debit',system:'inventory',cashFlowCategory:'operating'},
+ {code:'1250',name:'Work in Progress',type:'asset',side:'debit',system:'work_in_progress',cashFlowCategory:'operating'},
+ {code:'1300',name:'Input VAT Recoverable',type:'asset',side:'debit',system:'input_tax',cashFlowCategory:'operating'},
+ {code:'2000',name:'Accounts Payable',type:'liability',side:'credit',system:'accounts_payable',cashFlowCategory:'operating'},
+ {code:'2050',name:'Customer Credits Payable',type:'liability',side:'credit',system:'customer_credits',cashFlowCategory:'operating'},
+ {code:'2010',name:'Goods Received Not Invoiced',type:'liability',side:'credit',system:'goods_received_not_invoiced',cashFlowCategory:'operating'},
+ {code:'2100',name:'Output VAT Payable',type:'liability',side:'credit',system:'output_tax',cashFlowCategory:'operating'},
+ {code:'3000',name:'Owner Equity',type:'equity',side:'credit',system:'equity',cashFlowCategory:'financing'},
+ {code:'4000',name:'Sales Revenue',type:'income',side:'credit',system:'sales_revenue',cashFlowCategory:'operating'},
+ {code:'5000',name:'Purchases and Cost of Goods',type:'expense',side:'debit',system:'purchases_expense',cashFlowCategory:'operating'},
+ {code:'5100',name:'Operating Expenses',type:'expense',side:'debit',system:'operating_expense',cashFlowCategory:'operating'}
 ] as const;
 @Injectable()
 export class AccountingService {
@@ -32,9 +32,9 @@ export class AccountingService {
  async ensureDefaults(companyId:string, transactionClient?:PoolClient){
   const ensure=async(client:PoolClient)=>{
    for(const a of DEFAULT_ACCOUNTS) await client.query(
-    `INSERT INTO chart_of_accounts(company_id,code,name,account_type,normal_side,system_code)
-     VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(company_id,code) DO NOTHING`,
-    [companyId,a.code,a.name,a.type,a.side,a.system]);
+    `INSERT INTO chart_of_accounts(company_id,code,name,account_type,normal_side,system_code,cash_flow_category)
+     VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(company_id,code) DO NOTHING`,
+    [companyId,a.code,a.name,a.type,a.side,a.system,a.cashFlowCategory]);
   };
   if(transactionClient){await ensure(transactionClient);return;}
   await this.db.transaction(ensure);
