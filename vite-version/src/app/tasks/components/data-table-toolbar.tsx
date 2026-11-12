@@ -20,14 +20,18 @@ import { AddTaskModal } from "./add-task-modal"
 import { categories, priorities, statuses } from "../data/data"
 import type { Task } from "../data/schema"
 
+type CompanyMember = { id: string; full_name: string; email: string; role: string }
+
 interface DataTableToolbarProps<TData extends RowData> {
   table: ReactTable<DataTableFeatures, TData>
-  onAddTask?: (task: Task) => void
+  onAddTask?: (task: Task) => void | Promise<void>
+  members?: CompanyMember[]
 }
 
 export function DataTableToolbar<TData extends RowData>({
   table,
   onAddTask,
+  members = [],
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.state.columnFilters.length > 0
 
@@ -181,7 +185,7 @@ export function DataTableToolbar<TData extends RowData>({
         </div>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
-          <AddTaskModal onAddTask={onAddTask} />
+          <AddTaskModal onAddTask={onAddTask} members={members} />
         </div>
       </div>
     </div>
