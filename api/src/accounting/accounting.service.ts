@@ -360,25 +360,41 @@ export class AccountingService {
 
   const currency = await this.getCompanyCurrency(companyId);
 
-  const accounts = await this.db.query<{
-   id: string; code: string; name: string; account_type: string;
-   system_code: string | null; balance: string | number;
-  }>(`SELECT a.id, a.code, a.name, a.account_type, a.system_code,
-    CASE WHEN a.normal_side='debit'
-     THEN COALESCE(SUM(l.debit-l.credit) FILTER (WHERE j.status='posted' AND j.entry_date<=$2::date),0)
-     ELSE COALESCE(SUM(l.credit-l.debit) FILTER (WHERE j.status='posted' AND j.entry_date<=$2::date),0)
-    END::numeric(14,2) AS balance
-   FROM chart_of_accounts a
-   LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
-   LEFT JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id
-   WHERE a.company_id=$1 AND a.account_type IN ('asset','liability','equity')
-   GROUP BY a.id ORDER BY a.code`,
-   [companyId, asOfDate]);
+  const [accounts, earnings] = await Promise.all([
+   this.db.query<{
+    id: string; code: string; name: string; account_type: string;
+    system_code: string | null; balance: string | number;
+   }>(`SELECT a.id, a.code, a.name, a.account_type, a.system_code,
+     CASE WHEN a.normal_side='debit'
+      THEN COALESCE(SUM(l.debit-l.credit) FILTER (WHERE j.status='posted' AND j.entry_date<=$2::date),0)
+      ELSE COALESCE(SUM(l.credit-l.debit) FILTER (WHERE j.status='posted' AND j.entry_date<=$2::date),0)
+     END::numeric(14,2) AS balance
+    FROM chart_of_accounts a
+    LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
+    LEFT JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id
+    WHERE a.company_id=$1 AND a.account_type IN ('asset','liability','equity')
+    GROUP BY a.id ORDER BY a.code`,
+    [companyId, asOfDate]),
+   this.db.query<{ current_earnings: string | number }>(
+    `SELECT COALESCE(SUM(CASE WHEN a.account_type='income' THEN l.credit-l.debit ELSE l.debit-l.credit END),0)::numeric(14,2) AS current_earnings
+     FROM chart_of_accounts a
+     JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
+     JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id
+     WHERE a.company_id=$1 AND a.account_type IN ('income','expense') AND j.status='posted' AND j.entry_date<=$2::date`,
+    [companyId, asOfDate]),
+  ]);
 
   const rows = accounts.rows.map(r => ({ ...r, balance: Number(r.balance) }));
   const assetAccounts = rows.filter(a => a.account_type === 'asset');
   const liabilityAccounts = rows.filter(a => a.account_type === 'liability');
   const equityAccounts = rows.filter(a => a.account_type === 'equity');
+  const currentEarnings = Number(earnings.rows[0]?.current_earnings ?? 0);
+  if (Math.abs(currentEarnings) > 0.005) {
+   equityAccounts.push({
+    id: 'calculated-current-earnings', code: '—', name: 'Current / retained earnings',
+    account_type: 'equity', system_code: 'calculated_retained_earnings', balance: currentEarnings,
+   });
+  }
 
   const totalAssets = assetAccounts.reduce((s, a) => s + a.balance, 0);
   const totalLiabilities = liabilityAccounts.reduce((s, a) => s + a.balance, 0);
