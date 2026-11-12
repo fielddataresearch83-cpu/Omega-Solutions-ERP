@@ -995,9 +995,9 @@ export class AccountingService {
    id: string; code: string; name: string; account_type: string;
    system_code: string | null; balance: string | number;
   }>(`SELECT a.id, a.code, a.name, a.account_type, a.system_code,
-    CASE WHEN a.normal_side='debit'
-     THEN COALESCE(SUM(l.debit-l.credit) FILTER (WHERE j.status='posted' AND j.entry_date>=$2::date AND j.entry_date<=$3::date),0)
-     ELSE COALESCE(SUM(l.credit-l.debit) FILTER (WHERE j.status='posted' AND j.entry_date>=$2::date AND j.entry_date<=$3::date),0)
+    CASE WHEN a.account_type='income'
+     THEN COALESCE(SUM(l.credit-l.debit) FILTER (WHERE j.status='posted' AND j.entry_date>=$2::date AND j.entry_date<=$3::date),0)
+     ELSE COALESCE(SUM(l.debit-l.credit) FILTER (WHERE j.status='posted' AND j.entry_date>=$2::date AND j.entry_date<=$3::date),0)
     END::numeric(14,2) AS balance
    FROM chart_of_accounts a
    LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
@@ -1041,7 +1041,7 @@ export class AccountingService {
     id: string; code: string; name: string; account_type: string;
     system_code: string | null; balance: string | number;
    }>(`SELECT a.id, a.code, a.name, a.account_type, a.system_code,
-     CASE WHEN a.normal_side='debit'
+     CASE WHEN a.account_type='asset'
       THEN COALESCE(SUM(l.debit-l.credit) FILTER (WHERE j.status='posted' AND j.entry_date<=$2::date),0)
       ELSE COALESCE(SUM(l.credit-l.debit) FILTER (WHERE j.status='posted' AND j.entry_date<=$2::date),0)
      END::numeric(14,2) AS balance
