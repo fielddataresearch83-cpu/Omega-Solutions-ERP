@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req, UseGuard
 import { AccountingService } from './accounting.service.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { CreateJournalDto } from './dto/create-journal.dto.js';
+import { CreateBankStatementDto, MatchBankStatementLineDto } from './dto/create-bank-statement.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -19,6 +20,12 @@ export class AccountingController {
  @Get('reconciliation/payables') @RequirePermissions('accounting:read') payablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.payablesReconciliation(req.user);}
  @Get('reconciliation/receivables') @RequirePermissions('accounting:read') receivablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.receivablesReconciliation(req.user);}
  @Get('journals') @RequirePermissions('accounting:read') journals(@Req() req:{user:AuthenticatedUser}){return this.accounting.listJournals(req.user);}
+ @Get('bank-statements') @RequirePermissions('accounting:read') bankStatements(@Req() req:{user:AuthenticatedUser}){return this.accounting.listBankStatements(req.user);}
+ @Post('bank-statements') @RequirePermissions('accounting:write') importBankStatement(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateBankStatementDto){return this.accounting.importBankStatement(req.user,dto);}
+ @Get('bank-statements/:id') @RequirePermissions('accounting:read') bankStatement(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.accounting.getBankStatementImport(req.user,id);}
+ @Get('bank-statements/:id/lines/:lineId/candidates') @RequirePermissions('accounting:read') bankStatementCandidates(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Param('lineId',ParseUUIDPipe) lineId:string){return this.accounting.bankStatementCandidates(req.user,id,lineId);}
+ @Post('bank-statements/:id/lines/:lineId/match') @RequirePermissions('accounting:write') matchBankStatementLine(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Param('lineId',ParseUUIDPipe) lineId:string,@Body() dto:MatchBankStatementLineDto){return this.accounting.matchBankStatementLine(req.user,id,lineId,dto.journalEntryId);}
+ 
  @Post('journals') @RequirePermissions('accounting:write') createJournal(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateJournalDto){return this.accounting.createJournal(req.user,dto);}
  @Post('journals/:id/reverse') @RequirePermissions('accounting:write') reverseJournal(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Body('reversalDate') reversalDate?:string){return this.accounting.reverseJournal(req.user,id,reversalDate);}
  @Get('journals/:id') @RequirePermissions('accounting:read') journal(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.accounting.getJournal(req.user,id);}
