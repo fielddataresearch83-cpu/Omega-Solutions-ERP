@@ -3,7 +3,7 @@ import { AccountingService } from './accounting.service.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { CreateJournalDto } from './dto/create-journal.dto.js';
 import { CreateBankStatementDto, MatchBankStatementLineDto } from './dto/create-bank-statement.dto.js';
-import { CreateFixedAssetDto, RunDepreciationDto } from './dto/fixed-assets.dto.js';
+import { CreateFixedAssetDto, DisposeFixedAssetDto, RunDepreciationDto } from './dto/fixed-assets.dto.js';
 import { CreateBudgetDto, CreateCostCentreDto } from './dto/budgets-cost-centres.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
@@ -36,6 +36,7 @@ export class AccountingController {
  @Get('fixed-assets') @RequirePermissions('accounting:read') fixedAssets(@Req() req:{user:AuthenticatedUser}){return this.accounting.listFixedAssets(req.user);}
  @Post('fixed-assets') @RequirePermissions('accounting:write') createFixedAsset(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateFixedAssetDto){return this.accounting.createFixedAsset(req.user,dto);}
  @Get('fixed-assets/:id') @RequirePermissions('accounting:read') fixedAsset(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.accounting.getFixedAsset(req.user,id);}
+ @Post('fixed-assets/:id/dispose') @RequirePermissions('accounting:write') disposeFixedAsset(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Body() dto:DisposeFixedAssetDto){return this.accounting.disposeFixedAsset(req.user,id,dto);}
  @Post('fixed-assets/:id/depreciation') @RequirePermissions('accounting:write') depreciateFixedAsset(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Body() dto:RunDepreciationDto){return this.accounting.depreciateFixedAsset(req.user,id,dto.periodEnd);}
  @Get('bank-statements') @RequirePermissions('accounting:read') bankStatements(@Req() req:{user:AuthenticatedUser}){return this.accounting.listBankStatements(req.user);}
  @Post('bank-statements') @RequirePermissions('accounting:write') importBankStatement(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateBankStatementDto){return this.accounting.importBankStatement(req.user,dto);}
