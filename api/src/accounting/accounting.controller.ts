@@ -3,6 +3,7 @@ import { AccountingService } from './accounting.service.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { CreateJournalDto } from './dto/create-journal.dto.js';
 import { CreateBankStatementDto, MatchBankStatementLineDto } from './dto/create-bank-statement.dto.js';
+import { CreateFixedAssetDto, RunDepreciationDto } from './dto/fixed-assets.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -20,6 +21,10 @@ export class AccountingController {
  @Get('reconciliation/payables') @RequirePermissions('accounting:read') payablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.payablesReconciliation(req.user);}
  @Get('reconciliation/receivables') @RequirePermissions('accounting:read') receivablesReconciliation(@Req() req:{user:AuthenticatedUser}){return this.accounting.receivablesReconciliation(req.user);}
  @Get('journals') @RequirePermissions('accounting:read') journals(@Req() req:{user:AuthenticatedUser}){return this.accounting.listJournals(req.user);}
+ @Get('fixed-assets') @RequirePermissions('accounting:read') fixedAssets(@Req() req:{user:AuthenticatedUser}){return this.accounting.listFixedAssets(req.user);}
+ @Post('fixed-assets') @RequirePermissions('accounting:write') createFixedAsset(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateFixedAssetDto){return this.accounting.createFixedAsset(req.user,dto);}
+ @Get('fixed-assets/:id') @RequirePermissions('accounting:read') fixedAsset(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.accounting.getFixedAsset(req.user,id);}
+ @Post('fixed-assets/:id/depreciation') @RequirePermissions('accounting:write') depreciateFixedAsset(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Body() dto:RunDepreciationDto){return this.accounting.depreciateFixedAsset(req.user,id,dto.periodEnd);}
  @Get('bank-statements') @RequirePermissions('accounting:read') bankStatements(@Req() req:{user:AuthenticatedUser}){return this.accounting.listBankStatements(req.user);}
  @Post('bank-statements') @RequirePermissions('accounting:write') importBankStatement(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateBankStatementDto){return this.accounting.importBankStatement(req.user,dto);}
  @Get('bank-statements/:id') @RequirePermissions('accounting:read') bankStatement(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.accounting.getBankStatementImport(req.user,id);}
