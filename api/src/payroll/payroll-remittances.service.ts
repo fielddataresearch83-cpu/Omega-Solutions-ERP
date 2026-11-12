@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
+import { AuditService } from '../audit/audit.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 
@@ -34,6 +35,7 @@ export class PayrollRemittancesService {
   constructor(
     private readonly db: DatabaseService,
     private readonly memberships: MembershipsService,
+    private readonly audit: AuditService,
   ) {}
 
   private membershipFor(user: AuthenticatedUser) {
@@ -161,7 +163,16 @@ export class PayrollRemittancesService {
            RETURNING id,authority,amount,due_date`,
           [companyId, runId, authority, run.rows[0].period_start, run.rows[0].period_end, calculateRemittanceDueDate(authority, run.rows[0].period_end), amount, user.userId],
         );
-        if (result.rows.length) created.push(result.rows[0]);
+        if (result.rows.length) {
+          created.push(result.rows[0]);
+          await this.audit.logInTransaction(client, {
+            userId: user.userId, companyId, branchId: null,
+            action: 'payroll.remittance.create', entityType: 'payroll_remittance_obligation',
+            entityId: String(result.rows[0].id), oldValues: null,
+            newValues: { payrollRunId: runId, authority, amount: result.rows[0].amount, dueDate: result.rows[0].due_date },
+            ipAddress: null,
+          });
+        }
       }
       return { payrollRunId: runId, created, message: 'Due dates follow published authority guidance: PAYE, NSSF and SHIF by the 9th of the following month; housing levy by the 9th working day after month-end. Housing levy dates exclude weekends but do not account for public holidays. Verify the date in the relevant authority portal before payment. Existing obligations and payment records were not changed.' };
     });
@@ -224,6 +235,13 @@ export class PayrollRemittancesService {
         }
         throw error;
       }
+      await this.audit.logInTransaction(client, {
+        userId: user.userId, companyId, branchId: null,
+        action: 'payroll.remittance.payment_record', entityType: 'payroll_remittance_payment',
+        entityId: String(result.rows[0].id), oldValues: null,
+        newValues: { obligationId, amount, paymentReference, verificationStatus: 'recorded_not_independently_verified' },
+        ipAddress: null,
+      });
       return { ...result.rows[0], verificationStatus: 'recorded_not_independently_verified' };
     });
   }
