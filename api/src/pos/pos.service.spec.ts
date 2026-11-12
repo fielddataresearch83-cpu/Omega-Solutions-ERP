@@ -44,7 +44,7 @@ describe('PosService', () => {
     expect(result).toHaveLength(1);
     expect(db.query.mock.calls[0][0]).toContain('p.company_id=$1');
     expect(db.query.mock.calls[0][0]).toContain('s.warehouse_id=$2::uuid');
-    expect(db.query.mock.calls[0][1]).toEqual(['company-1', 'warehouse-1', '%tea%']);
+    expect(db.query.mock.calls[0][1]).toEqual(['company-1', 'warehouse-1', '%tea%', null]);
   });
 
   it('forces a salesperson product search to their assigned warehouse', async () => {
@@ -57,7 +57,7 @@ describe('PosService', () => {
 
     expect(result).toHaveLength(1);
     expect(db.query).toHaveBeenCalledTimes(2);
-    expect(db.query.mock.calls[1][1]).toEqual(['company-1', 'warehouse-2', '%tea%']);
+    expect(db.query.mock.calls[1][1]).toEqual(['company-1', 'warehouse-2', '%tea%', null]);
   });
 
   it('rejects salesperson product searches for another warehouse', async () => {
@@ -76,6 +76,70 @@ describe('PosService', () => {
     await expect(service.searchProducts(salesperson, 'tea'))
       .rejects.toThrow('Your manager must assign a stock warehouse before selling.');
     expect(db.query).toHaveBeenCalledTimes(1);
+  });
+
+
+  it('limits branch-bound manager product availability to that branch and shared warehouses', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({
+      companyId: 'company-1', branchId: 'branch-1', role: 'manager',
+    });
+    db.query.mockResolvedValue({ rows: [{ id: 'product-1', available_quantity: '3' }], rowCount: 1 });
+
+    await service.searchProducts({ ...user, permissions: ['sales:team-read'] }, 'tea');
+
+    expect(db.query).toHaveBeenCalledOnce();
+    expect(db.query.mock.calls[0][0]).toContain('sw.branch_id IS NULL OR sw.branch_id=$4::uuid');
+    expect(db.query.mock.calls[0][1]).toEqual(['company-1', null, '%tea%', 'branch-1']);
+  });
+
+  it('rejects a branch-bound manager searching a warehouse in another branch', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({
+      companyId: 'company-1', branchId: 'branch-1', role: 'manager',
+    });
+    db.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    await expect(service.searchProducts(
+      { ...user, permissions: ['sales:team-read'] },
+      'tea',
+      'warehouse-2',
+    )).rejects.toThrow(ForbiddenException);
+    expect(db.query).toHaveBeenCalledOnce();
+    expect(db.query.mock.calls[0][1]).toEqual(['warehouse-2', 'company-1', 'branch-1']);
+  });
+
+  it('blocks a branch-bound manager from checking out against another branch warehouse', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({
+      companyId: 'company-1', branchId: 'branch-1', role: 'manager',
+    });
+    const client = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes('SELECT id,sale_number,total,subtotal,tax_amount,amount_confirmed,status,invoice_id,created_by FROM pos_sales')) {
+          return { rows: [], rowCount: 0 };
+        }
+        if (sql.includes('FROM pos_shifts WHERE id=$1')) {
+          return { rows: [{ id: 'shift-1', register_id: 'register-1', opened_by: 'cashier-1', status: 'open' }], rowCount: 1 };
+        }
+        if (sql.includes('FROM pos_registers WHERE id=$1')) {
+          return { rows: [{ id: 'register-1', branch_id: 'branch-1' }], rowCount: 1 };
+        }
+        if (sql.includes('FROM warehouses WHERE id=$1')) {
+          return { rows: [{ id: 'warehouse-2', branch_id: 'branch-2' }], rowCount: 1 };
+        }
+        return { rows: [], rowCount: 1 };
+      }),
+    };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+
+    await expect(service.checkout({ ...user, permissions: ['sales:team-read'] }, {
+      requestId: '11111111-1111-4111-8111-111111111111',
+      shiftId: '22222222-2222-4222-8222-222222222222',
+      warehouseId: '33333333-3333-4333-8333-333333333333',
+      items: [{ productId: '44444444-4444-4444-8444-444444444444', quantity: 1 }],
+      payments: [{ method: 'cash', amount: 125 }],
+    } as any)).rejects.toThrow(ForbiddenException);
+    expect(client.query).toHaveBeenCalledTimes(5);
+    expect(accounting.ensureDefaults).not.toHaveBeenCalled();
+    expect(audit.logInTransaction).not.toHaveBeenCalled();
   });
 
   it('limits POS history to the current salesperson unless team-read is granted', async () => {
