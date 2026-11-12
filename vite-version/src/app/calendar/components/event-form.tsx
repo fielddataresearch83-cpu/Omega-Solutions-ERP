@@ -45,8 +45,8 @@ interface EventFormProps {
   event?: CalendarEvent | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (event: Partial<CalendarEvent>) => void
-  onDelete?: (eventId: string | number) => void
+  onSave: (event: Partial<CalendarEvent>) => void | Promise<void>
+  onDelete?: (eventId: string | number) => void | Promise<void>
 }
 
 const eventTypes = [
@@ -133,24 +133,39 @@ export function EventForm({
 
   const [showCalendar, setShowCalendar] = useState(false)
   const [newAttendee, setNewAttendee] = useState("")
+  const [saveError, setSaveError] = useState("")
+  const [saving, setSaving] = useState(false)
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const eventData: Partial<CalendarEvent> = {
       ...formData,
       id: event?.id,
-      color:
-        eventTypes.find((t) => t.value === formData.type)?.color ||
-        "bg-blue-500",
+      color: eventTypes.find((t) => t.value === formData.type)?.color || "bg-blue-500",
       allDay: formData.allDay,
     }
-    onSave(eventData)
-    onOpenChange(false)
+    setSaving(true)
+    setSaveError("")
+    try {
+      await onSave(eventData)
+      onOpenChange(false)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Unable to save calendar event.")
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleDelete = () => {
-    if (event?.id && onDelete) {
-      onDelete(event.id)
+  const handleDelete = async () => {
+    if (!event?.id || !onDelete) return
+    setSaving(true)
+    setSaveError("")
+    try {
+      await onDelete(event.id)
       onOpenChange(false)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Unable to cancel calendar event.")
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -192,6 +207,7 @@ export function EventForm({
               : "Add a new event to your calendar"}
           </DialogDescription>
         </DialogHeader>
+        {saveError && <p role="alert" className="text-sm text-destructive">{saveError}</p>}
 
         <FieldGroup className="flex flex-col gap-6 py-4">
           {/* Event Title */}
@@ -458,14 +474,15 @@ export function EventForm({
 
           {/* Actions */}
           <div className="flex gap-3 pt-6">
-            <Button onClick={handleSave} className="flex-1 cursor-pointer">
+            <Button onClick={() => void handleSave()} disabled={saving} className="flex-1 cursor-pointer">
               {event ? "Update Event" : "Create Event"}
             </Button>
             {event && onDelete && (
               <Button
-                onClick={handleDelete}
+                onClick={() => void handleDelete()}
                 variant="destructive"
                 className="cursor-pointer"
+                disabled={saving}
               >
                 Delete
               </Button>
@@ -474,6 +491,7 @@ export function EventForm({
               onClick={() => onOpenChange(false)}
               variant="outline"
               className="cursor-pointer"
+              disabled={saving}
             >
               Cancel
             </Button>
