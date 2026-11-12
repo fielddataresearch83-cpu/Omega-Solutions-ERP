@@ -37,6 +37,7 @@ const taskFormSchema = z.object({
   category: z.string(),
   priority: z.string(),
   assignedTo: z.string().optional(),
+  dueAt: z.string().optional(),
 })
 
 type TaskFormData = z.infer<typeof taskFormSchema>
@@ -59,6 +60,7 @@ export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalP
     category: "feature",
     priority: "normal",
     assignedTo: "",
+    dueAt: "",
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -88,6 +90,7 @@ export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalP
         category: validatedData.category,
         priority: validatedData.priority,
         assigned_to: validatedData.assignedTo || null,
+        due_at: validatedData.dueAt || null,
       }
 
       await onAddTask?.(newTask)
@@ -280,6 +283,10 @@ export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalP
             </Field>
           </div>
 
+          <Field>
+            <FieldLabel htmlFor="dueAt">Due date</FieldLabel>
+            <Input id="dueAt" type="date" value={formData.dueAt ?? ""} onChange={(e) => setFormData((prev) => ({ ...prev, dueAt: e.target.value }))} />
+          </Field>
           <Field>
             <FieldLabel htmlFor="assignee">Assign to</FieldLabel>
             <Select
