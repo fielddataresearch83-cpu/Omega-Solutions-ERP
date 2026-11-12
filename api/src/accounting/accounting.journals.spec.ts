@@ -76,8 +76,8 @@ describe('AccountingService manual journals', () => {
 
     expect(result.id).toBe('reversal-1');
     const lineCalls = client.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO journal_entry_lines'));
-    expect(lineCalls[0][1]).toEqual(['company-1', 'reversal-1', 'cash-account', 'Reversal: Cash', 0, 1000]);
-    expect(lineCalls[1][1]).toEqual(['company-1', 'reversal-1', 'equity-account', 'Reversal: Capital', 1000, 0]);
+    expect(lineCalls[0][1]).toEqual(['company-1', 'reversal-1', 'cash-account', 'Reversal: Cash', 0, 1000, null]);
+    expect(lineCalls[1][1]).toEqual(['company-1', 'reversal-1', 'equity-account', 'Reversal: Capital', 1000, 0, null]);
     expect(client.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE journal_entries SET reversal_journal_id'))).toBe(true);
     expect(client.query.mock.calls.some(([sql]) => String(sql).includes("status='reversed'"))).toBe(false);
     expect(audit.logInTransaction).toHaveBeenCalledWith(client, expect.objectContaining({
