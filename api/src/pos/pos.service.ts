@@ -237,6 +237,9 @@ export class PosService {
         'SELECT id,branch_id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE',
         [dto.warehouseId,companyId]);
       if(!warehouse.rows[0]) throw new BadRequestException('Choose an active warehouse belonging to this company.');
+      if(branchId && warehouse.rows[0].branch_id && warehouse.rows[0].branch_id!==branchId) {
+        throw new ForbiddenException('Your selected branch cannot use stock from another branch.');
+      }
       if(!user.permissions.includes('sales:team-read') && warehouse.rows[0].branch_id !== register.rows[0].branch_id) {
         throw new BadRequestException('Your assigned warehouse and POS register must belong to the same branch.');
       }
