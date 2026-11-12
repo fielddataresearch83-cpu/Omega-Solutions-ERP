@@ -41,7 +41,9 @@ type CashFlow = {
 }
 
 type VatSummary = { currency: string; startDate: string; endDate: string; inputVat: number; outputVat: number; netVatPayable: number }
-type ReportTab = "trial-balance" | "profit-and-loss" | "balance-sheet" | "cash-flow" | "vat"
+type WithholdingPayment = { payment_date: string; supplier_name: string; kra_pin: string | null; bill_number: string; supplier_invoice_number: string | null; amount: number; cash_amount: number; withholding_tax_amount: number; withholding_certificate_number: string | null; reference: string | null }
+type WithholdingTaxSchedule = { currency: string; startDate: string; endDate: string; payments: WithholdingPayment[]; totalGrossPayments: number; totalCashPaid: number; totalWithholdingTax: number }
+type ReportTab = "trial-balance" | "profit-and-loss" | "balance-sheet" | "cash-flow" | "vat" | "withholding-tax"
 
 const message = (e: unknown) => e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : "The request failed. Please try again."
 
@@ -51,6 +53,7 @@ const tabs: { id: ReportTab; label: string; icon: React.ElementType }[] = [
   { id: "balance-sheet", label: "Balance sheet", icon: Scale },
   { id: "cash-flow", label: "Cash movement", icon: Wallet },
   { id: "vat", label: "VAT summary", icon: Percent },
+  { id: "withholding-tax", label: "Withholding tax", icon: FileBarChart },
 ]
 
 export default function FinancialReportsPage() {
@@ -70,6 +73,7 @@ export default function FinancialReportsPage() {
   const [balanceSheet, setBalanceSheet] = React.useState<BalanceSheet | null>(null)
   const [cashFlow, setCashFlow] = React.useState<CashFlow | null>(null)
   const [vatSummary, setVatSummary] = React.useState<VatSummary | null>(null)
+  const [withholdingTax, setWithholdingTax] = React.useState<WithholdingTaxSchedule | null>(null)
 
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -101,6 +105,11 @@ export default function FinancialReportsPage() {
     return api.get<VatSummary>("/accounting/reports/vat?" + q.toString())
   }, [startDate, endDate])
 
+  const loadWithholdingTax = React.useCallback(async () => {
+    const q = new URLSearchParams({ startDate, endDate })
+    return api.get<WithholdingTaxSchedule>("/accounting/reports/withholding-tax?" + q.toString())
+  }, [startDate, endDate])
+
   React.useEffect(() => {
     let active = true
     const load = async () => {
@@ -115,6 +124,8 @@ export default function FinancialReportsPage() {
           const r = await loadBalanceSheet(); if (active) setBalanceSheet(r)
         } else if (activeTab === "vat") {
           const r = await loadVatSummary(); if (active) setVatSummary(r)
+        } else if (activeTab === "withholding-tax") {
+          const r = await loadWithholdingTax(); if (active) setWithholdingTax(r)
         } else {
           const r = await loadCashFlow(); if (active) setCashFlow(r)
         }
@@ -123,7 +134,7 @@ export default function FinancialReportsPage() {
     }
     void load()
     return () => { active = false }
-  }, [activeTab, loadTrialBalance, loadPnL, loadBalanceSheet, loadCashFlow, loadVatSummary, retryKey])
+  }, [activeTab, loadTrialBalance, loadPnL, loadBalanceSheet, loadCashFlow, loadVatSummary, loadWithholdingTax, retryKey])
 
   const refresh = () => setRetryKey(k => k + 1)
 
@@ -140,6 +151,8 @@ export default function FinancialReportsPage() {
       downloadCsv("omega-cash-flow-" + startDate + "-to-" + endDate + ".csv", [["Cash flow category", "Amount"], ...cashFlow.cashFlowCategories.map(a => [a.category, a.amount]), ["Net cash movement", cashFlow.netCashMovement], ["Classification variance", cashFlow.classificationVariance], [], ["Account code", "Account name", "Opening balance", "Closing balance", "Net movement"], ...cashFlow.cashAccounts.map(a => [a.account_code, a.account_name, a.opening_balance, a.closing_balance, a.net_movement]), ["", "Totals", cashFlow.totalOpeningBalance, cashFlow.totalClosingBalance, cashFlow.netCashMovement]])
     } else if (activeTab === "vat" && vatSummary) {
       downloadCsv("omega-vat-summary-" + startDate + "-to-" + endDate + ".csv", [["Period start", "Period end", "Currency", "Output VAT", "Recoverable input VAT", "Net VAT payable"], [startDate, endDate, vatSummary.currency, vatSummary.outputVat, vatSummary.inputVat, vatSummary.netVatPayable]])
+    } else if (activeTab === "withholding-tax" && withholdingTax) {
+      downloadCsv("omega-withholding-tax-" + startDate + "-to-" + endDate + ".csv", [["Payment date", "Supplier", "Supplier KRA PIN", "Bill number", "Supplier invoice", "Gross amount", "Net cash paid", "Withholding tax", "Certificate", "Payment reference"], ...withholdingTax.payments.map(p => [p.payment_date, p.supplier_name, p.kra_pin ?? "", p.bill_number, p.supplier_invoice_number ?? "", p.amount, p.cash_amount, p.withholding_tax_amount, p.withholding_certificate_number ?? "", p.reference ?? ""]), ["", "Totals", "", "", "", withholdingTax.totalGrossPayments, withholdingTax.totalCashPaid, withholdingTax.totalWithholdingTax]])
     }
   }
 
@@ -162,11 +175,14 @@ export default function FinancialReportsPage() {
       printBusinessDocument("Cash flow statement", startDate + " to " + endDate, `<header class="top"><div><div class="brand">${escapeDocumentText(user?.fullName ?? "Your business")}</div><h1>Cash flow statement</h1></div><div class="meta"><strong>${escapeDocumentText(startDate)} to ${escapeDocumentText(endDate)}</strong><div>Direct method</div></div></header><table><thead><tr><th>Activity</th><th class="num">Net cash flow</th></tr></thead><tbody>${categoryRows}<tr class="subtotal"><td>Net cash movement</td><td class="num">${fmt(cashFlow.netCashMovement)}</td></tr></tbody></table><table><thead><tr><th>Code</th><th>Cash account</th><th class="num">Opening</th><th class="num">Closing</th><th class="num">Movement</th></tr></thead><tbody>${rows}</tbody></table>`)
     } else if (activeTab === "vat" && vatSummary) {
       printBusinessDocument("VAT summary", startDate + " to " + endDate, `<header class="top"><div><div class="brand">${escapeDocumentText(user?.fullName ?? "Your business")}</div><h1>VAT summary</h1></div><div class="meta"><strong>${escapeDocumentText(startDate)} to ${escapeDocumentText(endDate)}</strong></div></header><table><tbody><tr><td>Output VAT</td><td class="num">${fmt(vatSummary.outputVat)}</td></tr><tr><td>Recoverable input VAT</td><td class="num">${fmt(vatSummary.inputVat)}</td></tr><tr class="subtotal"><td>Net VAT payable</td><td class="num">${fmt(vatSummary.netVatPayable)}</td></tr></tbody></table>`)
+    } else if (activeTab === "withholding-tax" && withholdingTax) {
+      const rows = withholdingTax.payments.map(p => `<tr><td>${escapeDocumentText(p.payment_date)}</td><td>${escapeDocumentText(p.supplier_name)}</td><td>${escapeDocumentText(p.kra_pin ?? "—")}</td><td>${escapeDocumentText(p.bill_number)}</td><td>${escapeDocumentText(p.withholding_certificate_number ?? "—")}</td><td class="num">${fmt(p.withholding_tax_amount)}</td></tr>`).join("")
+      printBusinessDocument("Withholding tax schedule", startDate + " to " + endDate, `<header class="top"><div><div class="brand">${escapeDocumentText(user?.fullName ?? "Your business")}</div><h1>Withholding tax schedule</h1></div><div class="meta"><strong>${escapeDocumentText(startDate)} to ${escapeDocumentText(endDate)}</strong></div></header><table><thead><tr><th>Date</th><th>Supplier</th><th>KRA PIN</th><th>Bill</th><th>Certificate</th><th class="num">Tax withheld</th></tr></thead><tbody>${rows}<tr class="subtotal"><td colspan="5">Total withholding tax</td><td class="num">${fmt(withholdingTax.totalWithholdingTax)}</td></tr></tbody></table>`)
     }
   }
 
   const showDateFilter = activeTab === "trial-balance" || activeTab === "balance-sheet"
-  const showRangeFilter = activeTab === "profit-and-loss" || activeTab === "cash-flow" || activeTab === "vat"
+  const showRangeFilter = activeTab === "profit-and-loss" || activeTab === "cash-flow" || activeTab === "vat" || activeTab === "withholding-tax"
 
   return (
     <BaseLayout>
@@ -235,11 +251,29 @@ export default function FinancialReportsPage() {
           <CashFlowReport report={cashFlow} />
         ) : activeTab === "vat" && vatSummary ? (
           <VatSummaryReport report={vatSummary} />
+        ) : activeTab === "withholding-tax" && withholdingTax ? (
+          <WithholdingTaxReport report={withholdingTax} />
         ) : (
           <EmptyState icon={FileBarChart} title="No data to report" description="The report will show posted account balances when the company has a chart of accounts and ledger activity." />
         )}
       </div>
     </BaseLayout>
+  )
+}
+
+function WithholdingTaxReport({ report }: { report: WithholdingTaxSchedule }) {
+  const fmt = (v: number) => formatKES(v, true)
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Gross supplier settlements</p><p className="mt-2 text-xl font-semibold tabular-nums">{fmt(report.totalGrossPayments)}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Net cash paid</p><p className="mt-2 text-xl font-semibold tabular-nums">{fmt(report.totalCashPaid)}</p></CardContent></Card>
+        <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Withholding tax payable</p><p className="mt-2 text-xl font-semibold tabular-nums">{fmt(report.totalWithholdingTax)}</p></CardContent></Card>
+      </div>
+      <Card><CardContent className="p-0">
+        {report.payments.length === 0 ? <EmptyState icon={FileBarChart} title="No withholding tax recorded" description="Supplier settlements with withholding tax and a certificate reference will appear here." /> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground"><th className="p-3">Date</th><th className="p-3">Supplier</th><th className="p-3">KRA PIN</th><th className="p-3">Bill</th><th className="p-3">Certificate</th><th className="p-3 text-right">Gross</th><th className="p-3 text-right">Net cash</th><th className="p-3 text-right">Withheld</th></tr></thead><tbody>{report.payments.map((p,i)=><tr key={p.withholding_certificate_number || p.bill_number+p.payment_date+i} className="border-b last:border-0"><td className="p-3">{p.payment_date}</td><td className="p-3 font-medium">{p.supplier_name}</td><td className="p-3">{p.kra_pin ?? "—"}</td><td className="p-3">{p.bill_number}</td><td className="p-3">{p.withholding_certificate_number ?? "—"}</td><td className="p-3 text-right tabular-nums">{fmt(p.amount)}</td><td className="p-3 text-right tabular-nums">{fmt(p.cash_amount)}</td><td className="p-3 text-right tabular-nums font-semibold">{fmt(p.withholding_tax_amount)}</td></tr>)}</tbody></table></div>}
+      </CardContent></Card>
+    </div>
   )
 }
 
