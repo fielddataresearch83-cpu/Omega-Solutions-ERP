@@ -114,6 +114,15 @@ export const columns: ColumnDef<DataTableFeatures, Task>[] = [
     },
   },
   {
+    accessorKey: "due_at",
+    header: "Due date",
+    cell: ({ row }) => {
+      const value = row.original.due_at
+      return <span className="text-sm text-muted-foreground">{value ? new Date(value).toLocaleDateString() : "No due date"}</span>
+    },
+    enableSorting: true,
+  },
+  {
     accessorKey: "priority",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Priority" />
