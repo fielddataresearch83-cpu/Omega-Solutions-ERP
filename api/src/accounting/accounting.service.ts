@@ -436,7 +436,6 @@ export class AccountingService {
    LEFT JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id
    WHERE a.company_id=$1 AND a.account_type='asset'
     AND a.system_code IN ('cash','bank','mpesa')
-    AND a.is_active=true
    GROUP BY a.id ORDER BY a.code`,
    [companyId, startDate, endDate]);
 
@@ -450,14 +449,51 @@ export class AccountingService {
   const totalOpening = cashAccounts.reduce((s, a) => s + a.opening_balance, 0);
   const totalClosing = cashAccounts.reduce((s, a) => s + a.closing_balance, 0);
   const netCashMovement = Math.round((totalClosing - totalOpening) * 100) / 100;
+  const categories = await this.db.query<{ category: 'operating'|'investing'|'financing'; amount: string|number }>(
+   `WITH cash_entries AS (
+     SELECT j.id
+     FROM journal_entries j
+     JOIN journal_entry_lines cash_line ON cash_line.journal_entry_id=j.id AND cash_line.company_id=j.company_id
+     JOIN chart_of_accounts cash_account ON cash_account.id=cash_line.account_id AND cash_account.company_id=j.company_id
+     WHERE j.company_id=$1 AND j.status='posted' AND j.entry_date>=$2::date AND j.entry_date<=$3::date
+       AND cash_account.system_code IN ('cash','bank','mpesa')
+     GROUP BY j.id
+     HAVING ABS(SUM(cash_line.debit-cash_line.credit))>0.005
+    ), counterpart_movements AS (
+     SELECT
+      CASE
+       WHEN account.cash_flow_category IS NOT NULL THEN account.cash_flow_category
+       WHEN account.system_code IN ('accounts_receivable','accounts_payable','inventory','input_tax','output_tax','goods_received_not_invoiced','customer_credits','withholding_tax_payable') THEN 'operating'
+       WHEN account.account_type IN ('income','expense') THEN 'operating'
+       WHEN account.account_type='equity' THEN 'financing'
+       WHEN account.account_type='asset' THEN 'investing'
+       ELSE 'operating'
+      END AS category,
+      SUM(line.credit-line.debit) AS amount
+     FROM cash_entries ce
+     JOIN journal_entries j ON j.id=ce.id AND j.company_id=$1
+     JOIN journal_entry_lines line ON line.journal_entry_id=j.id AND line.company_id=j.company_id
+     JOIN chart_of_accounts account ON account.id=line.account_id AND account.company_id=line.company_id
+     WHERE account.system_code IS NULL OR account.system_code NOT IN ('cash','bank','mpesa')
+     GROUP BY 1
+    )
+    SELECT category,COALESCE(SUM(amount),0)::numeric(14,2) AS amount
+    FROM counterpart_movements GROUP BY category ORDER BY category`,
+   [companyId, startDate, endDate],
+  );
+  const cashFlowCategories = (['operating','investing','financing'] as const).map(category => ({
+   category, amount: Number(categories.rows.find(row => row.category === category)?.amount ?? 0),
+  }));
+  const classifiedMovement = cashFlowCategories.reduce((sum, item) => sum + item.amount, 0);
+  const classificationVariance = Math.round((netCashMovement - classifiedMovement) * 100) / 100;
 
   return {
-   currency, startDate, endDate, cashAccounts,
+   currency, startDate, endDate, cashAccounts, cashFlowCategories,
    totalOpeningBalance: totalOpening,
    totalClosingBalance: totalClosing,
    netCashMovement,
+   classificationVariance,
    method: 'direct',
-   limitation: 'Category-level breakdown (operating/investing/financing) is not available because journal entries lack cash-flow classification tags. This report shows net cash movement for cash, bank, and M-Pesa accounts only.',
   };
  }
 }
