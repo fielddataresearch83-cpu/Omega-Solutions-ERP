@@ -135,7 +135,7 @@ export class ProductsService {
           `SELECT id FROM warehouses
            WHERE company_id = $1 AND is_active = true
              AND ($2::uuid IS NULL OR branch_id = $2)
-           ORDER BY created_at ASC, id ASC LIMIT 1`,
+           ORDER BY created_at ASC, id ASC LIMIT 1 FOR SHARE`,
           [membership.companyId, membership.branchId],
         );
 
@@ -154,7 +154,7 @@ export class ProductsService {
             warehouse = await client.query<{ id: string }>(
               `SELECT id FROM warehouses
                WHERE company_id = $1 AND is_active = true
-               ORDER BY created_at ASC, id ASC LIMIT 1`,
+               ORDER BY created_at ASC, id ASC LIMIT 1 FOR SHARE`,
               [membership.companyId],
             );
           }
@@ -320,6 +320,11 @@ export class ProductsService {
           [membership.companyId, productId],
         );
         if (occupied.rows.length) throw new ConflictException('Move or release all on-hand and reserved stock before deactivating or converting this product to a service.');
+        if (dto.isService === true && !existing.is_service) {
+          const stockHistory = await client.query('SELECT id FROM inventory_stock_levels WHERE company_id=$1 AND product_id=$2 LIMIT 1', [membership.companyId, productId]);
+          const movementHistory = await client.query('SELECT id FROM inventory_stock_movements WHERE company_id=$1 AND product_id=$2 LIMIT 1', [membership.companyId, productId]);
+          if (stockHistory.rows.length || movementHistory.rows.length) throw new ConflictException('A product with inventory records or movement history cannot be converted to a service item.');
+        }
       }
       return client.query<ProductRow>(
         `UPDATE products SET ${fields.join(', ')}

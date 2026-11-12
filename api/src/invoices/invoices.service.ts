@@ -447,6 +447,11 @@ export class InvoicesService {
       }
       warehouseId = warehouse.rows[0].id;
     }
+    const warehouseLock = await client.query<{ id: string }>(
+      'SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true FOR SHARE',
+      [warehouseId, input.companyId],
+    );
+    if (!warehouseLock.rows[0]) throw new BadRequestException('Reactivate the original stock warehouse before reversing or dispatching invoice stock.');
     for (const line of lines.rows) {
       if (line.is_service) continue;
       await client.query(
