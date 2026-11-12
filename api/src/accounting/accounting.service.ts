@@ -262,7 +262,7 @@ export class AccountingService {
     JOIN chart_of_accounts a ON a.id=b.account_id AND a.company_id=b.company_id
     LEFT JOIN cost_centres cc ON cc.id=b.cost_centre_id AND cc.company_id=b.company_id
     LEFT JOIN journal_entry_lines l ON l.company_id=b.company_id AND l.account_id=b.account_id
-      AND l.cost_centre_id IS NOT DISTINCT FROM b.cost_centre_id
+      AND (b.cost_centre_id IS NULL OR l.cost_centre_id=b.cost_centre_id)
     LEFT JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id
       AND j.status='posted'
       AND j.entry_date>=make_date(b.fiscal_year,b.period_month,1)
