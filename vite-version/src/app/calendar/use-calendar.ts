@@ -6,6 +6,8 @@ import { api } from "@/lib/api-client"
 
 type ApiEvent = {
   id: string
+  project_id?: string | null
+  project_name?: string | null
   title: string
   description?: string | null
   event_type: CalendarEvent["type"]
@@ -32,6 +34,8 @@ function fromApi(event: ApiEvent): CalendarEvent {
     description: event.description ?? undefined,
     allDay: event.all_day ?? false,
     reminderEnabled: event.reminder_enabled ?? true,
+    projectId: event.project_id ?? null,
+    projectName: event.project_name ?? null,
   }
 }
 
@@ -96,6 +100,7 @@ export function useCalendar(_initialEvents: CalendarEvent[] = []): UseCalendarRe
       allDay: eventData.allDay || eventData.duration === "All day",
       attendees: eventData.attendees ?? [],
       reminderEnabled: eventData.reminderEnabled ?? true,
+      projectId: eventData.projectId || null,
       endAt: eventData.allDay || eventData.duration === "All day" ? undefined : new Date(date.getTime() + (durations[eventData.duration ?? "1 hour"] ?? 60) * 60_000).toISOString(),
     }
     if (eventData.id) await api.patch("/projects/events/" + eventData.id, payload)
