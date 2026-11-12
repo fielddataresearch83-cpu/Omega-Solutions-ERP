@@ -72,7 +72,7 @@ describe('AccountingService receivables reconciliation', () => {
 
     expect(clientQuery).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO chart_of_accounts'),
-      ['company-active', '1250', 'Work in Progress', 'asset', 'debit', 'work_in_progress'],
+      ['company-active', '1250', 'Work in Progress', 'asset', 'debit', 'work_in_progress', 'operating'],
     );
   });
 
