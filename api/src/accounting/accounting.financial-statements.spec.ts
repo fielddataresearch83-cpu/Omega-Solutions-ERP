@@ -12,13 +12,14 @@ const user: AuthenticatedUser = {
 
 function makeService(
   accountRows: Record<string, unknown>[],
-  options?: { branchId?: string | null; companyId?: string },
+  options?: { branchId?: string | null; companyId?: string; currentEarnings?: string | number },
 ) {
   const companyId = options?.companyId ?? 'company-active';
   const branchId = options?.branchId ?? null;
   const db = {
     query: vi.fn(async (sql: string, _params?: unknown[]) => {
       if (sql.includes('SELECT currency FROM companies')) return { rows: [{ currency: 'KES' }], rowCount: 1 };
+      if (sql.includes('AS current_earnings')) return { rows: [{ current_earnings: options?.currentEarnings ?? '0' }], rowCount: 1 };
       if (sql.includes('chart_of_accounts')) return { rows: accountRows, rowCount: accountRows.length };
       return { rows: [], rowCount: 0 };
     }),
@@ -123,6 +124,21 @@ describe('AccountingService.balanceSheet', () => {
     expect(result.assetAccounts).toHaveLength(2);
     expect(result.liabilityAccounts).toHaveLength(1);
     expect(result.equityAccounts).toHaveLength(1);
+  });
+
+  it('includes cumulative unclosed profit or loss in equity', async () => {
+    const { service } = makeService([
+      { id: 'cash', code: '1000', name: 'Cash', account_type: 'asset', system_code: 'cash', balance: '5000' },
+      { id: 'ap', code: '2000', name: 'AP', account_type: 'liability', system_code: 'accounts_payable', balance: '1000' },
+      { id: 'eq', code: '3000', name: 'Equity', account_type: 'equity', system_code: 'equity', balance: '3000' },
+    ], { currentEarnings: '1000' });
+
+    const result = await service.balanceSheet(user, '2026-12-31');
+
+    expect(result.totalEquity).toBe(4000);
+    expect(result.totalLiabilitiesAndEquity).toBe(5000);
+    expect(result.equityAccounts.some(account => account.system_code === 'calculated_retained_earnings' && account.balance === 1000)).toBe(true);
+    expect(result.balanced).toBe(true);
   });
 
   it('reports out-of-balance variance without forcing it to zero', async () => {
