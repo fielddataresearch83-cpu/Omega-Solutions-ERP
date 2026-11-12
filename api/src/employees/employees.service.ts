@@ -86,7 +86,7 @@ export class EmployeesService {
     const membership=await this.membershipFor(user);
     if(dto.endDate<dto.startDate) throw new BadRequestException('Leave end date must be on or after its start date.');
     const result=await this.db.transaction(async client=>{
-      const employee=await client.query('SELECT id FROM employees WHERE id=$1 AND company_id=$2 AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',[dto.employeeId,membership.companyId,membership.branchId]);
+      const employee=await client.query('SELECT id FROM employees WHERE id=$1 AND company_id=$2 AND employment_status NOT IN ('terminated','inactive') AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',[dto.employeeId,membership.companyId,membership.branchId]);
       if(!employee.rows.length) throw new NotFoundException('Employee not found in this company.');
       const overlap=await client.query(`SELECT id FROM employee_leave_requests WHERE company_id=$1 AND employee_id=$2 AND status IN ('pending','approved')
         AND start_date <= $4::date AND end_date >= $3::date LIMIT 1`,[membership.companyId,dto.employeeId,dto.startDate,dto.endDate]);
