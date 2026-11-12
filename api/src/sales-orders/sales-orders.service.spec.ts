@@ -25,6 +25,8 @@ describe('SalesOrdersService inventory fulfilment', () => {
         if (sql.includes('FROM warehouses WHERE id = $1')) return { rows: [{ id: 'warehouse-1' }], rowCount: 1 };
         if (sql.includes('FROM sales_order_items soi')) return { rows: [{ product_id: 'product-1', quantity: '2', is_service: false, is_active: true, cost_price: '4.5', product_name: 'Widget' }], rowCount: 1 };
         if (sql.includes('FROM inventory_stock_levels')) return { rows: [{ quantity: '10', reserved_quantity: '1', average_unit_cost: '3.75' }], rowCount: 1 };
+      if (sql.includes('UPDATE inventory_stock_levels')) return { rows: [{ id: 'stock-1' }], rowCount: 1 };
+        if (sql.includes('UPDATE inventory_stock_levels')) return { rows: [{ id: 'stock-1' }], rowCount: 1 };
         if (sql.includes('INSERT INTO journal_entry_sequences')) return { rows: [{ next_number: 1 }], rowCount: 1 };
         if (sql.includes('FROM chart_of_accounts')) return { rows: [{ id: 'account-inventory', system_code: 'inventory' }, { id: 'account-cogs', system_code: 'purchases_expense' }], rowCount: 2 };
         if (sql.includes('INSERT INTO journal_entries')) return { rows: [{ id: 'journal-1' }], rowCount: 1 };
