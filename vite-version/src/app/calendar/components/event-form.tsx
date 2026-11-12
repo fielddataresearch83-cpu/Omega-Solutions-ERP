@@ -112,7 +112,7 @@ export function EventForm({
     description: event?.description || "",
     attendees: event?.attendees || [],
     allDay: false,
-    reminder: true,
+    reminder: event?.reminderEnabled ?? true,
   })
 
   useEffect(() => {
@@ -127,7 +127,7 @@ export function EventForm({
       description: event?.description || "",
       attendees: event?.attendees || [],
       allDay: event?.allDay || false,
-      reminder: true,
+      reminder: event?.reminderEnabled ?? true,
     })
   }, [event, open])
 
@@ -142,6 +142,7 @@ export function EventForm({
       id: event?.id,
       color: eventTypes.find((t) => t.value === formData.type)?.color || "bg-blue-500",
       allDay: formData.allDay,
+      reminderEnabled: formData.reminder,
     }
     setSaving(true)
     setSaveError("")
