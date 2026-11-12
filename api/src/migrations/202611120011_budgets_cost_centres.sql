@@ -75,3 +75,15 @@ CREATE POLICY omega_company_isolation ON budgets
   AND EXISTS(SELECT 1 FROM company_memberships m WHERE m.company_id=budgets.company_id
    AND m.user_id=NULLIF(current_setting('app.user_id',true),'')::uuid AND m.is_active=true)
  );
+
+ALTER TABLE expenses
+ ADD COLUMN IF NOT EXISTS cost_centre_id UUID;
+
+DO $$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='expenses_cost_centre_company_fk') THEN
+  ALTER TABLE expenses
+   ADD CONSTRAINT expenses_cost_centre_company_fk
+   FOREIGN KEY(cost_centre_id,company_id) REFERENCES cost_centres(id,company_id) ON DELETE RESTRICT;
+ END IF;
+END $$;
