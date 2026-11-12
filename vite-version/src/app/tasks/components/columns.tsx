@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils"
 import { categories, priorities, statuses } from "../data/data"
 import type { Task } from "../data/schema"
 import { DataTableColumnHeader } from "./data-table-column-header"
-import { DataTableRowActions } from "./data-table-row-actions"
 
 export const columns: ColumnDef<DataTableFeatures, Task>[] = [
   {
@@ -43,7 +42,7 @@ export const columns: ColumnDef<DataTableFeatures, Task>[] = [
       <DataTableColumnHeader column={column} title="Task" />
     ),
     cell: ({ row }) => (
-      <div className="w-[90px] font-medium">{row.getValue("id")}</div>
+      <div className="w-[90px] font-medium">{String(row.getValue("id")).slice(0, 8)}</div>
     ),
     enableHiding: false,
   },
@@ -151,9 +150,5 @@ export const columns: ColumnDef<DataTableFeatures, Task>[] = [
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
     },
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => <DataTableRowActions row={row} />,
   },
 ]
