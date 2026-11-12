@@ -123,6 +123,7 @@ const navGroups: NavGroup[] = [
       { title: "Financial Reports", url: "/financial-reports", icon: FileBarChart },
       { title: "Bank Reconciliation", url: "/bank-reconciliation", icon: Banknote },
       { title: "Fixed Assets", url: "/fixed-assets", icon: Building2 },
+      { title: "Budgets & Cost Centres", url: "/finance-planning", icon: CalendarDays },
       { title: "Reports", url: "/reports", icon: FileBarChart, module: "reports" },
     ],
   },
