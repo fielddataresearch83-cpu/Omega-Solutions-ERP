@@ -179,20 +179,25 @@ export class SupplierBillsService {
       if(bill.status==='void')throw new BadRequestException('A void bill cannot receive payments.');
       const balance=Number(bill.total)-Number(bill.paid_amount);
       if(dto.amount>balance+0.000001)throw new BadRequestException('Payment exceeds the outstanding bill balance.');
+      const withholdingTaxAmount=Math.round(Number(dto.withholdingTaxAmount??0)*100)/100;
+      if(!Number.isFinite(withholdingTaxAmount)||withholdingTaxAmount<0||withholdingTaxAmount>dto.amount+0.000001)throw new BadRequestException('Withholding tax must be between zero and the gross amount settled.');
+      const certificateNumber=dto.withholdingCertificateNumber?.trim()||null;
+      if(withholdingTaxAmount>0&&!certificateNumber)throw new BadRequestException('A withholding tax certificate/reference is required when withholding tax is recorded.');
+      const cashAmount=Math.round((dto.amount-withholdingTaxAmount)*100)/100;
       await this.accounting.ensureDefaults(m.companyId, client);
-      const payment=await client.query<{id:string}>(`INSERT INTO supplier_bill_payments(company_id,supplier_bill_id,amount,payment_date,method,reference,notes,created_by)
-       VALUES($1,$2,$3,COALESCE($4::date,CURRENT_DATE),$5,$6,$7,$8) RETURNING id`,[m.companyId,id,dto.amount,dto.paymentDate??null,dto.method,dto.reference??null,dto.notes??null,user.userId]);
+      const payment=await client.query<{id:string}>(`INSERT INTO supplier_bill_payments(company_id,supplier_bill_id,amount,cash_amount,withholding_tax_amount,withholding_certificate_number,payment_date,method,reference,notes,created_by)
+       VALUES($1,$2,$3,$4,$5,$6,COALESCE($7::date,CURRENT_DATE),$8,$9,$10,$11) RETURNING id`,[m.companyId,id,dto.amount,cashAmount,withholdingTaxAmount,certificateNumber,dto.paymentDate??null,dto.method,dto.reference??null,dto.notes??null,user.userId]);
       const cashAccount=dto.method==='cash'?'cash':dto.method==='mpesa'?'mpesa':'bank';
-      await this.postJournal(client,{companyId:m.companyId,date:dto.paymentDate??null,description:`Payment against supplier bill ${id}`,sourceType:'supplier_bill_payment',sourceId:payment.rows[0].id,userId:user.userId,lines:[
-       {systemCode:'accounts_payable',debit:dto.amount,credit:0,description:'Reduce supplier payable'},
-       {systemCode:cashAccount,debit:0,credit:dto.amount,description:`Payment by ${dto.method}`}
-      ]});
+      const paymentLines=[{systemCode:'accounts_payable',debit:dto.amount,credit:0,description:'Reduce supplier payable'}];
+      if(cashAmount>0)paymentLines.push({systemCode:cashAccount,debit:0,credit:cashAmount,description:`Net payment by ${dto.method}`});
+      if(withholdingTaxAmount>0)paymentLines.push({systemCode:'withholding_tax_payable',debit:0,credit:withholdingTaxAmount,description:'Withholding tax payable to KRA'});
+      await this.postJournal(client,{companyId:m.companyId,date:dto.paymentDate??null,description:`Payment against supplier bill ${id}`,sourceType:'supplier_bill_payment',sourceId:payment.rows[0].id,userId:user.userId,lines:paymentLines});
       const paid=Number(bill.paid_amount)+dto.amount;
       const status=paid+0.000001>=Number(bill.total)?'paid':'partially_paid';
       await client.query('UPDATE supplier_bills SET paid_amount=$1,status=$2,updated_at=NOW() WHERE id=$3 AND company_id=$4',[paid,status,id,m.companyId]);
       const supplier = await client.query<{supplier_id:string}>('SELECT supplier_id FROM supplier_bills WHERE id=$1 AND company_id=$2',[id,m.companyId]);
       if (supplier.rows[0]) await this.refreshSupplierBalance(client, m.companyId, supplier.rows[0].supplier_id);
-      await this.audit.logInTransaction(client,{userId:user.userId,companyId:m.companyId,branchId:null,action:'supplier_bill.payment',entityType:'supplier_bill',entityId:id,oldValues:{paidAmount:bill.paid_amount,status:bill.status},newValues:{amount:dto.amount,method:dto.method,paidAmount:paid,status},ipAddress:null});
+      await this.audit.logInTransaction(client,{userId:user.userId,companyId:m.companyId,branchId:null,action:'supplier_bill.payment',entityType:'supplier_bill',entityId:id,oldValues:{paidAmount:bill.paid_amount,status:bill.status},newValues:{grossAmount:dto.amount,cashAmount,withholdingTaxAmount,withholdingCertificateNumber:certificateNumber,method:dto.method,paidAmount:paid,status},ipAddress:null});
     });
     return this.getById(user,id);
   }
