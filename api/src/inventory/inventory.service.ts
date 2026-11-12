@@ -6,7 +6,7 @@ import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { AccountingService } from '../accounting/accounting.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
-import type { AdjustStockDto, CountStocktakeLineDto, CreateInventoryReturnDto, CreateStockMovementDto, CreateStocktakeDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
+import type { AdjustStockDto, CountStocktakeLineDto, CreateInventoryReturnDto, ResolveInventoryQuarantineDto, CreateStockMovementDto, CreateStocktakeDto, CreateWarehouseDto, TransferStockDto, UpdateWarehouseDto } from './dto/inventory.dto.js';
 
 type WarehouseRow = {
   id: string; company_id: string; branch_id: string | null; code: string; name: string;
@@ -509,8 +509,11 @@ export class InventoryService {
       if (dto.returnType === 'customer' && disposition === 'return_to_supplier') {
         throw new BadRequestException('Customer returns cannot use the supplier-return disposition.');
       }
-      if (dto.returnType === 'supplier' && disposition === 'restock' || dto.returnType === 'supplier' && disposition === 'reject') {
-        throw new BadRequestException('Supplier returns must be quarantined or returned to the supplier.');
+      if (dto.returnType === 'supplier' && disposition !== 'return_to_supplier') {
+        throw new BadRequestException('Supplier returns must be dispatched back to the supplier.');
+      }
+      if (dto.returnType === 'customer' && disposition === 'return_to_supplier') {
+        throw new BadRequestException('Customer returns cannot use the supplier-return disposition.');
       }
       if (!Number.isFinite(item.quantity) || item.quantity <= 0 || !Number.isFinite(item.unitCost) || item.unitCost < 0) {
         throw new BadRequestException('Return quantities and unit costs must be valid non-negative values.');
@@ -662,17 +665,6 @@ export class InventoryService {
           });
           supplierReturnValue += quantity * cost;
           await this.syncLegacyProductQuantity(client, companyId, line.product_id);
-        } else if (header.return_type === 'supplier' && line.disposition === 'quarantine') {
-          await client.query(
-            `INSERT INTO inventory_quarantine_balances(company_id,warehouse_id,product_id,quantity,average_unit_cost)
-             VALUES($1,$2,$3,$4,$5)
-             ON CONFLICT(company_id,warehouse_id,product_id) DO UPDATE
-             SET average_unit_cost=CASE WHEN inventory_quarantine_balances.quantity+$4>0
-               THEN ((inventory_quarantine_balances.quantity*inventory_quarantine_balances.average_unit_cost)+($4*$5))/(inventory_quarantine_balances.quantity+$4)
-               ELSE $5 END,
-               quantity=inventory_quarantine_balances.quantity+$4,updated_at=NOW()`,
-            [companyId, header.warehouse_id, line.product_id, quantity, unitCost],
-          );
         } else if (line.disposition === 'reject') {
           // Rejected customer goods are recorded for traceability but never enter saleable stock.
         } else {
@@ -720,6 +712,73 @@ export class InventoryService {
       });
     });
     return this.getReturn(user, returnId);
+  }
+
+  async listQuarantine(user: AuthenticatedUser) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    return (await this.db.query(
+      `SELECT q.*,w.name AS warehouse_name,p.name AS product_name,p.sku
+       FROM inventory_quarantine_balances q
+       JOIN warehouses w ON w.id=q.warehouse_id AND w.company_id=q.company_id
+       JOIN products p ON p.id=q.product_id AND p.company_id=q.company_id
+       WHERE q.company_id=$1 AND q.quantity>0 AND ($2::uuid IS NULL OR w.branch_id=$2)
+       ORDER BY q.updated_at DESC`, [companyId, branchId],
+    )).rows;
+  }
+
+  async resolveQuarantine(user: AuthenticatedUser, dto: ResolveInventoryQuarantineDto) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    await this.db.transaction(async client => {
+      await this.assertWarehouse(client, companyId, dto.warehouseId, branchId);
+      await this.assertProduct(client, companyId, dto.productId);
+      const quarantine = await client.query<{ quantity: string | number; average_unit_cost: string | number }>(
+        'SELECT quantity,average_unit_cost FROM inventory_quarantine_balances WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE',
+        [companyId, dto.warehouseId, dto.productId],
+      );
+      const row = quarantine.rows[0];
+      if (!row || Number(row.quantity) + 0.0000001 < dto.quantity) {
+        throw new BadRequestException('The requested quantity exceeds the quarantined balance.');
+      }
+      await client.query(
+        'UPDATE inventory_quarantine_balances SET quantity=quantity-$1,updated_at=NOW() WHERE company_id=$2 AND warehouse_id=$3 AND product_id=$4',
+        [dto.quantity, companyId, dto.warehouseId, dto.productId],
+      );
+      if (dto.disposition === 'restock') {
+        await this.ensureStockRow(client, companyId, dto.warehouseId, dto.productId);
+        const stock = await client.query<{ quantity: string | number; average_unit_cost: string | number }>(
+          'SELECT quantity,average_unit_cost FROM inventory_stock_levels WHERE company_id=$1 AND warehouse_id=$2 AND product_id=$3 FOR UPDATE',
+          [companyId, dto.warehouseId, dto.productId],
+        );
+        const oldQuantity = Number(stock.rows[0].quantity);
+        const oldCost = Number(stock.rows[0].average_unit_cost);
+        const quarantineCost = Number(row.average_unit_cost);
+        const average = oldQuantity + dto.quantity > 0
+          ? ((oldQuantity * oldCost) + (dto.quantity * quarantineCost)) / (oldQuantity + dto.quantity)
+          : quarantineCost;
+        await client.query(
+          'UPDATE inventory_stock_levels SET quantity=quantity+$1,average_unit_cost=$2,updated_at=NOW() WHERE company_id=$3 AND warehouse_id=$4 AND product_id=$5',
+          [dto.quantity, average, companyId, dto.warehouseId, dto.productId],
+        );
+        const movement = await this.insertMovement(client, {
+          companyId, productId: dto.productId, warehouseId: dto.warehouseId, type: 'receipt',
+          quantity: dto.quantity, unitCost: quarantineCost, reference: 'QUARANTINE-RELEASE',
+          notes: dto.notes?.trim() || 'Inspected quarantined stock released to saleable inventory',
+          userId: user.userId,
+        });
+        await this.postMovementJournal(client, {
+          companyId, userId: user.userId, movementId: movement.id, quantity: dto.quantity,
+          unitCost: quarantineCost, description: 'Quarantined inventory released to saleable stock',
+        });
+        await this.syncLegacyProductQuantity(client, companyId, dto.productId);
+      }
+      await this.audit.logInTransaction(client, {
+        userId: user.userId, companyId, branchId, action: dto.disposition === 'restock' ? 'inventory.quarantine.restock' : 'inventory.quarantine.reject',
+        entityType: 'inventory_quarantine_balance', entityId: `${dto.warehouseId}:${dto.productId}`,
+        oldValues: { quantity: row.quantity }, newValues: { quantity: dto.quantity, disposition: dto.disposition, notes: dto.notes ?? null },
+        ipAddress: null,
+      });
+    });
+    return this.listQuarantine(user);
   }
 
   async cancelReturn(user: AuthenticatedUser, returnId: string) {
