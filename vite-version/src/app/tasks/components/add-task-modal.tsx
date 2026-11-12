@@ -38,19 +38,22 @@ const taskFormSchema = z.object({
   priority: z.string(),
   assignedTo: z.string().optional(),
   dueAt: z.string().optional(),
+  projectId: z.string().optional(),
 })
 
 type TaskFormData = z.infer<typeof taskFormSchema>
 
 type CompanyMember = { id: string; full_name: string; email: string; role: string }
+type ProjectOption = { id: string; name: string }
 
 interface AddTaskModalProps {
   onAddTask?: (task: Task) => void | Promise<void>
   members?: CompanyMember[]
+  projects?: ProjectOption[]
   trigger?: React.ReactElement
 }
 
-export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalProps) {
+export function AddTaskModal({ onAddTask, members = [], projects = [], trigger }: AddTaskModalProps) {
   const [open, setOpen] = useState(false)
   const [formData, setFormData] = useState<TaskFormData>({
     id: "",
@@ -61,6 +64,7 @@ export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalP
     priority: "normal",
     assignedTo: "",
     dueAt: "",
+    projectId: "",
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -91,6 +95,7 @@ export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalP
         priority: validatedData.priority,
         assigned_to: validatedData.assignedTo || null,
         due_at: validatedData.dueAt || null,
+        project_id: validatedData.projectId || null,
       }
 
       await onAddTask?.(newTask)
@@ -105,6 +110,7 @@ export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalP
         priority: "normal",
         assignedTo: "",
         dueAt: "",
+        projectId: "",
       })
       setErrors({})
       setOpen(false)
@@ -286,6 +292,21 @@ export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalP
             </Field>
           </div>
 
+          <Field>
+            <FieldLabel htmlFor="project">Project</FieldLabel>
+            <Select
+              value={formData.projectId || "unassigned"}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, projectId: value === "unassigned" ? "" : value ?? "" }))}
+            >
+              <SelectTrigger className="w-full"><SelectValue placeholder="No project" /></SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="unassigned">No project</SelectItem>
+                  {projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
           <Field>
             <FieldLabel htmlFor="dueAt">Due date</FieldLabel>
             <Input id="dueAt" type="date" value={formData.dueAt ?? ""} onChange={(e) => setFormData((prev) => ({ ...prev, dueAt: e.target.value }))} />
