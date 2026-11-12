@@ -13,6 +13,8 @@ type ApiEvent = {
   end_at?: string | null
   location?: string | null
   all_day?: boolean
+  attendees?: string[]
+  reminder_enabled?: boolean
 }
 
 function fromApi(event: ApiEvent): CalendarEvent {
@@ -24,11 +26,12 @@ function fromApi(event: ApiEvent): CalendarEvent {
     time: date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
     duration: event.all_day ? "All day" : event.end_at ? ({ 15: "15 min", 30: "30 min", 45: "45 min", 60: "1 hour", 90: "1.5 hours", 120: "2 hours", 180: "3 hours" } as Record<number, string>)[Math.round((new Date(event.end_at).getTime() - date.getTime()) / 60000)] ?? "1 hour" : "1 hour",
     type: event.event_type,
-    attendees: [],
+    attendees: event.attendees ?? [],
     location: event.location ?? "",
     color: ({ meeting: "bg-blue-500", event: "bg-green-500", personal: "bg-pink-500", task: "bg-orange-500", reminder: "bg-purple-500" } as Record<string,string>)[event.event_type] ?? "bg-blue-500",
     description: event.description ?? undefined,
     allDay: event.all_day ?? false,
+    reminderEnabled: event.reminder_enabled ?? true,
   }
 }
 
@@ -91,6 +94,8 @@ export function useCalendar(_initialEvents: CalendarEvent[] = []): UseCalendarRe
       startAt: date.toISOString(),
       location: eventData.location,
       allDay: eventData.allDay ?? eventData.duration === "All day",
+      attendees: eventData.attendees ?? [],
+      reminderEnabled: eventData.reminderEnabled ?? true,
       endAt: eventData.allDay || eventData.duration === "All day" ? undefined : new Date(date.getTime() + (durations[eventData.duration ?? "1 hour"] ?? 60) * 60_000).toISOString(),
     }
     if (eventData.id) await api.patch("/projects/events/" + eventData.id, payload)
