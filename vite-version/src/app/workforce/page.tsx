@@ -33,7 +33,7 @@ export default function WorkforcePage() {
   const [formError, setFormError] = React.useState<string | null>(null);
   const [siteForm, setSiteForm] = React.useState({ siteCode: "", siteName: "", clientName: "", address: "" });
   const [assignmentForm, setAssignmentForm] = React.useState({ employeeId: "", siteId: "", assignmentTitle: "", payBasis: "monthly", payRate: "", currency: "KES", startDate: today(), endDate: "" });
-  const [punchForm, setPunchForm] = React.useState({ employeeId: "", punchType: "in" as "in" | "out", note: "" });
+  const [punchForm, setPunchForm] = React.useState({ employeeId: "", assignmentId: "", punchType: "in" as "in" | "out", note: "" });
   const [transferForm, setTransferForm] = React.useState({ assignmentId: "", siteId: "", effectiveDate: today(), payBasis: "monthly", payRate: "" });
   const [savingTransfer, setSavingTransfer] = React.useState(false);
   const [from, setFrom] = React.useState("");
@@ -175,8 +175,8 @@ export default function WorkforcePage() {
   async function recordPunch(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); setSavingPunch(true); setFormError(null);
     try {
-      await api.post("/attendance/punch", { ...punchForm, note: punchForm.note.trim() || undefined, source: "web" });
-      setPunchForm({ employeeId: "", punchType: "in", note: "" });
+      await api.post("/attendance/punch", { ...punchForm, assignmentId: punchForm.assignmentId || undefined, note: punchForm.note.trim() || undefined, source: "web" });
+      setPunchForm({ employeeId: "", assignmentId: "", punchType: "in", note: "" });
       await load();
     } catch (e) { setFormError(errorMessage(e)); } finally { setSavingPunch(false); }
   }
@@ -255,8 +255,9 @@ export default function WorkforcePage() {
         <div className="space-y-2"><h3 className="text-sm font-semibold">Imported monthly registers</h3>{monthlyImports.length===0?<p className="text-sm text-muted-foreground">No imported attendance registers for this month.</p>:<div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-y bg-muted/40 text-left"><th className="p-2">Month</th><th className="p-2">Workers</th><th className="p-2">Present</th><th className="p-2">Absent</th><th className="p-2">Unresolved</th><th className="p-2">Status</th><th className="p-2">Action</th></tr></thead><tbody>{monthlyImports.map(item=><tr key={item.id} className="border-b"><td className="p-2">{String(item.period_start).slice(0,7)}</td><td className="p-2">{item.item_count}</td><td className="p-2">{item.present_days_total}</td><td className="p-2">{item.absent_days_total}</td><td className="p-2">{item.unresolved_days_total}</td><td className="p-2 capitalize">{item.status}</td><td className="p-2">{item.status==="draft"?<Button size="sm" variant="outline" onClick={()=>void approveMonthlyImport(item.id)} disabled={importBusy}>Approve</Button>:"Approved"}</td></tr>)}</tbody></table></div>}</div>
       </CardContent></Card>
       <Card><CardHeader><CardTitle className="flex items-center gap-2 text-base"><Clock3 className="size-4" />Attendance</CardTitle></CardHeader><CardContent>
-        <form onSubmit={recordPunch} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="grid gap-1.5"><Label>Employee *</Label><select required className={fieldClass} value={punchForm.employeeId} onChange={e => setPunchForm({ ...punchForm, employeeId: e.target.value })}><option value="">Select employee</option>{activeEmployees.map(e => <option key={e.id} value={e.id}>{e.employee_number} · {e.first_name} {e.last_name}</option>)}</select></div>
+        <form onSubmit={recordPunch} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-1.5"><Label>Employee *</Label><select required className={fieldClass} value={punchForm.employeeId} onChange={e => setPunchForm({ ...punchForm, employeeId: e.target.value, assignmentId: "" })}><option value="">Select employee</option>{activeEmployees.map(e => <option key={e.id} value={e.id}>{e.employee_number} · {e.first_name} {e.last_name}</option>)}</select></div>
+          <div className="grid gap-1.5"><Label>Assignment / client site</Label><select className={fieldClass} value={punchForm.assignmentId} onChange={e => setPunchForm({ ...punchForm, assignmentId: e.target.value })}><option value="">No assignment selected</option>{assignments.filter(a => a.status === "active" && a.employee_id === punchForm.employeeId).map(a => <option key={a.id} value={a.id}>{a.site_name} · {a.client_name}</option>)}</select></div>
           <div className="grid gap-1.5"><Label>Action *</Label><select className={fieldClass} value={punchForm.punchType} onChange={e => setPunchForm({ ...punchForm, punchType: e.target.value as "in" | "out" })}><option value="in">Clock in</option><option value="out">Clock out</option></select></div>
           <div className="grid gap-1.5"><Label>Note</Label><Input value={punchForm.note} onChange={e => setPunchForm({ ...punchForm, note: e.target.value })} /></div>
           <div className="flex items-end"><Button type="submit" disabled={savingPunch || !activeEmployees.length}>{savingPunch && <Loader2 className="mr-2 size-4 animate-spin" />}Record attendance</Button></div>
