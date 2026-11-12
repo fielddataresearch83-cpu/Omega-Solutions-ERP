@@ -506,9 +506,6 @@ export class InventoryService {
     }
     const lines = dto.items.map(item => {
       const disposition = item.disposition;
-      if (dto.returnType === 'customer' && disposition === 'return_to_supplier') {
-        throw new BadRequestException('Customer returns cannot use the supplier-return disposition.');
-      }
       if (dto.returnType === 'supplier' && disposition !== 'return_to_supplier') {
         throw new BadRequestException('Supplier returns must be dispatched back to the supplier.');
       }
