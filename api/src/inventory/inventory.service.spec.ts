@@ -63,6 +63,7 @@ describe('InventoryService', () => {
   it('posts customer returns into quarantine without making them saleable stock', async () => {
     const client = { query: vi.fn(async (sql: string) => {
       if (sql.includes('FROM inventory_returns WHERE id=$1')) return { rows: [{ id: 'return-1', return_number: 'IR-2026-TEST', return_type: 'customer', warehouse_id: 'warehouse-1', status: 'draft', branch_id: null }], rowCount: 1 };
+      if (sql.includes('FROM supplier_bills WHERE id=$1')) return { rows: [{ total: '100', paid_amount: '0', status: 'open' }], rowCount: 1 };
       if (sql.includes('FROM warehouses WHERE id=$1')) return { rows: [{ id: 'warehouse-1', branch_id: null }], rowCount: 1 };
       if (sql.includes('FROM inventory_return_lines l')) return { rows: [{ id: 'line-1', product_id: 'product-1', quantity: '2', unit_cost: '10', disposition: 'quarantine', product_name: 'Widget' }], rowCount: 1 };
       if (sql.includes('SELECT id,is_service FROM products')) return { rows: [{ id: 'product-1', is_service: false }], rowCount: 1 };
@@ -84,7 +85,7 @@ describe('InventoryService', () => {
 
   it('rejects posting a supplier return when available stock is insufficient', async () => {
     const client = { query: vi.fn(async (sql: string) => {
-      if (sql.includes('FROM inventory_returns WHERE id=$1')) return { rows: [{ id: 'return-1', return_number: 'IR-2026-TEST', return_type: 'supplier', warehouse_id: 'warehouse-1', status: 'draft', branch_id: null }], rowCount: 1 };
+      if (sql.includes('FROM inventory_returns WHERE id=$1')) return { rows: [{ id: 'return-1', return_number: 'IR-2026-TEST', return_type: 'supplier', supplier_id: 'supplier-1', supplier_bill_id: 'bill-1', warehouse_id: 'warehouse-1', status: 'draft', branch_id: null }], rowCount: 1 };
       if (sql.includes('FROM warehouses WHERE id=$1')) return { rows: [{ id: 'warehouse-1', branch_id: null }], rowCount: 1 };
       if (sql.includes('FROM inventory_return_lines l')) return { rows: [{ id: 'line-1', product_id: 'product-1', quantity: '3', unit_cost: '10', disposition: 'return_to_supplier', product_name: 'Widget' }], rowCount: 1 };
       if (sql.includes('SELECT id,is_service FROM products')) return { rows: [{ id: 'product-1', is_service: false }], rowCount: 1 };
