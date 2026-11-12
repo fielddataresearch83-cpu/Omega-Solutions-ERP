@@ -222,7 +222,8 @@ describe('AccountingService.cashFlow', () => {
     expect(result.totalOpeningBalance).toBe(12000);
     expect(result.totalClosingBalance).toBe(13000);
     expect(result.netCashMovement).toBe(1000);
-    expect(result.limitation).toBeTruthy();
+    expect(result.cashFlowCategories).toHaveLength(3);
+    expect(result.classificationVariance).toBe(0);
   });
 
   it('rejects invalid date formats', async () => {
