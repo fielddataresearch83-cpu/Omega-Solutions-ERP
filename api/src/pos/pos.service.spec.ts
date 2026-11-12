@@ -113,7 +113,7 @@ describe('PosService', () => {
     });
     const client = {
       query: vi.fn(async (sql: string) => {
-        if (sql.includes('SELECT id,sale_number,total,subtotal,tax_amount,amount_confirmed,status,invoice_id,created_by FROM pos_sales')) {
+        if (sql.includes('SELECT ps.id,ps.sale_number,ps.total,ps.subtotal,ps.tax_amount,ps.amount_confirmed,ps.status')) {
           return { rows: [], rowCount: 0 };
         }
         if (sql.includes('FROM pos_shifts WHERE id=$1')) {
@@ -202,6 +202,30 @@ describe('PosService', () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 
+
+  it('does not replay a prior checkout when the cashier is now assigned to another branch', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: 'branch-2' });
+    const client = { query: vi.fn(async (sql: string) => {
+      if (sql.includes('SELECT ps.id,ps.sale_number')) return { rows: [{
+        id: 'sale-1', sale_number: 'POS-2026-00001', total: '125.00', subtotal: '125.00',
+        tax_amount: '0.00', amount_confirmed: '125.00', status: 'completed',
+        invoice_id: 'invoice-1', created_by: 'cashier-1', register_branch_id: 'branch-1',
+        warehouse_branch_id: 'branch-1', warehouse_id: 'warehouse-1',
+      }], rowCount: 1 };
+      return { rows: [], rowCount: 0 };
+    }) };
+    db.transaction.mockImplementation(async (callback: (client: unknown) => Promise<unknown>) => callback(client));
+
+    await expect(service.checkout({ ...user, permissions: ['sales:read', 'sales:write'] }, {
+      requestId: '11111111-1111-4111-8111-111111111111',
+      shiftId: '22222222-2222-4222-8222-222222222222',
+      warehouseId: '33333333-3333-4333-8333-333333333333',
+      items: [{ productId: '44444444-4444-4444-8444-444444444444', quantity: 1 }],
+      payments: [{ method: 'cash', amount: 125 }],
+    } as any)).rejects.toThrow(ForbiddenException);
+    expect(client.query).toHaveBeenCalledTimes(2);
+    expect(audit.logInTransaction).not.toHaveBeenCalled();
+  });
 
   it('posts balanced POS cost-of-goods journal lines against inventory', () => {
     const lines = buildCogsJournalLines(12345);
