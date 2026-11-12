@@ -49,3 +49,22 @@ export class TransferStockDto {
 
 export class CreateStocktakeDto { @IsUUID() warehouseId!: string; @IsOptional() @IsString() @MaxLength(120) reference?: string; @IsOptional() @IsString() @MaxLength(2000) notes?: string; }
 export class CountStocktakeLineDto { @Type(() => Number) @IsNumber({ maxDecimalPlaces: 4 }) @Min(0) countedQuantity!: number; @IsOptional() @IsString() @MaxLength(2000) notes?: string; }
+
+
+export class CreateInventoryReturnLineDto {
+  @IsUUID() productId!: string;
+  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 4 }) @Min(0.0001) quantity!: number;
+  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 4 }) @Min(0) unitCost!: number;
+  @IsString() disposition!: 'restock' | 'quarantine' | 'reject' | 'return_to_supplier';
+  @IsOptional() @IsString() @MaxLength(2000) inspectionNotes?: string;
+}
+
+export class CreateInventoryReturnDto {
+  @IsString() returnType!: 'customer' | 'supplier';
+  @IsOptional() @IsUUID() customerId?: string;
+  @IsOptional() @IsUUID() supplierId?: string;
+  @IsUUID() warehouseId!: string;
+  @IsOptional() @IsString() @MaxLength(120) sourceReference?: string;
+  @IsString() @MaxLength(1000) reason!: string;
+  @Type(() => Array) items!: CreateInventoryReturnLineDto[];
+}
