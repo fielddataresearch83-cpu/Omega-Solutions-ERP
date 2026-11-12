@@ -1830,10 +1830,10 @@ export class AccountingService {
    `SELECT b.id,b.fiscal_year,b.period_month,b.budget_amount,b.status,
       a.id AS account_id,a.code AS account_code,a.name AS account_name,a.account_type,
       cc.id AS cost_centre_id,cc.code AS cost_centre_code,cc.name AS cost_centre_name,
-      COALESCE(SUM(CASE WHEN a.account_type='income' THEN l.credit-l.debit ELSE l.debit-l.credit END),0)::numeric(14,2) AS actual_amount,
+      COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN CASE WHEN a.account_type='income' THEN l.credit-l.debit ELSE l.debit-l.credit END ELSE 0 END),0)::numeric(14,2) AS actual_amount,
       CASE WHEN a.account_type='income'
-       THEN (COALESCE(SUM(l.credit-l.debit),0)-b.budget_amount)
-       ELSE (b.budget_amount-COALESCE(SUM(l.debit-l.credit),0))
+       THEN (COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.credit-l.debit ELSE 0 END),0)-b.budget_amount)
+       ELSE (b.budget_amount-COALESCE(SUM(CASE WHEN j.id IS NOT NULL THEN l.debit-l.credit ELSE 0 END),0))
       END::numeric(14,2) AS favourable_variance
     FROM budgets b
     JOIN chart_of_accounts a ON a.id=b.account_id AND a.company_id=b.company_id
