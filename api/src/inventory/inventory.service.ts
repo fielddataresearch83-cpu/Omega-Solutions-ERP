@@ -501,8 +501,11 @@ export class InventoryService {
     if (dto.returnType === 'customer' && (!dto.customerId || dto.supplierId)) {
       throw new BadRequestException('A customer return must identify one customer only.');
     }
-    if (dto.returnType === 'supplier' && (!dto.supplierId || dto.customerId)) {
-      throw new BadRequestException('A supplier return must identify one supplier only.');
+    if (dto.returnType === 'supplier' && (!dto.supplierId || dto.customerId || !dto.supplierBillId)) {
+      throw new BadRequestException('A supplier return must identify its supplier and original supplier bill.');
+    }
+    if (dto.returnType === 'customer' && dto.supplierBillId) {
+      throw new BadRequestException('Customer returns cannot reference a supplier bill.');
     }
     const lines = dto.items.map(item => {
       const disposition = item.disposition;
@@ -531,14 +534,19 @@ export class InventoryService {
           [dto.supplierId!, companyId],
         );
         if (!party.rows[0]) throw new NotFoundException('Active supplier not found in this company.');
+        const bill = await client.query<{ id: string }>(
+          'SELECT id FROM supplier_bills WHERE id=$1 AND company_id=$2 AND supplier_id=$3 AND status<>'void' FOR SHARE',
+          [dto.supplierBillId!, companyId, dto.supplierId!],
+        );
+        if (!bill.rows[0]) throw new NotFoundException('An open supplier bill for this supplier is required.');
       }
       for (const line of lines) await this.assertProduct(client, companyId, line.productId);
       const number = `IR-${new Date().getFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`;
       const header = await client.query<{ id: string }>(
         `INSERT INTO inventory_returns
-          (company_id,branch_id,return_number,return_type,customer_id,supplier_id,warehouse_id,source_reference,reason,created_by)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-        [companyId, branchId, number, dto.returnType, dto.customerId ?? null, dto.supplierId ?? null,
+          (company_id,branch_id,return_number,return_type,customer_id,supplier_id,supplier_bill_id,warehouse_id,source_reference,reason,created_by)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+        [companyId, branchId, number, dto.returnType, dto.customerId ?? null, dto.supplierId ?? null, dto.supplierBillId ?? null,
           dto.warehouseId, dto.sourceReference?.trim() || null, reason, user.userId],
       );
       for (const line of lines) {
@@ -585,14 +593,24 @@ export class InventoryService {
     await this.db.transaction(async client => {
       const result = await client.query<{
         id: string; return_number: string; return_type: 'customer' | 'supplier'; warehouse_id: string;
-        status: string; branch_id: string | null;
+        supplier_id: string | null; supplier_bill_id: string | null; status: string; branch_id: string | null;
       }>(
-        'SELECT id,return_number,return_type,warehouse_id,status,branch_id FROM inventory_returns WHERE id=$1 AND company_id=$2 AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',
+        'SELECT id,return_number,return_type,warehouse_id,supplier_id,supplier_bill_id,status,branch_id FROM inventory_returns WHERE id=$1 AND company_id=$2 AND ($3::uuid IS NULL OR branch_id=$3) FOR UPDATE',
         [returnId, companyId, branchId],
       );
       const header = result.rows[0];
       if (!header) throw new NotFoundException('Inventory return not found.');
       if (header.status !== 'draft') throw new ConflictException('Only draft returns can be posted.');
+      let supplierBillBalance = 0;
+      if (header.return_type === 'supplier') {
+        if (!header.supplier_bill_id || !header.supplier_id) throw new BadRequestException('Supplier return is missing its original supplier bill.');
+        const bill = await client.query<{ total: string | number; paid_amount: string | number; status: string }>(
+          'SELECT total,paid_amount,status FROM supplier_bills WHERE id=$1 AND company_id=$2 AND supplier_id=$3 FOR UPDATE',
+          [header.supplier_bill_id, companyId, header.supplier_id],
+        );
+        if (!bill.rows[0] || bill.rows[0].status === 'void') throw new NotFoundException('Original supplier bill is no longer available.');
+        supplierBillBalance = Number(bill.rows[0].total) - Number(bill.rows[0].paid_amount);
+      }
       await this.assertWarehouse(client, companyId, header.warehouse_id, branchId);
       const lines = await client.query<{
         id: string; product_id: string; quantity: string | number; unit_cost: string | number;
@@ -669,8 +687,22 @@ export class InventoryService {
         }
       }
       if (header.return_type === 'supplier' && supplierReturnValue > 0) {
-        await this.accounting.ensureDefaults(companyId, client);
         const amount = Math.round(supplierReturnValue * 100) / 100;
+        if (amount > supplierBillBalance + 0.005) {
+          throw new BadRequestException(`Supplier return value ${amount.toFixed(2)} exceeds the original bill's outstanding balance ${supplierBillBalance.toFixed(2)}.`);
+        }
+        const updatedBill = await client.query(
+          `UPDATE supplier_bills
+           SET total=total-$1,
+               status=CASE WHEN total-$1<=paid_amount+0.000001 THEN 'paid' WHEN paid_amount>0 THEN 'partially_paid' ELSE 'open' END,
+               updated_at=NOW()
+           WHERE id=$2 AND company_id=$3 AND total-$1>=paid_amount
+           RETURNING id`,
+          [amount, header.supplier_bill_id, companyId],
+        );
+        if (!updatedBill.rows[0]) throw new BadRequestException('Supplier bill balance changed; retry the return.');
+
+        await this.accounting.ensureDefaults(companyId, client);
         const year = new Date().getFullYear();
         const sequence = await client.query<{ next_number: number }>(
           `INSERT INTO journal_entry_sequences(company_id,entry_year,next_number) VALUES($1,$2,1)
