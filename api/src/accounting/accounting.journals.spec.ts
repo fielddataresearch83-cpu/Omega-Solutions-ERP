@@ -60,7 +60,7 @@ describe('AccountingService manual journals', () => {
   it('creates an equal-and-opposite posted reversal and preserves the original posted entry', async () => {
     const { service, db, client, audit } = setup();
     client.query
-      .mockResolvedValueOnce({ rows: [{ id: 'journal-1', entry_number: 'JE-2026-000001', description: 'Opening capital', status: 'posted', reversal_journal_id: null }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ id: 'journal-1', entry_number: 'JE-2026-000001', description: 'Opening capital', source_type: 'manual_journal', status: 'posted', reversal_journal_id: null }], rowCount: 1 })
       .mockResolvedValueOnce({ rows: [
         { account_id: 'cash-account', description: 'Cash', debit: '1000', credit: '0' },
         { account_id: 'equity-account', description: 'Capital', debit: '0', credit: '1000' },
@@ -85,11 +85,24 @@ describe('AccountingService manual journals', () => {
     }));
   });
 
+
+  it('blocks generic reversal of system-generated source journals', async () => {
+    const { service, client } = setup();
+    client.query.mockResolvedValueOnce({ rows: [{
+      id: 'journal-1', entry_number: 'JE-2026-000001', description: 'Supplier payment',
+      source_type: 'supplier_bill_payment', status: 'posted', reversal_journal_id: null,
+    }], rowCount: 1 });
+    await expect(service.reverseJournal(
+      { userId: 'user-1', companyId: 'company-1' } as any, 'journal-1',
+    )).rejects.toThrow('Correct system-generated transactions in their originating module');
+    expect(client.query).toHaveBeenCalledTimes(1);
+  });
+
   it('prevents a second reversal of the same journal', async () => {
     const { service, db, client } = setup();
     client.query.mockResolvedValueOnce({ rows: [{
       id: 'journal-1', entry_number: 'JE-2026-000001', description: 'Already reversed',
-      status: 'posted', reversal_journal_id: 'reversal-1',
+      source_type: 'manual_journal', status: 'posted', reversal_journal_id: 'reversal-1',
     }], rowCount: 1 });
     await expect(service.reverseJournal({ userId: 'user-1', companyId: 'company-1' } as any, 'journal-1'))
       .rejects.toThrow(ConflictException);
