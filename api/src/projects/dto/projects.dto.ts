@@ -1,4 +1,4 @@
-import { IsBoolean, IsDateString, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 const projectStatuses = ['planned','active','on_hold','completed','cancelled'] as const;
 const priorities = ['low','normal','high','urgent'] as const;
@@ -53,6 +53,8 @@ export class CreateProjectEventDto {
   @IsOptional() @IsDateString() endAt?: string;
   @IsOptional() @IsBoolean() allDay?: boolean;
   @IsOptional() @IsString() @MaxLength(240) location?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(100) @IsString({ each: true }) attendees?: string[];
+  @IsOptional() @IsBoolean() reminderEnabled?: boolean;
 }
 export class UpdateProjectEventDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(180) title?: string;
@@ -64,4 +66,6 @@ export class UpdateProjectEventDto {
   @IsOptional() @IsBoolean() allDay?: boolean;
   @IsOptional() @IsString() @MaxLength(240) location?: string;
   @IsOptional() @IsBoolean() isCancelled?: boolean;
+  @IsOptional() @IsArray() @ArrayMaxSize(100) @IsString({ each: true }) attendees?: string[];
+  @IsOptional() @IsBoolean() reminderEnabled?: boolean;
 }
