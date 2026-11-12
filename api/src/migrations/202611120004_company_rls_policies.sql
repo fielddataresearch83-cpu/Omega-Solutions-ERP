@@ -1,7 +1,6 @@
 -- Enforce company and (where modeled) branch isolation for every existing
--- RLS-enabled public table carrying company_id. Context is populated only from
--- the verified JWT principal; membership is independently rechecked in SQL.
--- No context or no active membership intentionally returns no rows.
+-- RLS-enabled public table carrying company_id. Membership is independently
+-- rechecked by PostgreSQL; absent context or membership matches no rows.
 DO $migration$
 DECLARE
   target record;
@@ -29,31 +28,33 @@ BEGIN
     branch_predicate := '';
     IF target.has_branch_id THEN
       branch_predicate := format(
-        ' AND (%I IS NULL OR m.branch_id IS NULL OR %I = m.branch_id)',
-        'branch_id', 'branch_id'
+        ' AND (%I.branch_id IS NULL OR m.branch_id IS NULL OR %I.branch_id = m.branch_id)',
+        target.table_name, target.table_name
       );
     END IF;
 
     EXECUTE format('DROP POLICY IF EXISTS omega_company_isolation ON public.%I', target.table_name);
     EXECUTE format(
       'CREATE POLICY omega_company_isolation ON public.%I USING (
-        company_id = NULLIF(current_setting(''app.company_id'', true), '''')::uuid
+        %I.company_id = NULLIF(current_setting(''app.company_id'', true), '''')::uuid
         AND EXISTS (
           SELECT 1 FROM public.company_memberships m
-          WHERE m.company_id = company_id
+          WHERE m.company_id = %I.company_id
             AND m.user_id = NULLIF(current_setting(''app.user_id'', true), '''')::uuid
             AND m.is_active = true%s
         )
       ) WITH CHECK (
-        company_id = NULLIF(current_setting(''app.company_id'', true), '''')::uuid
+        %I.company_id = NULLIF(current_setting(''app.company_id'', true), '''')::uuid
         AND EXISTS (
           SELECT 1 FROM public.company_memberships m
-          WHERE m.company_id = company_id
+          WHERE m.company_id = %I.company_id
             AND m.user_id = NULLIF(current_setting(''app.user_id'', true), '''')::uuid
             AND m.is_active = true%s
         )
       )',
-      target.table_name, branch_predicate, branch_predicate
+      target.table_name,
+      target.table_name, target.table_name, branch_predicate,
+      target.table_name, target.table_name, branch_predicate
     );
   END LOOP;
 END
