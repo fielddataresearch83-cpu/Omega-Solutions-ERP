@@ -644,6 +644,8 @@ describe('InventoryService', () => {
 
 
 describe('InventoryService supplier return balance synchronization', () => {
+  const service = new InventoryService({} as any, {} as any, {} as any, {} as any);
+
   it('recalculates the supplier master balance after a supplier bill is credited by a return', async () => {
     const client = { query: vi.fn().mockResolvedValue({ rows: [], rowCount: 1 }) };
     const internal = service as unknown as {
