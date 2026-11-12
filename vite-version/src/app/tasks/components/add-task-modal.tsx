@@ -140,6 +140,7 @@ export function AddTaskModal({ onAddTask, members = [], projects = [], trigger }
       priority: "normal",
       assignedTo: "",
       dueAt: "",
+      projectId: "",
     })
     setErrors({})
     setOpen(false)
