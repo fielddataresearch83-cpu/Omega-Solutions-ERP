@@ -29,7 +29,9 @@ const DEFAULT_ACCOUNTS = [
  {code:'4000',name:'Sales Revenue',type:'income',side:'credit',system:'sales_revenue',cashFlowCategory:'operating'},
  {code:'5000',name:'Purchases and Cost of Goods',type:'expense',side:'debit',system:'purchases_expense',cashFlowCategory:'operating'},
  {code:'5100',name:'Operating Expenses',type:'expense',side:'debit',system:'operating_expense',cashFlowCategory:'operating'},
- {code:'5200',name:'Depreciation Expense',type:'expense',side:'debit',system:'depreciation_expense',cashFlowCategory:'operating'}
+ {code:'5200',name:'Depreciation Expense',type:'expense',side:'debit',system:'depreciation_expense',cashFlowCategory:'operating'},
+ {code:'4300',name:'Gain on Disposal of Fixed Assets',type:'income',side:'credit',system:'fixed_asset_disposal_gain',cashFlowCategory:'investing'},
+ {code:'5300',name:'Loss on Disposal of Fixed Assets',type:'expense',side:'debit',system:'fixed_asset_disposal_loss',cashFlowCategory:'investing'}
 ] as const;
 @Injectable()
 export class AccountingService {
