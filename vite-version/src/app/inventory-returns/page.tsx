@@ -49,7 +49,7 @@ export default function InventoryReturnsPage(){
     api.get<Party[]>("/customers"),
     api.get<Party[]>("/suppliers"),
     api.get<QuarantineBalance[]>("/inventory/quarantine"),
-    api.get<SupplierBill[]>("/supplier-bills"),
+    api.get<SupplierBill[]>("/supplier-bills").catch(()=>[] as SupplierBill[]),
    ])
    setReturns(r);setQuarantine(q);setSupplierBills(b.filter(x=>x.status!=="void"&&Number(x.total)>Number(x.paid_amount)));setWarehouses(w.filter(x=>x.is_active));setProducts(p.filter(x=>x.is_active!==false&&!x.is_service));setCustomers(c.filter(x=>x.is_active!==false));setSuppliers(s.filter(x=>x.is_active!==false))
    setWarehouseId(current=>current||w.find(x=>x.is_active)?.id||"")
