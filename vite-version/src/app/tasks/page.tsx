@@ -65,6 +65,7 @@ export default function TaskPage() {
       category: newTask.category,
       priority: newTask.priority,
       assignedTo: newTask.assigned_to ?? undefined,
+      dueAt: newTask.due_at ?? undefined,
     })
     await loadTasks()
   }
