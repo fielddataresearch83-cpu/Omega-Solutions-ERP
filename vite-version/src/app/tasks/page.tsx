@@ -47,6 +47,16 @@ export default function TaskPage() {
     }
   }
 
+  const handleUpdateTaskAssignee = async (task: Task, assignedTo: string) => {
+    try {
+      setError("")
+      await api.patch(`/projects/tasks/${task.id}`, { assignedTo: assignedTo || null })
+      await loadTasks()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to reassign task.")
+    }
+  }
+
   const handleAddTask = async (newTask: Task) => {
     await api.post("/projects/tasks", {
       title: newTask.title,
@@ -83,7 +93,7 @@ export default function TaskPage() {
         </div>
         <Card>
           <CardHeader><CardTitle>Task management</CardTitle><CardDescription>Tasks are stored against the selected company and shared with its authorized members.</CardDescription></CardHeader>
-          <CardContent><DataTable data={tasks} columns={columnsWithUpdates(handleUpdateTaskStatus)} onAddTask={handleAddTask} members={members} /></CardContent>
+          <CardContent><DataTable data={tasks} columns={columnsWithUpdates(handleUpdateTaskStatus, handleUpdateTaskAssignee, members)} onAddTask={handleAddTask} members={members} /></CardContent>
         </Card>
       </div>
     </BaseLayout>
