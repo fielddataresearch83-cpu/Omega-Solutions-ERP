@@ -264,7 +264,7 @@ export class AccountingService {
     JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
     JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id
     WHERE a.company_id=$1 AND a.system_code IN ('input_tax','output_tax')
-      AND a.is_active=true AND j.status='posted' AND j.entry_date>=$2::date AND j.entry_date<=$3::date`,
+      AND j.status='posted' AND j.entry_date>=$2::date AND j.entry_date<=$3::date`,
    [companyId, startDate, endDate],
   );
   const inputVat = Number(result.rows[0]?.input_vat ?? 0);
@@ -326,7 +326,7 @@ export class AccountingService {
    FROM chart_of_accounts a
    LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
    LEFT JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id
-   WHERE a.company_id=$1 AND a.account_type IN ('income','expense') AND a.is_active=true
+   WHERE a.company_id=$1 AND a.account_type IN ('income','expense')
    GROUP BY a.id ORDER BY a.code`,
    [companyId, startDate, endDate]);
 
@@ -371,7 +371,7 @@ export class AccountingService {
    FROM chart_of_accounts a
    LEFT JOIN journal_entry_lines l ON l.account_id=a.id AND l.company_id=a.company_id
    LEFT JOIN journal_entries j ON j.id=l.journal_entry_id AND j.company_id=l.company_id
-   WHERE a.company_id=$1 AND a.account_type IN ('asset','liability','equity') AND a.is_active=true
+   WHERE a.company_id=$1 AND a.account_type IN ('asset','liability','equity')
    GROUP BY a.id ORDER BY a.code`,
    [companyId, asOfDate]);
 
