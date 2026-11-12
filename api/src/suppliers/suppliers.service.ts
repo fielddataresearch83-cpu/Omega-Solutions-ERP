@@ -13,7 +13,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js
 
 const SUPPLIER_COLUMNS = `
   id, company_id, name, email, phone, city, county, address_line1,
-  postal_code, contact_person, payment_terms, outstanding_balance,
+  postal_code, contact_person, payment_terms, kra_pin, outstanding_balance,
   status, is_active, created_at, updated_at
 `;
 
@@ -82,8 +82,8 @@ export class SuppliersService {
     const result = await this.db.query<SupplierRow>(
       `INSERT INTO suppliers
         (company_id, name, email, phone, city, county, address_line1,
-         postal_code, contact_person, payment_terms, status, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'active', true)
+         postal_code, contact_person, payment_terms, kra_pin, status, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'active', true)
        RETURNING ${SUPPLIER_COLUMNS}`,
       [
         membership.companyId,
@@ -149,6 +149,7 @@ export class SuppliersService {
       postalCode: 'postal_code',
       contactPerson: 'contact_person',
       paymentTerms: 'payment_terms',
+      kraPin: 'kra_pin',
       status: 'status',
     };
 
@@ -156,7 +157,7 @@ export class SuppliersService {
       if (dtoKey in dto) {
         const value = (dto as Record<string, unknown>)[dtoKey];
         fields.push(`${dbColumn} = $${paramIndex}`);
-        values.push(value as string | null);
+        values.push(dtoKey === 'kraPin' && typeof value === 'string' ? value.trim().toUpperCase() : value as string | null);
         paramIndex++;
       }
     }
