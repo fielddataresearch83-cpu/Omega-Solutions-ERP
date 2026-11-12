@@ -36,16 +36,20 @@ const taskFormSchema = z.object({
   status: z.string(),
   category: z.string(),
   priority: z.string(),
+  assignedTo: z.string().optional(),
 })
 
 type TaskFormData = z.infer<typeof taskFormSchema>
 
+type CompanyMember = { id: string; full_name: string; email: string; role: string }
+
 interface AddTaskModalProps {
   onAddTask?: (task: Task) => void | Promise<void>
+  members?: CompanyMember[]
   trigger?: React.ReactElement
 }
 
-export function AddTaskModal({ onAddTask, trigger }: AddTaskModalProps) {
+export function AddTaskModal({ onAddTask, members = [], trigger }: AddTaskModalProps) {
   const [open, setOpen] = useState(false)
   const [formData, setFormData] = useState<TaskFormData>({
     id: "",
@@ -54,6 +58,7 @@ export function AddTaskModal({ onAddTask, trigger }: AddTaskModalProps) {
     status: "todo",
     category: "feature",
     priority: "normal",
+    assignedTo: "",
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -81,6 +86,7 @@ export function AddTaskModal({ onAddTask, trigger }: AddTaskModalProps) {
         status: validatedData.status,
         category: validatedData.category,
         priority: validatedData.priority,
+        assigned_to: validatedData.assignedTo || null,
       }
 
       await onAddTask?.(newTask)
@@ -272,6 +278,23 @@ export function AddTaskModal({ onAddTask, trigger }: AddTaskModalProps) {
             </Field>
           </div>
 
+          <Field>
+            <FieldLabel htmlFor="assignee">Assign to</FieldLabel>
+            <Select
+              value={formData.assignedTo || "unassigned"}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, assignedTo: value === "unassigned" ? "" : value ?? "" }))}
+            >
+              <SelectTrigger className="w-full"><SelectValue placeholder="Unassigned" /></SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {members.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>{member.full_name || member.email} · {member.role}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
           {errors.form && <p role="alert" className="text-sm text-destructive">{errors.form}</p>}
           <div className="flex justify-end gap-2 pt-4">
             <Button
