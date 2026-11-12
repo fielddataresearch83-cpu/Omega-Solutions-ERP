@@ -17,7 +17,8 @@ type MonthlyPreview = { period: string; totalRows: number; matchedRows: number; 
 type MonthlyImport = { id: string; period_start: string; status: "draft" | "approved"; item_count: number; present_days_total: number; absent_days_total: number; leave_days_total: number; unresolved_days_total: number; created_at: string };
 const errorMessage = (e: unknown) => e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : "The request failed. Please try again.";
 const fieldClass = "h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm";
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => { const date = new Date(); const year = date.getFullYear(); const month = String(date.getMonth() + 1).padStart(2, "0"); const day = String(date.getDate()).padStart(2, "0"); return `${year}-${month}-${day}`; };
+const currentMonth = () => today().slice(0, 7);
 
 export default function WorkforcePage() {
   const [employees, setEmployees] = React.useState<Employee[]>([]);
@@ -37,7 +38,7 @@ export default function WorkforcePage() {
   const [savingTransfer, setSavingTransfer] = React.useState(false);
   const [from, setFrom] = React.useState("");
   const [to, setTo] = React.useState("");
-  const [importPeriod, setImportPeriod] = React.useState(new Date().toISOString().slice(0, 7));
+  const [importPeriod, setImportPeriod] = React.useState(currentMonth());
   const [importCsv, setImportCsv] = React.useState("");
   const [importFileName, setImportFileName] = React.useState("");
   const [importPreview, setImportPreview] = React.useState<MonthlyPreview | null>(null);
@@ -68,7 +69,7 @@ export default function WorkforcePage() {
     setLoading(false);
   }, [from, to]);
 
-  React.useEffect(() => { let active=true; const attendanceQuery=new URLSearchParams();if(from)attendanceQuery.set("from",from);if(to)attendanceQuery.set("to",to);const suffix=attendanceQuery.size?`?${attendanceQuery.toString()}`:"";void Promise.allSettled([api.get<Employee[]>("/employees"),api.get<Site[]>("/client-sites"),api.get<Assignment[]>("/employee-assignments"),api.get<Attendance[]>(`/attendance${suffix}`)]).then(results=>{if(!active)return;const messages:string[]=[];if(results[0].status==="fulfilled")setEmployees(results[0].value);else messages.push(`Employees: ${errorMessage(results[0].reason)}`);if(results[1].status==="fulfilled")setSites(results[1].value);else messages.push(`Sites: ${errorMessage(results[1].reason)}`);if(results[2].status==="fulfilled")setAssignments(results[2].value);else messages.push(`Assignments: ${errorMessage(results[2].reason)}`);if(results[3].status==="fulfilled")setAttendance(results[3].value);else messages.push(`Attendance: ${errorMessage(results[3].reason)}`);setError(messages.length?messages.join(" · "):null);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};}, [from,to]);
+  React.useEffect(() => { void load(); }, [load]);
 
   const loadMonthlyImports = React.useCallback(async () => {
     try { setMonthlyImports(await api.get<MonthlyImport[]>(`/attendance/monthly-imports?period=${encodeURIComponent(importPeriod)}`)); }
@@ -77,10 +78,11 @@ export default function WorkforcePage() {
   React.useEffect(() => { let active=true; void api.get<MonthlyImport[]>(`/attendance/monthly-imports?period=${encodeURIComponent(importPeriod)}`).then(result=>{if(active){setMonthlyImports(result);setImportError(null);}}).catch(e=>{if(active)setImportError(errorMessage(e));});return()=>{active=false;}; }, [importPeriod]);
 
   function parseChecklistCsv(text: string) {
+    const source = text.replace(/^\\uFEFF/, "");
     const records: string[][] = [];
     let row: string[] = [], cell = "", quoted = false;
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
+    for (let i = 0; i < source.length; i++) {
+      const ch = source[i];
       if (ch === '"' && quoted && text[i + 1] === '"') { cell += '"'; i++; }
       else if (ch === '"') quoted = !quoted;
       else if (ch === "," && !quoted) { row.push(cell.trim()); cell = ""; }
@@ -90,6 +92,7 @@ export default function WorkforcePage() {
         row = []; cell = "";
       } else cell += ch;
     }
+    if (quoted) throw new Error("The checklist contains an unclosed quoted field. Check the CSV file and try again.");
     row.push(cell.trim()); if (row.some(value => value !== "")) records.push(row);
     if (records.length < 2) throw new Error("The checklist needs a header row and at least one worker row.");
     const normalizeHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
