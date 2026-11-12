@@ -10,6 +10,7 @@ export interface CalendarEvent {
   color: string
   description?: string
   allDay?: boolean
+  reminderEnabled?: boolean
 }
 
 export interface Calendar {
