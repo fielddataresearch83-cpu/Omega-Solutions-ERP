@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Archive, Calculator, Plus, RefreshCw, TrendingDown } from "lucide-react"
+import { Archive, Calculator, Plus, RefreshCw } from "lucide-react"
 import { BaseLayout } from "@/components/layouts/base-layout"
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
