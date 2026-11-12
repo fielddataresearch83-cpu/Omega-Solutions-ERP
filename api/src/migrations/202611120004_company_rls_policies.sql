@@ -1,6 +1,7 @@
--- Enforce company and (where modeled) branch isolation for every existing
--- RLS-enabled public table carrying company_id. Membership is independently
--- rechecked by PostgreSQL; absent context or membership matches no rows.
+-- Enforce company and branch isolation on company-owned business tables.
+-- Memberships and auth bootstrap tokens/invitations remain control-plane tables:
+-- auth resolves membership before a company-scoped JWT context exists.
+-- Missing tenant context or inactive membership intentionally matches no rows.
 DO $migration$
 DECLARE
   target record;
@@ -22,9 +23,10 @@ BEGIN
      AND col.column_name = 'company_id'
     WHERE n.nspname = 'public'
       AND c.relkind = 'r'
-      AND c.relrowsecurity = true
+      AND c.relname NOT IN ('company_memberships', 'auth_refresh_tokens', 'company_invitations')
     ORDER BY c.relname
   LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', target.table_name);
     branch_predicate := '';
     IF target.has_branch_id THEN
       branch_predicate := format(
