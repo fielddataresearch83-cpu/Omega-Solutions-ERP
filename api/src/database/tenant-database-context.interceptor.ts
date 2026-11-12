@@ -17,11 +17,12 @@ export class TenantDatabaseContextInterceptor implements NestInterceptor {
 
     // Unauthenticated bootstrap flows deliberately remain outside tenant scope.
     // The context is sourced only from the server-validated JWT strategy.
-    if (!user?.userId || !user.companyId) return next.handle();
+    const companyId = user?.companyId;
+    if (!user?.userId || typeof companyId !== 'string' || companyId.length === 0) return next.handle();
 
     return new Observable((subscriber) =>
       tenantDatabaseContext.run(
-        { userId: user.userId, companyId: user.companyId, branchId: user.branchId ?? null },
+        { userId: user.userId, companyId, branchId: user.branchId ?? null },
         () => next.handle().subscribe(subscriber),
       ),
     );
