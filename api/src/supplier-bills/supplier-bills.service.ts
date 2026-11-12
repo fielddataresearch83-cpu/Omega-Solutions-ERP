@@ -17,6 +17,17 @@ export class SupplierBillsService {
   private assertCompanyWide(membership: { branchId?: string | null }) {
     if (membership.branchId) throw new ForbiddenException('Supplier bills and payments are company-wide accounting records. A company-wide procurement member must access them.');
   }
+  private async refreshSupplierBalance(client: PoolClient, companyId: string, supplierId: string) {
+    await client.query(
+      `UPDATE suppliers s SET outstanding_balance = COALESCE((
+         SELECT SUM(GREATEST(0, b.total - b.paid_amount))
+         FROM supplier_bills b
+         WHERE b.company_id=$1 AND b.supplier_id=$2 AND b.status<>'void'
+       ),0), updated_at=NOW()
+       WHERE s.company_id=$1 AND s.id=$2`,
+      [companyId, supplierId],
+    );
+  }
   private async postJournal(client:PoolClient,input:{companyId:string;date:string|null;description:string;sourceType:string;sourceId:string;userId:string;lines:Array<{systemCode:string;debit:number;credit:number;description:string}>}) {
     const year=input.date?Number(input.date.slice(0,4)):new Date().getFullYear();
     const seq=await client.query<{next_number:number}>(`INSERT INTO journal_entry_sequences(company_id,entry_year,next_number) VALUES($1,$2,1)
@@ -128,13 +139,14 @@ export class SupplierBillsService {
         lines.push({description:item.description.trim(),qty:item.quantity,cost:item.unitCost,rate:taxConfig.rate,treatment:taxConfig.treatment,sub,tax,total:sub+tax,poItemId:item.purchaseOrderItemId??null,receiptValue:Math.round(item.quantity*receiptUnitCost*100)/100});
       }
       if(subtotal+taxAmount<=0)throw new BadRequestException('Supplier bill total must be greater than zero to post to the ledger.');
-      await this.accounting.ensureDefaults(companyId);
+      await this.accounting.ensureDefaults(companyId, client);
       const inserted=await client.query<{id:string}>(`INSERT INTO supplier_bills(company_id,supplier_id,purchase_order_id,bill_number,supplier_invoice_number,bill_date,due_date,status,subtotal,tax_amount,total,notes,created_by)
         VALUES($1,$2,$3,$4,$5,COALESCE($6::date,CURRENT_DATE),$7::date,'open',$8,$9,$10,$11,$12) RETURNING id`,
         [companyId,dto.supplierId,dto.purchaseOrderId??null,number,dto.supplierInvoiceNumber??null,dto.billDate??null,dto.dueDate??null,subtotal,taxAmount,subtotal+taxAmount,dto.notes??null,user.userId]);
       for(const line of lines)await client.query(`INSERT INTO supplier_bill_items(company_id,supplier_bill_id,purchase_order_item_id,description,quantity,unit_cost,tax_rate,tax_treatment,line_subtotal,tax_amount,line_total)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,[companyId,inserted.rows[0].id,line.poItemId,line.description,line.qty,line.cost,line.rate,line.treatment,line.sub,line.tax,line.total]);
       const billId=inserted.rows[0].id;
+      await this.refreshSupplierBalance(client, companyId, dto.supplierId);
       // Goods received through a purchase order increase inventory; standalone bills remain expense-coded.
       const receiptValue=lines.reduce((sum,line)=>sum+line.receiptValue,0);
       const standaloneSubtotal=lines.filter(line=>line.poItemId===null).reduce((sum,line)=>sum+line.sub,0);
@@ -167,7 +179,7 @@ export class SupplierBillsService {
       if(bill.status==='void')throw new BadRequestException('A void bill cannot receive payments.');
       const balance=Number(bill.total)-Number(bill.paid_amount);
       if(dto.amount>balance+0.000001)throw new BadRequestException('Payment exceeds the outstanding bill balance.');
-      await this.accounting.ensureDefaults(m.companyId);
+      await this.accounting.ensureDefaults(m.companyId, client);
       const payment=await client.query<{id:string}>(`INSERT INTO supplier_bill_payments(company_id,supplier_bill_id,amount,payment_date,method,reference,notes,created_by)
        VALUES($1,$2,$3,COALESCE($4::date,CURRENT_DATE),$5,$6,$7,$8) RETURNING id`,[m.companyId,id,dto.amount,dto.paymentDate??null,dto.method,dto.reference??null,dto.notes??null,user.userId]);
       const cashAccount=dto.method==='cash'?'cash':dto.method==='mpesa'?'mpesa':'bank';
@@ -178,6 +190,8 @@ export class SupplierBillsService {
       const paid=Number(bill.paid_amount)+dto.amount;
       const status=paid+0.000001>=Number(bill.total)?'paid':'partially_paid';
       await client.query('UPDATE supplier_bills SET paid_amount=$1,status=$2,updated_at=NOW() WHERE id=$3 AND company_id=$4',[paid,status,id,m.companyId]);
+      const supplier = await client.query<{supplier_id:string}>('SELECT supplier_id FROM supplier_bills WHERE id=$1 AND company_id=$2',[id,m.companyId]);
+      if (supplier.rows[0]) await this.refreshSupplierBalance(client, m.companyId, supplier.rows[0].supplier_id);
       await this.audit.logInTransaction(client,{userId:user.userId,companyId:m.companyId,branchId:null,action:'supplier_bill.payment',entityType:'supplier_bill',entityId:id,oldValues:{paidAmount:bill.paid_amount,status:bill.status},newValues:{amount:dto.amount,method:dto.method,paidAmount:paid,status},ipAddress:null});
     });
     return this.getById(user,id);
