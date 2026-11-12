@@ -93,7 +93,7 @@ export function useCalendar(_initialEvents: CalendarEvent[] = []): UseCalendarRe
       eventType: eventData.type ?? "meeting",
       startAt: date.toISOString(),
       location: eventData.location,
-      allDay: eventData.allDay ?? eventData.duration === "All day",
+      allDay: eventData.allDay || eventData.duration === "All day",
       attendees: eventData.attendees ?? [],
       reminderEnabled: eventData.reminderEnabled ?? true,
       endAt: eventData.allDay || eventData.duration === "All day" ? undefined : new Date(date.getTime() + (durations[eventData.duration ?? "1 hour"] ?? 60) * 60_000).toISOString(),
