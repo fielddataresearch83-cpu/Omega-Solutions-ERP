@@ -6,7 +6,7 @@ import { BarChart3, CheckCircle2, Clock, ListTodo } from "lucide-react"
 
 import { BaseLayout } from "@/components/layouts/base-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { columns } from "./components/columns"
+import { columnsWithUpdates } from "./components/columns"
 import { DataTable } from "./components/data-table"
 import { taskSchema, type Task } from "./data/schema"
 import { api } from "@/lib/api-client"
@@ -29,6 +29,16 @@ export default function TaskPage() {
   }, [])
 
   useEffect(() => { void loadTasks() }, [loadTasks])
+
+  const handleUpdateTaskStatus = async (task: Task, status: string) => {
+    try {
+      setError("")
+      await api.patch(`/projects/tasks/${task.id}`, { status })
+      await loadTasks()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update task status.")
+    }
+  }
 
   const handleAddTask = async (newTask: Task) => {
     await api.post("/projects/tasks", {
@@ -65,7 +75,7 @@ export default function TaskPage() {
         </div>
         <Card>
           <CardHeader><CardTitle>Task management</CardTitle><CardDescription>Tasks are stored against the selected company and shared with its authorized members.</CardDescription></CardHeader>
-          <CardContent><DataTable data={tasks} columns={columns} onAddTask={handleAddTask} /></CardContent>
+          <CardContent><DataTable data={tasks} columns={columnsWithUpdates(handleUpdateTaskStatus)} onAddTask={handleAddTask} /></CardContent>
         </Card>
       </div>
     </BaseLayout>
