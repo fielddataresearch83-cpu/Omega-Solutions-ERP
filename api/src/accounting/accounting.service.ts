@@ -6,6 +6,7 @@ import { AuditService } from '../audit/audit.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import type { CreateAccountDto } from './dto/create-account.dto.js';
 import type { CreateJournalDto } from './dto/create-journal.dto.js';
+import type { CreateBankStatementDto } from './dto/create-bank-statement.dto.js';
 
 const DEFAULT_ACCOUNTS = [
  {code:'1000',name:'Cash on Hand',type:'asset',side:'debit',system:'cash',cashFlowCategory:null},
@@ -134,6 +135,197 @@ export class AccountingService {
   const controlBalance=Number(control.rows[0]?.balance??0),invoiceBalance=Number(subledger.rows[0]?.balance??0);
   const variance=Math.round((controlBalance-invoiceBalance)*100)/100;
   return {companyId,asOf:new Date().toISOString().slice(0,10),controlAccountBalance:controlBalance,customerInvoicesBalance:invoiceBalance,variance,reconciled:Math.abs(variance)<=0.01,ageing:{current:Number(aging.rows[0]?.current??0),days1to30:Number(aging.rows[0]?.days_1_to_30??0),days31to60:Number(aging.rows[0]?.days_31_to_60??0),days61plus:Number(aging.rows[0]?.days_61_plus??0)}};
+ }
+
+ async listBankStatements(user: AuthenticatedUser) {
+  const membership = await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const { companyId } = membership;
+  return (await this.db.query(
+   `SELECT i.*,a.code AS account_code,a.name AS account_name,
+     COUNT(l.id)::int AS line_count,
+     COUNT(l.id) FILTER (WHERE l.status='matched')::int AS matched_count,
+     COUNT(l.id) FILTER (WHERE l.status='unmatched')::int AS unmatched_count,
+     COALESCE(SUM(l.credit-l.debit),0)::numeric(14,2) AS statement_net_movement,
+     (i.opening_balance+COALESCE(SUM(l.credit-l.debit),0))::numeric(14,2) AS calculated_closing_balance,
+     (i.closing_balance-(i.opening_balance+COALESCE(SUM(l.credit-l.debit),0)))::numeric(14,2) AS closing_variance
+    FROM bank_statement_imports i
+    JOIN chart_of_accounts a ON a.id=i.bank_account_id AND a.company_id=i.company_id
+    LEFT JOIN bank_statement_lines l ON l.statement_import_id=i.id AND l.company_id=i.company_id
+    WHERE i.company_id=$1
+    GROUP BY i.id,a.code,a.name
+    ORDER BY i.statement_end DESC,i.created_at DESC`,
+   [companyId],
+  )).rows;
+ }
+
+ async importBankStatement(user: AuthenticatedUser, dto: CreateBankStatementDto) {
+  const membership = await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const { companyId } = membership;
+  const statementStart = this.validateDate(dto.statementStart, 'statementStart');
+  const statementEnd = this.validateDate(dto.statementEnd, 'statementEnd');
+  if (statementStart > statementEnd) throw new BadRequestException('Statement end must be on or after statement start.');
+  if (!Array.isArray(dto.lines) || dto.lines.length < 1) throw new BadRequestException('A statement import requires at least one transaction line.');
+  const openingBalance = Math.round(Number(dto.openingBalance) * 100) / 100;
+  const closingBalance = Math.round(Number(dto.closingBalance) * 100) / 100;
+  if (!Number.isFinite(openingBalance) || !Number.isFinite(closingBalance)) throw new BadRequestException('Statement balances must be valid amounts.');
+  const lines = dto.lines.map((line,index) => {
+   const transactionDate = this.validateDate(line.transactionDate, `lines[${index}].transactionDate`);
+   if (transactionDate < statementStart || transactionDate > statementEnd) throw new BadRequestException(`Statement line ${index+1} falls outside the statement period.`);
+   const debit = Math.round(Number(line.debit ?? 0) * 100) / 100;
+   const credit = Math.round(Number(line.credit ?? 0) * 100) / 100;
+   if (!line.description.trim() || !Number.isFinite(debit) || !Number.isFinite(credit) || debit < 0 || credit < 0 || (debit > 0 && credit > 0) || (debit === 0 && credit === 0)) {
+    throw new BadRequestException(`Statement line ${index+1} must have a description and exactly one positive debit or credit amount.`);
+   }
+   const runningBalance = line.runningBalance == null ? null : Math.round(Number(line.runningBalance)*100)/100;
+   if (runningBalance != null && !Number.isFinite(runningBalance)) throw new BadRequestException(`Statement line ${index+1} has an invalid running balance.`);
+   return { transactionDate, description: line.description.trim(), reference: line.reference?.trim() || null, debit, credit, runningBalance };
+  });
+  const id = await this.db.transaction(async client => {
+   const account = await client.query<{ id:string; system_code:string|null }>(
+    `SELECT id,system_code FROM chart_of_accounts WHERE company_id=$1 AND id=$2 AND is_active=true AND system_code IN ('bank','mpesa') FOR SHARE`,
+    [companyId,dto.accountId],
+   );
+   if (!account.rows[0]) throw new BadRequestException('Select an active company bank or M-Pesa ledger account.');
+   const inserted = await client.query<{id:string}>(
+    `INSERT INTO bank_statement_imports(company_id,bank_account_id,statement_start,statement_end,opening_balance,closing_balance,file_name,created_by)
+     VALUES($1,$2,$3::date,$4::date,$5,$6,$7,$8) RETURNING id`,
+    [companyId,dto.accountId,statementStart,statementEnd,openingBalance,closingBalance,dto.fileName?.trim()||null,user.userId],
+   );
+   for (const line of lines) {
+    await client.query(
+     `INSERT INTO bank_statement_lines(company_id,statement_import_id,bank_account_id,transaction_date,description,reference,debit,credit,running_balance)
+      VALUES($1,$2,$3,$4::date,$5,$6,$7,$8,$9)`,
+     [companyId,inserted.rows[0].id,dto.accountId,line.transactionDate,line.description,line.reference,line.debit,line.credit,line.runningBalance],
+    );
+   }
+   await this.audit.logInTransaction(client,{
+    userId:user.userId,companyId,branchId:null,action:'accounting.bank_statement.import',
+    entityType:'bank_statement_import',entityId:inserted.rows[0].id,oldValues:null,
+    newValues:{accountId:dto.accountId,statementStart,statementEnd,lineCount:lines.length,fileName:dto.fileName??null},ipAddress:null,
+   });
+   return inserted.rows[0].id;
+  });
+  return this.getBankStatementImport(user,id);
+ }
+
+ async getBankStatementImport(user: AuthenticatedUser, id: string) {
+  const membership = await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const { companyId } = membership;
+  const result = await this.db.query(
+   `SELECT i.*,a.code AS account_code,a.name AS account_name
+    FROM bank_statement_imports i JOIN chart_of_accounts a ON a.id=i.bank_account_id AND a.company_id=i.company_id
+    WHERE i.company_id=$1 AND i.id=$2`,
+   [companyId,id],
+  );
+  if (!result.rows[0]) throw new NotFoundException('Bank statement import not found.');
+  const lines = await this.db.query(
+   `SELECT l.*,j.entry_number AS matched_entry_number,j.entry_date AS matched_entry_date,j.description AS matched_entry_description
+    FROM bank_statement_lines l
+    LEFT JOIN journal_entries j ON j.id=l.matched_journal_entry_id AND j.company_id=l.company_id
+    WHERE l.company_id=$1 AND l.statement_import_id=$2
+    ORDER BY l.transaction_date,l.created_at,l.id`,
+   [companyId,id],
+  );
+  const header = result.rows[0] as Record<string,unknown>;
+  const lineRows = lines.rows as Array<Record<string,unknown>>;
+  const statementNetMovement = lineRows.reduce((sum,line)=>sum+Number(line.credit)-Number(line.debit),0);
+  const calculatedClosingBalance = Number(header.opening_balance)+statementNetMovement;
+  return {
+   ...header, lines:lineRows,
+   lineCount:lineRows.length,
+   matchedCount:lineRows.filter(line=>line.status==='matched').length,
+   unmatchedCount:lineRows.filter(line=>line.status==='unmatched').length,
+   statementNetMovement:Math.round(statementNetMovement*100)/100,
+   calculatedClosingBalance:Math.round(calculatedClosingBalance*100)/100,
+   closingVariance:Math.round((Number(header.closing_balance)-calculatedClosingBalance)*100)/100,
+  };
+ }
+
+ async bankStatementCandidates(user: AuthenticatedUser, importId: string, lineId: string) {
+  const membership = await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const { companyId } = membership;
+  const line = await this.db.query<{bank_account_id:string;transaction_date:string;debit:string|number;credit:string|number;status:string}>(
+   `SELECT bank_account_id,transaction_date,debit,credit,status FROM bank_statement_lines
+    WHERE company_id=$1 AND statement_import_id=$2 AND id=$3`,
+   [companyId,importId,lineId],
+  );
+  if (!line.rows[0]) throw new NotFoundException('Statement line not found.');
+  if (line.rows[0].status==='matched') throw new ConflictException('This statement line is already matched.');
+  const statementNet = Number(line.rows[0].credit)-Number(line.rows[0].debit);
+  return (await this.db.query(
+   `SELECT j.id,j.entry_number,j.entry_date,j.description,
+      SUM(l.debit-l.credit)::numeric(14,2) AS bank_movement
+    FROM journal_entries j
+    JOIN journal_entry_lines l ON l.journal_entry_id=j.id AND l.company_id=j.company_id
+      AND l.account_id=$2
+    WHERE j.company_id=$1 AND j.status='posted'
+      AND j.entry_date BETWEEN $3::date-INTERVAL '7 days' AND $3::date+INTERVAL '7 days'
+      AND NOT EXISTS (
+       SELECT 1 FROM bank_statement_lines matched
+       WHERE matched.company_id=$1 AND matched.bank_account_id=$2 AND matched.matched_journal_entry_id=j.id
+      )
+    GROUP BY j.id
+    HAVING ABS(SUM(l.debit-l.credit)-$4::numeric)<=0.01
+    ORDER BY ABS(j.entry_date-$3::date),j.entry_date DESC
+    LIMIT 25`,
+   [companyId,line.rows[0].bank_account_id,line.rows[0].transaction_date,statementNet],
+  )).rows;
+ }
+
+ async matchBankStatementLine(user: AuthenticatedUser, importId: string, lineId: string, journalEntryId: string) {
+  const membership = await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const { companyId } = membership;
+  await this.db.transaction(async client => {
+   const lineResult = await client.query<{
+    id:string;bank_account_id:string;transaction_date:string;debit:string|number;credit:string|number;status:string;
+   }>(
+    `SELECT id,bank_account_id,transaction_date,debit,credit,status FROM bank_statement_lines
+     WHERE company_id=$1 AND statement_import_id=$2 AND id=$3 FOR UPDATE`,
+    [companyId,importId,lineId],
+   );
+   const line=lineResult.rows[0];
+   if(!line)throw new NotFoundException('Statement line not found.');
+   if(line.status==='matched')throw new ConflictException('This statement line is already matched.');
+   const journal=await client.query<{id:string}>(
+    `SELECT j.id FROM journal_entries j
+     JOIN journal_entry_lines l ON l.journal_entry_id=j.id AND l.company_id=j.company_id AND l.account_id=$3
+     WHERE j.company_id=$1 AND j.id=$2 AND j.status='posted'
+       AND j.entry_date BETWEEN $4::date-INTERVAL '7 days' AND $4::date+INTERVAL '7 days'
+     GROUP BY j.id
+     HAVING ABS(SUM(l.debit-l.credit)-$5::numeric)<=0.01
+     FOR SHARE OF j`,
+    [companyId,journalEntryId,line.bank_account_id,line.transaction_date,Number(line.credit)-Number(line.debit)],
+   );
+   if(!journal.rows[0])throw new BadRequestException('The selected journal does not match this bank account, date window and statement amount.');
+   await client.query(
+    `UPDATE bank_statement_lines SET status='matched',matched_journal_entry_id=$1,matched_by=$2,matched_at=NOW()
+     WHERE company_id=$3 AND statement_import_id=$4 AND id=$5 AND status='unmatched'`,
+    [journalEntryId,user.userId,companyId,importId,lineId],
+   );
+   await client.query(
+    `UPDATE bank_statement_imports i SET status=CASE
+      WHEN NOT EXISTS(SELECT 1 FROM bank_statement_lines l WHERE l.company_id=i.company_id AND l.statement_import_id=i.id AND l.status='unmatched')
+       AND ABS(i.closing_balance-(i.opening_balance+COALESCE((SELECT SUM(l.credit-l.debit) FROM bank_statement_lines l WHERE l.company_id=i.company_id AND l.statement_import_id=i.id),0)))<=0.01
+      THEN 'reconciled' ELSE 'imported' END,
+      reconciled_at=CASE
+       WHEN NOT EXISTS(SELECT 1 FROM bank_statement_lines l WHERE l.company_id=i.company_id AND l.statement_import_id=i.id AND l.status='unmatched')
+        AND ABS(i.closing_balance-(i.opening_balance+COALESCE((SELECT SUM(l.credit-l.debit) FROM bank_statement_lines l WHERE l.company_id=i.company_id AND l.statement_import_id=i.id),0)))<=0.01
+       THEN NOW() ELSE NULL END
+     WHERE i.company_id=$1 AND i.id=$2`,
+    [companyId,importId],
+   );
+   await this.audit.logInTransaction(client,{
+    userId:user.userId,companyId,branchId:null,action:'accounting.bank_statement.match',
+    entityType:'bank_statement_line',entityId:lineId,oldValues:{status:'unmatched'},
+    newValues:{status:'matched',journalEntryId},ipAddress:null,
+   });
+  });
+  return this.getBankStatementImport(user,importId);
  }
 
  async createJournal(user: AuthenticatedUser, dto: CreateJournalDto) {
