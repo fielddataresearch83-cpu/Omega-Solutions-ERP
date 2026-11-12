@@ -16,6 +16,8 @@ const DEFAULT_ACCOUNTS = [
  {code:'1200',name:'Inventory',type:'asset',side:'debit',system:'inventory',cashFlowCategory:'operating'},
  {code:'1250',name:'Work in Progress',type:'asset',side:'debit',system:'work_in_progress',cashFlowCategory:'operating'},
  {code:'1300',name:'Input VAT Recoverable',type:'asset',side:'debit',system:'input_tax',cashFlowCategory:'operating'},
+ {code:'1500',name:'Fixed Assets',type:'asset',side:'debit',system:'fixed_assets',cashFlowCategory:'investing'},
+ {code:'1590',name:'Accumulated Depreciation',type:'asset',side:'credit',system:'accumulated_depreciation',cashFlowCategory:'investing'},
  {code:'2000',name:'Accounts Payable',type:'liability',side:'credit',system:'accounts_payable',cashFlowCategory:'operating'},
  {code:'2050',name:'Customer Credits Payable',type:'liability',side:'credit',system:'customer_credits',cashFlowCategory:'operating'},
  {code:'2010',name:'Goods Received Not Invoiced',type:'liability',side:'credit',system:'goods_received_not_invoiced',cashFlowCategory:'operating'},
@@ -24,7 +26,8 @@ const DEFAULT_ACCOUNTS = [
  {code:'3000',name:'Owner Equity',type:'equity',side:'credit',system:'equity',cashFlowCategory:'financing'},
  {code:'4000',name:'Sales Revenue',type:'income',side:'credit',system:'sales_revenue',cashFlowCategory:'operating'},
  {code:'5000',name:'Purchases and Cost of Goods',type:'expense',side:'debit',system:'purchases_expense',cashFlowCategory:'operating'},
- {code:'5100',name:'Operating Expenses',type:'expense',side:'debit',system:'operating_expense',cashFlowCategory:'operating'}
+ {code:'5100',name:'Operating Expenses',type:'expense',side:'debit',system:'operating_expense',cashFlowCategory:'operating'},
+ {code:'5200',name:'Depreciation Expense',type:'expense',side:'debit',system:'depreciation_expense',cashFlowCategory:'operating'}
 ] as const;
 @Injectable()
 export class AccountingService {
