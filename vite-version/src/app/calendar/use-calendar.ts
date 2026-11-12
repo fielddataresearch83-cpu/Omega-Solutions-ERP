@@ -22,7 +22,7 @@ function fromApi(event: ApiEvent): CalendarEvent {
     title: event.title,
     date,
     time: date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-    duration: event.end_at ? "Scheduled" : "—",
+    duration: event.all_day ? "All day" : event.end_at ? ({ 15: "15 min", 30: "30 min", 45: "45 min", 60: "1 hour", 90: "1.5 hours", 120: "2 hours", 180: "3 hours" } as Record<number, string>)[Math.round((new Date(event.end_at).getTime() - date.getTime()) / 60000)] ?? "1 hour" : "1 hour",
     type: event.event_type,
     attendees: [],
     location: event.location ?? "",
@@ -46,7 +46,6 @@ export interface UseCalendarActions {
   setShowCalendarSheet: (show: boolean) => void
   handleDateSelect: (date: Date) => void
   handleNewEvent: () => void
-  handleNewCalendar: () => void
   handleSaveEvent: (eventData: Partial<CalendarEvent>) => void
   handleDeleteEvent: (eventId: string | number) => void
   handleEditEvent: (event: CalendarEvent) => void
@@ -77,7 +76,6 @@ export function useCalendar(_initialEvents: CalendarEvent[] = []): UseCalendarRe
     setEditingEvent(null)
     setShowEventForm(true)
   }, [])
-  const handleNewCalendar = useCallback(() => {}, [])
   const handleSaveEvent = useCallback((eventData: Partial<CalendarEvent>) => {
     void (async () => {
       try {
@@ -125,6 +123,6 @@ export function useCalendar(_initialEvents: CalendarEvent[] = []): UseCalendarRe
   return {
     selectedDate, showEventForm, editingEvent, showCalendarSheet, events,
     setSelectedDate, setShowEventForm, setEditingEvent, setShowCalendarSheet,
-    handleDateSelect, handleNewEvent, handleNewCalendar, handleSaveEvent, handleDeleteEvent, handleEditEvent,
+    handleDateSelect, handleNewEvent, handleSaveEvent, handleDeleteEvent, handleEditEvent,
   }
 }
