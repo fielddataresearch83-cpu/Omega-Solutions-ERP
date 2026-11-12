@@ -777,7 +777,7 @@ export class AccountingService {
    for (const line of originalLines.rows) {
     await client.query(
      `INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit,cost_centre_id) VALUES($1,$2,$3,$4,$5,$6,$7)`,
-     [companyId, reversal.rows[0].id, line.account_id, `Reversal: ${line.description ?? original.description}`, Number(line.credit), Number(line.debit), line.cost_centre_id],
+     [companyId, reversal.rows[0].id, line.account_id, `Reversal: ${line.description ?? original.description}`, Number(line.credit), Number(line.debit), line.cost_centre_id ?? null],
     );
    }
    await client.query(
