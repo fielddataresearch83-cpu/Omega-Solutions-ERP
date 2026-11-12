@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Download, FileBarChart, Printer, RefreshCw, TrendingUp, Scale, Wallet, BookOpen } from "lucide-react"
+import { Download, FileBarChart, Printer, RefreshCw, TrendingUp, Scale, Wallet, BookOpen, Percent } from "lucide-react"
 import { BaseLayout } from "@/components/layouts/base-layout"
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
@@ -39,7 +39,8 @@ type CashFlow = {
   method: string; limitation: string
 }
 
-type ReportTab = "trial-balance" | "profit-and-loss" | "balance-sheet" | "cash-flow"
+type VatSummary = { currency: string; startDate: string; endDate: string; inputVat: number; outputVat: number; netVatPayable: number }
+type ReportTab = "trial-balance" | "profit-and-loss" | "balance-sheet" | "cash-flow" | "vat"
 
 const message = (e: unknown) => e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : "The request failed. Please try again."
 
@@ -48,6 +49,7 @@ const tabs: { id: ReportTab; label: string; icon: React.ElementType }[] = [
   { id: "profit-and-loss", label: "Profit & loss", icon: TrendingUp },
   { id: "balance-sheet", label: "Balance sheet", icon: Scale },
   { id: "cash-flow", label: "Cash movement", icon: Wallet },
+  { id: "vat", label: "VAT summary", icon: Percent },
 ]
 
 export default function FinancialReportsPage() {
@@ -66,6 +68,7 @@ export default function FinancialReportsPage() {
   const [pnl, setPnl] = React.useState<ProfitAndLoss | null>(null)
   const [balanceSheet, setBalanceSheet] = React.useState<BalanceSheet | null>(null)
   const [cashFlow, setCashFlow] = React.useState<CashFlow | null>(null)
+  const [vatSummary, setVatSummary] = React.useState<VatSummary | null>(null)
 
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -92,6 +95,11 @@ export default function FinancialReportsPage() {
     return api.get<CashFlow>("/accounting/reports/cash-flow?" + q.toString())
   }, [startDate, endDate])
 
+  const loadVatSummary = React.useCallback(async () => {
+    const q = new URLSearchParams({ startDate, endDate })
+    return api.get<VatSummary>("/accounting/reports/vat?" + q.toString())
+  }, [startDate, endDate])
+
   React.useEffect(() => {
     let active = true
     const load = async () => {
@@ -104,6 +112,8 @@ export default function FinancialReportsPage() {
           const r = await loadPnL(); if (active) setPnl(r)
         } else if (activeTab === "balance-sheet") {
           const r = await loadBalanceSheet(); if (active) setBalanceSheet(r)
+        } else if (activeTab === "vat") {
+          const r = await loadVatSummary(); if (active) setVatSummary(r)
         } else {
           const r = await loadCashFlow(); if (active) setCashFlow(r)
         }
@@ -112,7 +122,7 @@ export default function FinancialReportsPage() {
     }
     void load()
     return () => { active = false }
-  }, [activeTab, loadTrialBalance, loadPnL, loadBalanceSheet, loadCashFlow, retryKey])
+  }, [activeTab, loadTrialBalance, loadPnL, loadBalanceSheet, loadCashFlow, loadVatSummary, retryKey])
 
   const refresh = () => setRetryKey(k => k + 1)
 
@@ -127,6 +137,8 @@ export default function FinancialReportsPage() {
       downloadCsv("omega-balance-sheet-" + asOfDate + ".csv", [["Section", "Account code", "Account name", "Amount"], ...balanceSheet.assetAccounts.map(a => ["Asset", a.code, a.name, a.balance]), ["", "", "Total assets", balanceSheet.totalAssets], ...balanceSheet.liabilityAccounts.map(a => ["Liability", a.code, a.name, a.balance]), ["", "", "Total liabilities", balanceSheet.totalLiabilities], ...balanceSheet.equityAccounts.map(a => ["Equity", a.code, a.name, a.balance]), ["", "", "Total equity", balanceSheet.totalEquity]])
     } else if (activeTab === "cash-flow" && cashFlow) {
       downloadCsv("omega-cash-movement-" + startDate + "-to-" + endDate + ".csv", [["Account code", "Account name", "Opening balance", "Closing balance", "Net movement"], ...cashFlow.cashAccounts.map(a => [a.account_code, a.account_name, a.opening_balance, a.closing_balance, a.net_movement]), ["", "Totals", cashFlow.totalOpeningBalance, cashFlow.totalClosingBalance, cashFlow.netCashMovement]])
+    } else if (activeTab === "vat" && vatSummary) {
+      downloadCsv("omega-vat-summary-" + startDate + "-to-" + endDate + ".csv", [["Period start", "Period end", "Currency", "Output VAT", "Recoverable input VAT", "Net VAT payable"], [startDate, endDate, vatSummary.currency, vatSummary.outputVat, vatSummary.inputVat, vatSummary.netVatPayable]])
     }
   }
 
@@ -146,11 +158,13 @@ export default function FinancialReportsPage() {
     } else if (activeTab === "cash-flow" && cashFlow) {
       const rows = cashFlow.cashAccounts.map(a => `<tr><td>${escapeDocumentText(a.account_code)}</td><td>${escapeDocumentText(a.account_name)}</td><td class="num">${fmt(a.opening_balance)}</td><td class="num">${fmt(a.closing_balance)}</td><td class="num">${fmt(a.net_movement)}</td></tr>`).join("")
       printBusinessDocument("Cash movement summary", startDate + " to " + endDate, `<header class="top"><div><div class="brand">${escapeDocumentText(user?.fullName ?? "Your business")}</div><h1>Cash movement summary</h1></div><div class="meta"><strong>${escapeDocumentText(startDate)} to ${escapeDocumentText(endDate)}</strong><div>Direct method</div></div></header><table><thead><tr><th>Code</th><th>Account</th><th class="num">Opening</th><th class="num">Closing</th><th class="num">Movement</th></tr></thead><tbody>${rows}<tr class="subtotal"><td colspan="2">Totals</td><td class="num">${fmt(cashFlow.totalOpeningBalance)}</td><td class="num">${fmt(cashFlow.totalClosingBalance)}</td><td class="num">${fmt(cashFlow.netCashMovement)}</td></tr></tbody></table>`)
+    } else if (activeTab === "vat" && vatSummary) {
+      printBusinessDocument("VAT summary", startDate + " to " + endDate, `<header class="top"><div><div class="brand">${escapeDocumentText(user?.fullName ?? "Your business")}</div><h1>VAT summary</h1></div><div class="meta"><strong>${escapeDocumentText(startDate)} to ${escapeDocumentText(endDate)}</strong></div></header><table><tbody><tr><td>Output VAT</td><td class="num">${fmt(vatSummary.outputVat)}</td></tr><tr><td>Recoverable input VAT</td><td class="num">${fmt(vatSummary.inputVat)}</td></tr><tr class="subtotal"><td>Net VAT payable</td><td class="num">${fmt(vatSummary.netVatPayable)}</td></tr></tbody></table>`)
     }
   }
 
   const showDateFilter = activeTab === "trial-balance" || activeTab === "balance-sheet"
-  const showRangeFilter = activeTab === "profit-and-loss" || activeTab === "cash-flow"
+  const showRangeFilter = activeTab === "profit-and-loss" || activeTab === "cash-flow" || activeTab === "vat"
 
   return (
     <BaseLayout>
@@ -217,11 +231,24 @@ export default function FinancialReportsPage() {
           <BalanceSheetReport report={balanceSheet} />
         ) : activeTab === "cash-flow" && cashFlow ? (
           <CashFlowReport report={cashFlow} />
+        ) : activeTab === "vat" && vatSummary ? (
+          <VatSummaryReport report={vatSummary} />
         ) : (
           <EmptyState icon={FileBarChart} title="No data to report" description="The report will show posted account balances when the company has a chart of accounts and ledger activity." />
         )}
       </div>
     </BaseLayout>
+  )
+}
+
+function VatSummaryReport({ report }: { report: VatSummary }) {
+  const fmt = (v: number) => formatKES(v, true)
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Output VAT collected</p><p className="mt-2 text-2xl font-semibold tabular-nums">{fmt(report.outputVat)}</p></CardContent></Card>
+      <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Recoverable input VAT</p><p className="mt-2 text-2xl font-semibold tabular-nums">{fmt(report.inputVat)}</p></CardContent></Card>
+      <Card className="border-2"><CardContent className="p-4"><p className="text-sm text-muted-foreground">Net VAT payable / (credit)</p><p className="mt-2 text-2xl font-semibold tabular-nums">{fmt(report.netVatPayable)}</p><p className="mt-2 text-xs text-muted-foreground">Calculated from posted input and output VAT control-account movements for the selected period.</p></CardContent></Card>
+    </div>
   )
 }
 
