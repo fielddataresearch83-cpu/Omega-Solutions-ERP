@@ -249,6 +249,41 @@ export class AccountingService {
   return this.getJournal(user, reversalId);
  }
 
+ async withholdingTaxSchedule(user: AuthenticatedUser, startDate: string, endDate: string) {
+  const membership = await this.companyFor(user);
+  this.assertCompanyWideAccounting(membership);
+  const { companyId } = membership;
+  this.validateDate(startDate, 'startDate');
+  this.validateDate(endDate, 'endDate');
+  if (startDate > endDate) throw new BadRequestException('startDate must be on or before endDate.');
+  const currency = await this.getCompanyCurrency(companyId);
+  const result = await this.db.query<{
+   payment_date: string; supplier_name: string; kra_pin: string|null; bill_number: string;
+   supplier_invoice_number: string|null; amount: string|number; cash_amount: string|number;
+   withholding_tax_amount: string|number; withholding_certificate_number: string|null; reference: string|null;
+  }>(
+   `SELECT p.payment_date,s.name AS supplier_name,s.kra_pin,b.bill_number,b.supplier_invoice_number,
+      p.amount,p.cash_amount,p.withholding_tax_amount,p.withholding_certificate_number,p.reference
+    FROM supplier_bill_payments p
+    JOIN supplier_bills b ON b.id=p.supplier_bill_id AND b.company_id=p.company_id
+    JOIN suppliers s ON s.id=b.supplier_id AND s.company_id=b.company_id
+    WHERE p.company_id=$1 AND p.payment_date>=$2::date AND p.payment_date<=$3::date
+      AND p.withholding_tax_amount>0
+    ORDER BY p.payment_date,s.name,b.bill_number`,
+   [companyId, startDate, endDate],
+  );
+  const payments = result.rows.map(row => ({
+   ...row, amount: Number(row.amount), cash_amount: Number(row.cash_amount),
+   withholding_tax_amount: Number(row.withholding_tax_amount),
+  }));
+  return {
+   companyId, currency, startDate, endDate, payments,
+   totalGrossPayments: payments.reduce((sum,row)=>sum+row.amount,0),
+   totalCashPaid: payments.reduce((sum,row)=>sum+row.cash_amount,0),
+   totalWithholdingTax: payments.reduce((sum,row)=>sum+row.withholding_tax_amount,0),
+  };
+ }
+
  async vatSummary(user: AuthenticatedUser, startDate: string, endDate: string) {
   const membership = await this.companyFor(user);
   this.assertCompanyWideAccounting(membership);
