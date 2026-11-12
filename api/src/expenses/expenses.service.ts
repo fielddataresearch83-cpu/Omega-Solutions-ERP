@@ -49,8 +49,8 @@ export class ExpensesService {
     const journalNumber=`JE-${journalYear}-${String(journalSeq.rows[0].next_number).padStart(6,'0')}`;
     const journal=await client.query<{id:string}>(`INSERT INTO journal_entries(company_id,entry_number,entry_date,description,source_type,source_id,status,posted_at,posted_by)
      VALUES($1,$2,$3::date,$4,'expense',$5,'posted',NOW(),$6) RETURNING id`,[companyId,journalNumber,date,`Expense: ${dto.description.trim()}`,expense.id,user.userId]);
-    await client.query(`INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit) VALUES($1,$2,$3,$4,$5,0),($1,$2,$6,$7,0,$5)`,
-     [companyId,journal.rows[0].id,expenseAccount.rows[0].id,dto.description.trim(),amount,cashAccount.rows[0].id,`Paid by ${dto.paymentMethod}`]);
+    await client.query(`INSERT INTO journal_entry_lines(company_id,journal_entry_id,account_id,description,debit,credit,cost_centre_id) VALUES($1,$2,$3,$4,$5,0,$8),($1,$2,$6,$7,0,$5,NULL)`,
+     [companyId,journal.rows[0].id,expenseAccount.rows[0].id,dto.description.trim(),amount,cashAccount.rows[0].id,`Paid by ${dto.paymentMethod}`,dto.costCentreId??null]);
     await client.query('UPDATE expenses SET journal_entry_id=$1 WHERE id=$2 AND company_id=$3',[journal.rows[0].id,expense.id,companyId]);
     await this.audit.logInTransaction(client,{userId:user.userId,companyId,branchId:membership.branchId,action:'expenses.create',entityType:'expense',entityId:expense.id,oldValues:null,newValues:{amount,category:dto.category,paymentMethod:dto.paymentMethod,costCentreId:dto.costCentreId??null},ipAddress:null});
     return expense.id;
