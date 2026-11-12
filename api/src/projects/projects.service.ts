@@ -138,10 +138,11 @@ export class ProjectsService {
     if(from&&Number.isNaN(Date.parse(from)))throw new BadRequestException('Invalid start date.');
     if(to&&Number.isNaN(Date.parse(to)))throw new BadRequestException('Invalid end date.');
     const r=await this.db.query(
-      `SELECT id,company_id,project_id,title,description,event_type,start_at,end_at,all_day,location,attendees,reminder_enabled,created_by,is_cancelled,created_at,updated_at
-       FROM project_events WHERE company_id=$1 AND is_cancelled=false
-       AND ($2::timestamptz IS NULL OR start_at >= $2) AND ($3::timestamptz IS NULL OR start_at <= $3)
-       ORDER BY start_at ASC LIMIT 500`,[companyId,from??null,to??null]);
+      `SELECT e.id,e.company_id,e.project_id,p.name AS project_name,e.title,e.description,e.event_type,e.start_at,e.end_at,e.all_day,e.location,e.attendees,e.reminder_enabled,e.created_by,e.is_cancelled,e.created_at,e.updated_at
+       FROM project_events e LEFT JOIN projects p ON p.id=e.project_id AND p.company_id=e.company_id
+       WHERE e.company_id=$1 AND e.is_cancelled=false
+       AND ($2::timestamptz IS NULL OR e.start_at >= $2) AND ($3::timestamptz IS NULL OR e.start_at <= $3)
+       ORDER BY e.start_at ASC LIMIT 500`,[companyId,from??null,to??null]);
     return r.rows;
   }
 
