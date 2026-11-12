@@ -48,6 +48,18 @@ export class InventoryService {
     return this.memberships.getMembership(user.userId);
   }
 
+  private async refreshSupplierBalance(client: PoolClient, companyId: string, supplierId: string) {
+    await client.query(
+      `UPDATE suppliers s SET outstanding_balance = COALESCE((
+         SELECT SUM(GREATEST(0, b.total - b.paid_amount))
+         FROM supplier_bills b
+         WHERE b.company_id=$1 AND b.supplier_id=$2 AND b.status<>'void'
+       ),0), updated_at=NOW()
+       WHERE s.company_id=$1 AND s.id=$2`,
+      [companyId, supplierId],
+    );
+  }
+
   async listWarehouses(user: AuthenticatedUser): Promise<WarehouseRow[]> {
     const { companyId, branchId } = await this.resolveMembership(user);
     const result = await this.db.query<WarehouseRow>(
@@ -701,6 +713,7 @@ export class InventoryService {
           [amount, header.supplier_bill_id, companyId],
         );
         if (!updatedBill.rows[0]) throw new BadRequestException('Supplier bill balance changed; retry the return.');
+        await this.refreshSupplierBalance(client, companyId, header.supplier_id);
 
         await this.accounting.ensureDefaults(companyId, client);
         const year = new Date().getFullYear();
