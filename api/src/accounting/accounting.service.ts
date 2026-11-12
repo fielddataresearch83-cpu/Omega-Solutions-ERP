@@ -159,7 +159,7 @@ export class AccountingService {
   const name = dto.name.trim();
   if (!code || !name) throw new BadRequestException('Cost centre code and name are required.');
   try {
-   const result = await this.db.query(
+   const result = await this.db.query<{id:string;code:string;name:string;description:string|null;is_active:boolean;created_at:string}>(
     `INSERT INTO cost_centres(company_id,code,name,description,created_by)
      VALUES($1,$2,$3,$4,$5) RETURNING id,code,name,description,is_active,created_at`,
     [membership.companyId, code, name, dto.description?.trim() || null, user.userId],
@@ -237,7 +237,7 @@ export class AccountingService {
  async budgetVsActual(user: AuthenticatedUser, fiscalYear?: number, periodMonth?: number) {
   const membership = await this.companyFor(user);
   this.assertCompanyWideAccounting(membership);
-  const params: unknown[] = [membership.companyId];
+  const params: (string | number | boolean | Date | null)[] = [membership.companyId];
   let filter = '';
   if (fiscalYear !== undefined) {
    params.push(fiscalYear);
