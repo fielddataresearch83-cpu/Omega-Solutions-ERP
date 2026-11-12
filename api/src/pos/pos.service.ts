@@ -197,6 +197,10 @@ export class PosService {
        FROM products p
        LEFT JOIN inventory_stock_levels s ON s.product_id=p.id AND s.company_id=p.company_id
          AND ($2::uuid IS NULL OR s.warehouse_id=$2::uuid)
+         AND ($4::uuid IS NULL OR EXISTS (
+           SELECT 1 FROM warehouses sw WHERE sw.id=s.warehouse_id AND sw.company_id=s.company_id
+             AND (sw.branch_id IS NULL OR sw.branch_id=$4::uuid)
+         ))
        WHERE p.company_id=$1 AND p.is_active=true
          AND ($3::text IS NULL OR p.name ILIKE $3 OR p.sku ILIKE $3)
        GROUP BY p.id ORDER BY p.name LIMIT 100`,
