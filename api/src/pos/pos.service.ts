@@ -176,12 +176,19 @@ export class PosService {
     return saved;
   }
   async searchProducts(user:AuthenticatedUser, search?:string, warehouseId?:string) {
-    const {companyId}=await this.company(user);
+    const {companyId,branchId}=await this.company(user);
     if(!user.permissions.includes('sales:team-read')) {
       const a=await this.db.query<{warehouse_id:string}>('SELECT warehouse_id FROM salesperson_stock_assignments WHERE company_id=$1 AND user_id=$2 AND is_active=true LIMIT 1',[companyId,user.userId]);
       if(!a.rows[0]) throw new BadRequestException('Your manager must assign a stock warehouse before selling.');
       if(warehouseId&&warehouseId!==a.rows[0].warehouse_id) throw new BadRequestException('You can only sell from your assigned warehouse.');
       warehouseId=a.rows[0].warehouse_id;
+    }
+    if(branchId && warehouseId) {
+      const allowed=await this.db.query<{id:string}>(
+        'SELECT id FROM warehouses WHERE id=$1 AND company_id=$2 AND is_active=true AND (branch_id IS NULL OR branch_id=$3)',
+        [warehouseId,companyId,branchId],
+      );
+      if(!allowed.rows[0]) throw new ForbiddenException('You can only search stock in your assigned branch or a shared company warehouse.');
     }
     const term=search?.trim();
     const result=await this.db.query(
@@ -193,7 +200,7 @@ export class PosService {
        WHERE p.company_id=$1 AND p.is_active=true
          AND ($3::text IS NULL OR p.name ILIKE $3 OR p.sku ILIKE $3)
        GROUP BY p.id ORDER BY p.name LIMIT 100`,
-      [companyId,warehouseId??null,term?`%${term}%`:null]);
+      [companyId,warehouseId??null,term?`%${term}%`:null,branchId??null]);
     return result.rows.map((row: Record<string, unknown>) => {
       const { image_storage_key: storageKey, ...product } = row;
       const salespersonSafeProduct = Object.fromEntries(Object.entries(product).filter(([key]) => key !== 'cost_price'));
