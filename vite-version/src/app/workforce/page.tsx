@@ -69,7 +69,7 @@ export default function WorkforcePage() {
     setLoading(false);
   }, [from, to]);
 
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const loadMonthlyImports = React.useCallback(async () => {
     try { setMonthlyImports(await api.get<MonthlyImport[]>(`/attendance/monthly-imports?period=${encodeURIComponent(importPeriod)}`)); }
