@@ -184,12 +184,14 @@ export class ProjectsService {
     });
   }
 
-  async dispatchEventReminders() {
+  async dispatchEventReminders(user: AuthenticatedUser) {
+    const { companyId } = await this.scope(user);
     const result = await this.db.query<{ delivered_count: number }>(
       `WITH due_events AS (
          SELECT e.id, e.company_id, e.created_by, e.title, e.start_at, e.attendees
          FROM project_events e
-         WHERE e.reminder_enabled = TRUE
+         WHERE e.company_id = $1
+           AND e.reminder_enabled = TRUE
            AND e.is_cancelled = FALSE
            AND e.start_at > NOW()
            AND e.start_at <= NOW() + INTERVAL '24 hours'
@@ -233,6 +235,7 @@ export class ProjectsService {
          RETURNING id
        )
        SELECT COUNT(*)::int AS delivered_count FROM created`,
+      [companyId],
     );
     return { delivered: Number(result.rows[0]?.delivered_count ?? 0) };
   }

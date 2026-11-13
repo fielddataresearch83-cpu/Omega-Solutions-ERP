@@ -137,6 +137,8 @@ describe('ProjectsService', () => {
     await expect(service.dispatchEventReminders()).resolves.toEqual({ delivered: 2 });
 
     const [sql] = db.query.mock.calls[0];
+    expect(sql).toContain("e.company_id = $1");
+    expect(db.query.mock.calls[0][1]).toEqual(['company-1']);
     expect(sql).toContain("e.reminder_enabled = TRUE");
     expect(sql).toContain("e.is_cancelled = FALSE");
     expect(sql).toContain("e.start_at <= NOW() + INTERVAL '24 hours'");

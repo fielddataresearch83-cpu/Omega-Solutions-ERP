@@ -67,6 +67,9 @@ export function useCalendar(_initialEvents: CalendarEvent[] = []): UseCalendarRe
   const [events, setEvents] = useState<CalendarEvent[]>([])
 
   const reloadEvents = useCallback(async () => {
+    // Generate idempotent in-app reminders for this authenticated company before loading events.
+    // This is intentionally request-driven; Vercel Cron only runs on Production deployments.
+    await api.post("/projects/events/reminders/dispatch", {}).catch(() => undefined)
     const rows = await api.get<ApiEvent[]>("/projects/events")
     setEvents(rows.map(fromApi))
   }, [])

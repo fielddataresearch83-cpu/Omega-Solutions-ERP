@@ -26,6 +26,8 @@ export class ProjectsController {
   updateTask(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Body() dto:UpdateProjectTaskDto){return this.projects.updateTask(req.user,id,dto);}
   @Get('events') @RequirePermissions('projects:read')
   listEvents(@Req() req:{user:AuthenticatedUser},@Query('from') from?:string,@Query('to') to?:string){return this.projects.listEvents(req.user,from,to);}
+  @Post('events/reminders/dispatch') @RequirePermissions('projects:read')
+  dispatchEventReminders(@Req() req:{user:AuthenticatedUser}){return this.projects.dispatchEventReminders(req.user);}
   @Post('events') @RequirePermissions('projects:write')
   createEvent(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateProjectEventDto){return this.projects.createEvent(req.user,dto);}
   @Patch('events/:id') @RequirePermissions('projects:write')
