@@ -63,7 +63,6 @@ export const columns: ColumnDef<DataTableFeatures, Task>[] = [
     },
   },
   {
-  {
     accessorKey: "project_name",
     header: "Project",
     cell: ({ row }) => (
@@ -71,6 +70,7 @@ export const columns: ColumnDef<DataTableFeatures, Task>[] = [
     ),
     enableSorting: true,
   },
+  {
     accessorKey: "category",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Category" />
