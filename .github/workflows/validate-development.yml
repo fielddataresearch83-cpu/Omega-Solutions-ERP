@@ -259,9 +259,9 @@ jobs:
               FROM pg_class c
               JOIN pg_namespace n ON n.oid=c.relnamespace
               WHERE n.nspname='public'
-                AND c.relname IN ('projects','project_tasks','project_events')
+                AND c.relname IN ('projects','project_tasks','project_events','project_event_reminder_deliveries')
             `);
-            assert.equal(tables.rowCount, 3, 'all Project Management tables must exist');
+            assert.equal(tables.rowCount, 4, 'Project Management tables and reminder delivery ledger must exist');
             assert.ok(tables.rows.every(row => row.relrowsecurity), 'all Project Management tables must enable RLS');
             const columns = await client.query(`
               SELECT table_name, column_name

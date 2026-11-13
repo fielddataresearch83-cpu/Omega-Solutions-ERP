@@ -130,4 +130,20 @@ describe('ProjectsService', () => {
     expect(audit.logInTransaction).not.toHaveBeenCalled();
   });
 
+
+  it('dispatches one reminder per active company recipient and event start time', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ delivered_count: 2 }], rowCount: 1 });
+
+    await expect(service.dispatchEventReminders()).resolves.toEqual({ delivered: 2 });
+
+    const [sql] = db.query.mock.calls[0];
+    expect(sql).toContain("e.reminder_enabled = TRUE");
+    expect(sql).toContain("e.is_cancelled = FALSE");
+    expect(sql).toContain("e.start_at <= NOW() + INTERVAL '24 hours'");
+    expect(sql).toContain("ON CONFLICT (event_id, user_id, start_at) DO NOTHING");
+    expect(sql).toContain("m.is_active = TRUE");
+    expect(sql).toContain("LOWER(u.email) = LOWER(TRIM(attendee.email))");
+    expect(sql).toContain("'project_event_reminder'");
+  });
+
 });
