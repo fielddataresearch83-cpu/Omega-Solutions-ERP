@@ -183,4 +183,58 @@ export class ProjectsService {
       return result.rows[0];
     });
   }
+
+  async dispatchEventReminders() {
+    const result = await this.db.query<{ delivered_count: number }>(
+      `WITH due_events AS (
+         SELECT e.id, e.company_id, e.created_by, e.title, e.start_at, e.attendees
+         FROM project_events e
+         WHERE e.reminder_enabled = TRUE
+           AND e.is_cancelled = FALSE
+           AND e.start_at > NOW()
+           AND e.start_at <= NOW() + INTERVAL '24 hours'
+           AND NOT EXISTS (
+             SELECT 1 FROM project_event_reminder_deliveries d
+             WHERE d.event_id = e.id AND d.start_at = e.start_at
+           )
+         ORDER BY e.start_at ASC
+         LIMIT 500
+         FOR UPDATE OF e SKIP LOCKED
+       ),
+       recipients AS (
+         SELECT e.id AS event_id, e.company_id, e.title, e.start_at, e.created_by AS user_id
+         FROM due_events e
+         UNION
+         SELECT e.id, e.company_id, e.title, e.start_at, u.id
+         FROM due_events e
+         CROSS JOIN LATERAL jsonb_array_elements_text(e.attendees) attendee(email)
+         JOIN users u ON LOWER(u.email) = LOWER(TRIM(attendee.email)) AND u.is_active = TRUE
+         JOIN company_memberships m ON m.user_id = u.id AND m.company_id = e.company_id AND m.is_active = TRUE
+       ),
+       active_recipients AS (
+         SELECT DISTINCT r.*
+         FROM recipients r
+         JOIN company_memberships m ON m.user_id = r.user_id AND m.company_id = r.company_id AND m.is_active = TRUE
+         JOIN users u ON u.id = r.user_id AND u.is_active = TRUE
+       ),
+       claimed AS (
+         INSERT INTO project_event_reminder_deliveries (event_id, company_id, user_id, start_at)
+         SELECT event_id, company_id, user_id, start_at FROM active_recipients
+         ON CONFLICT (event_id, user_id, start_at) DO NOTHING
+         RETURNING event_id, company_id, user_id
+       ),
+       created AS (
+         INSERT INTO notifications (company_id, user_id, title, message, href, notification_type)
+         SELECT c.company_id, c.user_id, 'Calendar event starting soon',
+                format('%s starts within 24 hours.', e.title),
+                '/calendar', 'project_event_reminder'
+         FROM claimed c
+         JOIN project_events e ON e.id = c.event_id AND e.company_id = c.company_id
+         RETURNING id
+       )
+       SELECT COUNT(*)::int AS delivered_count FROM created`,
+    );
+    return { delivered: Number(result.rows[0]?.delivered_count ?? 0) };
+  }
+
 }
