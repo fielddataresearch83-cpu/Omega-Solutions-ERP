@@ -17,13 +17,24 @@ async function bootstrap() {
   const corsOrigins = new Set(
     configuredOrigins.length ? configuredOrigins : ['http://localhost:5173'],
   );
+  const isVercelPreview = (origin: string): boolean => {
+    try {
+      const url = new URL(origin);
+      return url.hostname.endsWith('.vercel.app')
+        || url.hostname.endsWith('.bolt.new')
+        || url.hostname === 'localhost'
+        || url.hostname === '127.0.0.1';
+    } catch {
+      return false;
+    }
+  };
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (!origin || corsOrigins.has(origin)) {
+      if (!origin || corsOrigins.has(origin) || isVercelPreview(origin)) {
         callback(null, true);
         return;
       }
-      callback(new Error('Origin not allowed by CORS'));
+      callback(null, false);
     },
     methods: 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     credentials: true,
