@@ -21,7 +21,7 @@ async function bootstrap() {
     try {
       const url = new URL(origin);
       return url.hostname.endsWith('.vercel.app')
-        || url.hostname.endsWith('.bolt.new')
+        || url.hostname.endsWith('.bolt.new') || url.hostname.endsWith('.local-credentialless.webcontainer-api.io')
         || url.hostname === 'localhost'
         || url.hostname === '127.0.0.1';
     } catch {
