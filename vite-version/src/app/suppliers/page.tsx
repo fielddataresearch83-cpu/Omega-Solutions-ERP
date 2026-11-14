@@ -277,7 +277,7 @@ export default function SuppliersPage() {
               <Input id="sup-kra-pin" value={formData.kraPin} onChange={(e) => setFormData({ ...formData, kraPin: e.target.value.toUpperCase() })} maxLength={20} placeholder="A000000000A" />
               <span className="text-xs text-muted-foreground">Used on withholding-tax schedules and supplier tax records.</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="sup-email">Email</Label>
                 <Input id="sup-email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
@@ -287,7 +287,7 @@ export default function SuppliersPage() {
                 <Input id="sup-phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="sup-contact">Contact Person</Label>
                 <Input id="sup-contact" value={formData.contactPerson} onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })} />
@@ -297,7 +297,7 @@ export default function SuppliersPage() {
                 <Input id="sup-terms" value={formData.paymentTerms} onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })} placeholder="Net 30" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="sup-city">City</Label>
                 <Input id="sup-city" value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
@@ -324,7 +324,7 @@ export default function SuppliersPage() {
           </DialogHeader>
           {viewingSupplier && (
             <div className="flex flex-col gap-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div><span className="text-muted-foreground">Name:</span> <span className="font-medium">{viewingSupplier.name}</span></div>
                 <div><span className="text-muted-foreground">Status:</span> <StatusBadge status={viewingSupplier.status === "active" ? "Active" : viewingSupplier.status === "inactive" ? "Inactive" : "Blocked"} /></div>
                 <div><span className="text-muted-foreground">KRA PIN:</span> {viewingSupplier.kra_pin ?? "—"}</div>

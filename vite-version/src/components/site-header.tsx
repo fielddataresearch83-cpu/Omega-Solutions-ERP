@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { Bell, Building2, Check, ChevronsUpDown } from "lucide-react"
+import { Bell, Check } from "lucide-react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
+import { CompanySwitcher, type CompanyMembershipOption } from "@/components/company-switcher"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { CommandSearch, SearchTrigger } from "@/components/command-search"
@@ -68,7 +69,7 @@ export function SiteHeader() {
   const [notificationsLoading, setNotificationsLoading] = React.useState(true)
   const [notificationsError, setNotificationsError] = React.useState("")
   const [unreadCount, setUnreadCount] = React.useState(0)
-  const [companies, setCompanies] = React.useState<{ id: string; name: string; role: string; branchId: string | null }[]>([])
+  const [companies, setCompanies] = React.useState<CompanyMembershipOption[]>([])
   const [companiesLoadedFor, setCompaniesLoadedFor] = React.useState("")
   const companyLoading = Boolean(user?.userId) && companiesLoadedFor !== user?.userId
   const visibleCompanies = companiesLoadedFor === user?.userId ? companies : []
@@ -153,8 +154,8 @@ export function SiteHeader() {
     setCompanyError("")
     try {
       await switchCompany(companyId)
-      navigate("/dashboard")
-      void loadNotifications()
+      // Reload all tenant-scoped UI state after the server issues the new company session.
+      window.location.assign("/dashboard")
     } catch (error) {
       setCompanyError(error instanceof Error ? error.message : (error as { message?: string })?.message ?? "Company switch failed.")
     } finally {
@@ -214,48 +215,15 @@ export function SiteHeader() {
             <div className="hidden md:block max-w-sm flex-1">
               <SearchTrigger onClick={() => setSearchOpen(true)} />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button variant="outline" className="max-w-56 gap-2 cursor-pointer" disabled={companyLoading || !user?.userId}>
-                    <Building2 className="size-4 shrink-0" />
-                    <span className="hidden truncate sm:inline">
-                      {visibleCompanies.find((company) => company.id === user?.companyId)?.name ?? (companyLoading ? "Loading company…" : "Company")}
-                    </span>
-                    <ChevronsUpDown className="size-3.5 shrink-0 opacity-60" />
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="end" className="w-72 rounded-lg">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>Switch company</DropdownMenuLabel>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                {companyError && <div role="alert" className="px-2 py-2 text-xs text-destructive">{companyError}</div>}
-                {companyLoading && <div className="px-2 py-2 text-sm text-muted-foreground">Loading companies…</div>}
-                {!companyLoading && visibleCompanies.map((company) => (
-                  <DropdownMenuItem
-                    key={company.id}
-                    disabled={Boolean(switchingCompanyId)}
-                    onClick={() => { void changeCompany(company.id) }}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <Building2 className="size-4 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{company.name}</span>
-                      <span className="block text-xs capitalize text-muted-foreground">{company.role.replaceAll("_", " ")}</span>
-                    </span>
-                    {switchingCompanyId === company.id
-                      ? <span className="text-xs text-muted-foreground">Switching…</span>
-                      : company.id === user?.companyId ? <Check className="size-4 text-primary" /> : null}
-                  </DropdownMenuItem>
-                ))}
-                {!companyLoading && visibleCompanies.length === 0 && !companyError && (
-                  <div className="px-2 py-3 text-sm text-muted-foreground">No active company memberships found.</div>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu onOpenChange={(open) => { if (open) void loadNotifications() }}>
+            <CompanySwitcher
+              companies={visibleCompanies}
+              currentCompanyId={user?.companyId}
+              loading={companyLoading}
+              error={companyError}
+              switchingCompanyId={switchingCompanyId}
+              onSelect={(companyId) => { void changeCompany(companyId) }}
+            />
+<DropdownMenu onOpenChange={(open) => { if (open) void loadNotifications() }}>
               <DropdownMenuTrigger
                 render={
                   <Button variant="outline" size="icon" className="relative cursor-pointer" />

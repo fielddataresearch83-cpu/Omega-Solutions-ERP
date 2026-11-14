@@ -52,7 +52,7 @@ export default function SettingsPage() {
   const [recoveryCodes, setRecoveryCodes] = React.useState<string[]>([])
   const [mfaError, setMfaError] = React.useState<string | null>(null)
   const [mfaBusy, setMfaBusy] = React.useState(false)
-  const apiBase = import.meta.env.VITE_API_BASE_URL ?? "https://omega-solutions-api.onrender.com/api"
+  const apiBase = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/$/, "")
 
   const mfaRequest = React.useCallback(async (path: string, body?: unknown) => {
     const token = getAccessToken()

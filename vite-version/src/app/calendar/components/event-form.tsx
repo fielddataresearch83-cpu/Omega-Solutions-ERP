@@ -122,7 +122,8 @@ export function EventForm({
 
   useEffect(() => {
     if (!open) return
-    setFormData({
+    let active = true
+    const nextFormData = {
       title: event?.title || "",
       date: event?.date || new Date(),
       time: event?.time || "9:00 AM",
@@ -134,7 +135,13 @@ export function EventForm({
       allDay: event?.allDay || false,
       reminder: event?.reminderEnabled ?? true,
       projectId: event?.projectId ?? "",
+    }
+    void Promise.resolve().then(() => {
+      if (active) setFormData(nextFormData)
     })
+    return () => {
+      active = false
+    }
   }, [event, open])
 
   const [showCalendar, setShowCalendar] = useState(false)

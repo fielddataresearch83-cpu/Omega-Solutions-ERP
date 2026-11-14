@@ -92,7 +92,7 @@ type DashboardSummary = {
   categoryBreakdown: null | Array<{ category: string; revenue: number }>
 }
 
-type MetricTone = "emerald" | "blue" | "violet" | "amber"
+type MetricTone = "blue" | "violet" | "amber"
 
 function MetricCard({
   label,
@@ -110,10 +110,9 @@ function MetricCard({
   tone: MetricTone
 }) {
   const tones: Record<MetricTone, { icon: string; accent: string }> = {
-    emerald: { icon: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", accent: "from-emerald-500 to-teal-400" },
-    blue: { icon: "bg-sky-500/10 text-sky-600 dark:text-sky-400", accent: "from-sky-500 to-cyan-400" },
-    violet: { icon: "bg-violet-500/10 text-violet-600 dark:text-violet-400", accent: "from-violet-500 to-indigo-400" },
-    amber: { icon: "bg-amber-500/10 text-amber-600 dark:text-amber-400", accent: "from-amber-500 to-orange-400" },
+    blue: { icon: "bg-chart-1/10 text-chart-1", accent: "from-chart-1 to-chart-2" },
+    violet: { icon: "bg-chart-4/10 text-chart-4", accent: "from-chart-4 to-chart-1" },
+    amber: { icon: "bg-chart-3/10 text-chart-3", accent: "from-chart-3 to-chart-4" },
   }
   const style = tones[tone]
 
@@ -255,13 +254,13 @@ export default function Page() {
   return (
     <BaseLayout>
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-7 px-4 pb-8 pt-3 sm:px-6 lg:gap-8 lg:px-8">
-        <section className="relative isolate overflow-hidden rounded-[1.65rem] bg-[#102A43] px-5 py-6 text-white shadow-[0_16px_44px_rgb(16_42_67/0.18)] sm:px-8 sm:py-8 lg:px-9">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_82%_10%,rgb(52_213_154/0.24),transparent_35%),radial-gradient(ellipse_at_8%_100%,rgb(42_104_145/0.35),transparent_42%)]" />
+        <section className="relative isolate overflow-hidden rounded-[1.65rem] bg-[#142746] px-5 py-6 text-white shadow-[0_16px_44px_rgb(20_39_70/0.18)] sm:px-8 sm:py-8 lg:px-9">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_82%_10%,rgb(107_150_255/0.25),transparent_35%),radial-gradient(ellipse_at_8%_100%,rgb(36_107_253/0.20),transparent_42%)]" />
           <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-28 -z-10 size-[22rem] rounded-full border border-white/[0.07]" />
           <div aria-hidden="true" className="pointer-events-none absolute -right-2 -top-14 -z-10 size-[17rem] rounded-full border border-white/[0.07]" />
           <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
             <div className="max-w-2xl">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.17em] text-emerald-200">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-300/25 bg-blue-300/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.17em] text-blue-200">
                 <Sparkles className="size-3.5" /> Business overview
               </div>
               <p className="text-sm font-medium text-slate-300">{today}</p>
@@ -274,7 +273,7 @@ export default function Page() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {canReadSales && (
-                <Link to="/invoices" className={buttonVariants({ className: "h-10 rounded-xl border border-emerald-300/30 bg-emerald-400 px-4 text-xs font-bold text-[#102A43] shadow-lg shadow-emerald-950/15 hover:bg-emerald-300" })}>
+                <Link to="/invoices" className={buttonVariants({ className: "h-10 rounded-xl border border-blue-300/30 bg-blue-400 px-4 text-xs font-bold text-[#142746] shadow-lg shadow-blue-950/15 hover:bg-blue-300" })}>
                   <FilePlus2 className="mr-2 size-4" /> Create invoice
                 </Link>
               )}
@@ -287,15 +286,15 @@ export default function Page() {
           </div>
           <div className="mt-7 grid grid-cols-1 gap-3 border-t border-white/10 pt-5 sm:grid-cols-3">
             <div className="flex items-center gap-3">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-emerald-200"><CalendarDays className="size-4" /></span>
+              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-blue-200"><CalendarDays className="size-4" /></span>
               <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Workspace</p><p className="mt-0.5 text-xs font-semibold text-white">{company?.name ?? "Your company"}</p></div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-emerald-200"><TrendingUp className="size-4" /></span>
+              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-blue-200"><TrendingUp className="size-4" /></span>
               <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Reporting currency</p><p className="mt-0.5 text-xs font-semibold text-white">{currency}</p></div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-emerald-200"><CheckCircle2 className="size-4" /></span>
+              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-blue-200"><CheckCircle2 className="size-4" /></span>
               <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Data scope</p><p className="mt-0.5 text-xs font-semibold text-white">Current company</p></div>
             </div>
           </div>
@@ -319,7 +318,7 @@ export default function Page() {
             <div className="flex min-h-44 items-center justify-center rounded-2xl border border-border bg-card"><LoadingSpinner /></div>
           ) : (
             <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {canReadCustomers && <MetricCard label="Customers" value={formatNumber(dashboard.data?.customers?.count ?? 0)} detail="In your customer directory" icon={Users} href="/customers" tone="emerald" />}
+              {canReadCustomers && <MetricCard label="Customers" value={formatNumber(dashboard.data?.customers?.count ?? 0)} detail="In your customer directory" icon={Users} href="/customers" tone="blue" />}
               {canReadProcurement && dashboard.data?.suppliers && <MetricCard label="Suppliers" value={formatNumber(dashboard.data.suppliers.count)} detail="In your supplier directory" icon={BriefcaseBusiness} href="/suppliers" tone="blue" />}
               {canReadProducts && <MetricCard label="Active products" value={formatNumber(activeProducts)} detail={lowStockCount + " at or below reorder level"} icon={Boxes} href="/products" tone="violet" />}
               {canReadProducts && <MetricCard label="Inventory value" value={formatCompanyCurrency(inventoryCost)} detail="Recorded stock cost value" icon={Package} href="/products" tone="amber" />}

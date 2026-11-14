@@ -12,7 +12,7 @@ type ThemeProviderProps = {
 }
 
 type SavedAppearance = {
-  fontFamily?: "inter" | "roboto" | "system"
+  fontFamily?: "inter"
   fontSize?: "small" | "medium" | "large"
 }
 
@@ -23,15 +23,8 @@ function applySavedAppearance() {
     const saved = localStorage.getItem(APPEARANCE_STORAGE_KEY)
     if (!saved) return
     const preferences = JSON.parse(saved) as SavedAppearance
-    const fonts = {
-      inter: '"Inter", system-ui, sans-serif',
-      roboto: '"Roboto", Arial, sans-serif',
-      system: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    }
     const sizes = { small: "14px", medium: "16px", large: "18px" }
-    if (preferences.fontFamily && preferences.fontFamily in fonts) {
-      document.documentElement.style.setProperty("--font-inter", fonts[preferences.fontFamily])
-    }
+    document.documentElement.style.setProperty("--font-inter", '"Inter", system-ui, sans-serif')
     if (preferences.fontSize && preferences.fontSize in sizes) {
       document.body.style.fontSize = sizes[preferences.fontSize]
     }

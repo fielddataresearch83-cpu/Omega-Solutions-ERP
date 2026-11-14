@@ -3,7 +3,7 @@ import type { AuthenticatedUser } from "@/lib/api-types";
 import { api, getAccessToken, setTokens, clearTokens, restoreSession } from "@/lib/api-client";
 import { getCurrentUser, login, exchangeNeonToken, exchangeNeonInvitationToken, completeMfaChallenge, getNeonIdentityCompanies } from "@/lib/auth-api";
 import type { LoginCompanyChoice } from "@/lib/auth-api";
-import { signInWithNeon } from "@/lib/neon-auth-api";
+import { registerWithNeon, signInWithNeon } from "@/lib/neon-auth-api";
 import type { LoginResponse, MfaChallengeResponse } from "@/lib/auth-api";
 
 interface AuthContextValue {
@@ -129,7 +129,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const registerUser = React.useCallback(async (email: string, password: string, fullName: string, phone?: string, companyName?: string) => {
     setError(null);
-    const { registerWithNeon } = await import("@/lib/neon-auth-api");
     const verificationSent = await registerWithNeon({ email, password, fullName });
     void phone;
     void companyName;

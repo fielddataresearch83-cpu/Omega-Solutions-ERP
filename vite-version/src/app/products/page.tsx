@@ -381,7 +381,7 @@ export default function ProductsPage() {
                 }}><X className="size-3.5" /> Remove saved photo</Button>}
               </div>}
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="prod-category">Category</Label>
                 <Input id="prod-category" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} placeholder="Electronics" />
@@ -391,7 +391,7 @@ export default function ProductsPage() {
                 <Input id="prod-unit" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="prod-price">Selling Price (KSh) *</Label>
                 <Input id="prod-price" type="number" value={formData.sellingPrice} onChange={(e) => setFormData({ ...formData, sellingPrice: Number(e.target.value) })} aria-invalid={!!formErrors.sellingPrice} />
@@ -402,7 +402,7 @@ export default function ProductsPage() {
                 <Input id="prod-cost" type="number" value={formData.costPrice} onChange={(e) => setFormData({ ...formData, costPrice: Number(e.target.value) })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="prod-stock">{editingProduct ? "Current Stock Quantity" : "Initial Stock Quantity"}</Label>
                 <Input id="prod-stock" type="number" min="0" step="0.0001" value={formData.stockQuantity} disabled={!!editingProduct} onChange={(e) => setFormData({ ...formData, stockQuantity: Number(e.target.value) })} />
@@ -455,7 +455,7 @@ export default function ProductsPage() {
           </DialogHeader>
           {viewingProduct && (
             <div className="flex flex-col gap-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div><span className="text-muted-foreground">SKU:</span> <span className="font-mono">{viewingProduct.sku}</span></div>
                 <div><span className="text-muted-foreground">Name:</span> <span className="font-medium">{viewingProduct.name}</span></div>
                 {viewingProduct.image_url && <div className="col-span-2"><span className="text-muted-foreground">Product image:</span><img src={viewingProduct.image_url} alt={viewingProduct.name} className="mt-2 max-h-48 max-w-full rounded-md border object-contain" /></div>}

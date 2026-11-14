@@ -323,7 +323,7 @@ export default function CustomersPage() {
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="cust-city">City</Label>
                 <Input
@@ -367,7 +367,7 @@ export default function CustomersPage() {
           </DialogHeader>
           {viewingCustomer && (
             <div className="flex flex-col gap-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div><span className="text-muted-foreground">Name:</span> <span className="font-medium">{viewingCustomer.name}</span></div>
                 <div><span className="text-muted-foreground">Status:</span> <StatusBadge status={viewingCustomer.status === "active" ? "Active" : viewingCustomer.status === "inactive" ? "Inactive" : "Blocked"} /></div>
                 <div><span className="text-muted-foreground">Email:</span> {viewingCustomer.email ?? "—"}</div>

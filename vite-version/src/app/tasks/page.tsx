@@ -39,7 +39,15 @@ export default function TaskPage() {
     }
   }, [])
 
-  useEffect(() => { void loadTasks() }, [loadTasks])
+  useEffect(() => {
+    let active = true
+    void Promise.resolve().then(() => {
+      if (active) return loadTasks()
+    })
+    return () => {
+      active = false
+    }
+  }, [loadTasks])
 
   const handleUpdateTaskStatus = async (task: Task, status: string) => {
     try {

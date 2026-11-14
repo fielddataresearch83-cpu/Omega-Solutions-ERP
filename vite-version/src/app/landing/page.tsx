@@ -82,7 +82,6 @@ const modules = [
 const navLinks = [
   { label: "Modules", href: "#modules" },
   { label: "How it works", href: "#platform" },
-  { label: "Pricing", href: "/login" },
   { label: "Enterprise", href: "#enterprise" },
 ]
 

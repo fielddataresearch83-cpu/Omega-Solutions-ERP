@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { useTheme } from "@/hooks/use-theme"
 
 type AppearancePreferences = {
-  fontFamily: "inter" | "roboto" | "system"
+  fontFamily: "inter"
   fontSize: "small" | "medium" | "large"
 }
 
@@ -19,7 +19,7 @@ function readPreferences(): AppearancePreferences {
     if (!saved) return defaults
     const parsed = JSON.parse(saved) as Partial<AppearancePreferences>
     return {
-      fontFamily: parsed.fontFamily === "roboto" || parsed.fontFamily === "system" ? parsed.fontFamily : "inter",
+      fontFamily: "inter",
       fontSize: parsed.fontSize === "small" || parsed.fontSize === "large" ? parsed.fontSize : "medium",
     }
   } catch {
@@ -29,13 +29,8 @@ function readPreferences(): AppearancePreferences {
 
 function applyPreferences(preferences: AppearancePreferences) {
   const root = document.documentElement
-  const fonts = {
-    inter: '"Inter", system-ui, sans-serif',
-    roboto: '"Roboto", Arial, sans-serif',
-    system: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  }
   const sizes = { small: "14px", medium: "16px", large: "18px" }
-  root.style.setProperty("--font-inter", fonts[preferences.fontFamily])
+  root.style.setProperty("--font-inter", '"Inter", system-ui, sans-serif')
   root.style.setProperty("--omega-base-font-size", sizes[preferences.fontSize])
   document.body.style.fontSize = sizes[preferences.fontSize]
 }
@@ -112,21 +107,15 @@ export default function AppearanceSettings() {
 
           <section className="rounded-xl border bg-card p-5 text-card-foreground shadow-sm">
             <h2 className="text-lg font-semibold">Typography</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Adjust text appearance for readability.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Omega uses Inter consistently. You can adjust the interface text size for readability.</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="appearance-font-family">
-                Font family
-                <select
-                  id="appearance-font-family"
-                  value={preferences.fontFamily}
-                  onChange={(event) => { setPreferences({ ...preferences, fontFamily: event.target.value as AppearancePreferences["fontFamily"] }); setSaved(false) }}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-foreground"
-                >
-                  <option value="inter">Inter</option>
-                  <option value="roboto">Roboto</option>
-                  <option value="system">System default</option>
-                </select>
-              </label>
+              <div className="flex flex-col gap-2 text-sm font-medium">
+                <span>Font family</span>
+                <div className="flex h-10 items-center justify-between rounded-md border border-input bg-muted px-3 text-foreground">
+                  <span>Inter</span>
+                  <span className="text-xs font-normal text-muted-foreground">Omega standard</span>
+                </div>
+              </div>
               <label className="flex flex-col gap-2 text-sm font-medium" htmlFor="appearance-font-size">
                 Font size
                 <select

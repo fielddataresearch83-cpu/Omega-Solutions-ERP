@@ -45,7 +45,15 @@ export default function ProjectsPage() {
       setError(err instanceof Error ? err.message : "Unable to load projects.")
     } finally { setLoading(false) }
   }, [])
-  useEffect(() => { void reload() }, [reload])
+  useEffect(() => {
+    let active = true
+    void Promise.resolve().then(() => {
+      if (active) return reload()
+    })
+    return () => {
+      active = false
+    }
+  }, [reload])
 
   const createProject = async (event: React.FormEvent) => {
     event.preventDefault()

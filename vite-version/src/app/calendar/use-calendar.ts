@@ -59,12 +59,12 @@ export interface UseCalendarActions {
 }
 export interface UseCalendarReturn extends UseCalendarState, UseCalendarActions {}
 
-export function useCalendar(_initialEvents: CalendarEvent[] = []): UseCalendarReturn {
+export function useCalendar(initialEvents: CalendarEvent[] = []): UseCalendarReturn {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [showEventForm, setShowEventForm] = useState(false)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
   const [showCalendarSheet, setShowCalendarSheet] = useState(false)
-  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [events, setEvents] = useState<CalendarEvent[]>(() => initialEvents)
 
   const reloadEvents = useCallback(async () => {
     // Generate idempotent in-app reminders for this authenticated company before loading events.
@@ -75,7 +75,15 @@ export function useCalendar(_initialEvents: CalendarEvent[] = []): UseCalendarRe
   }, [])
 
   useEffect(() => {
-    void reloadEvents().catch(() => setEvents([]))
+    let active = true
+    void Promise.resolve()
+      .then(() => (active ? reloadEvents() : undefined))
+      .catch(() => {
+        if (active) setEvents([])
+      })
+    return () => {
+      active = false
+    }
   }, [reloadEvents])
 
   const handleDateSelect = useCallback((date: Date) => {
