@@ -143,7 +143,8 @@ describe('DatabaseService PostgreSQL transaction integration', () => {
       getMembership: async () => ({ companyId: 'company-a' }),
       getMembershipForCompany: async () => ({ companyId: 'company-a' }),
     };
-    const service = new PayrollRemittancesService(db, memberships as never);
+    const audit = { logInTransaction: async () => undefined };
+    const service = new PayrollRemittancesService(db, memberships as never, audit as never);
     const user = {
       userId: 'user-a', email: 'user@example.test', fullName: 'Test Owner',
       companyId: 'company-a', branchId: null, role: 'owner', permissions: [],

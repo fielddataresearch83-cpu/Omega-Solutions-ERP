@@ -1,4 +1,8 @@
-const base = (process.env.OMEGA_API_URL || "https://omega-solutions-api-development.onrender.com/api").replace(/\/$/, "");
+const configuredBase = process.env.OMEGA_API_URL?.trim();
+if (!configuredBase) throw new Error("OMEGA_API_URL is required; refusing to default to a shared or production API.");
+const base = configuredBase.replace(/\/$/, "");
+const target = new URL(base);
+if (target.protocol !== "https:" || target.pathname.replace(/\/$/, "") !== "/api" || ["omega-solutions-erp-9k9s.vercel.app", "omega-solutions-erp-9k9s-coll5.vercel.app"].includes(target.hostname) || !target.hostname.endsWith("-coll5.vercel.app")) throw new Error("OMEGA_API_URL must be an approved HTTPS development API URL ending in /api.");
 const emailA = process.env.OMEGA_SECURITY_TEST_A_EMAIL;
 const passwordA = process.env.OMEGA_SECURITY_TEST_A_PASSWORD;
 const emailB = process.env.OMEGA_SECURITY_TEST_B_EMAIL;
@@ -30,7 +34,13 @@ async function login(email, password, label, avoidCompanyId = null) {
   let result;
   let activeCompanyIds = [];
   const neonAuthBase = (process.env.NEON_AUTH_BASE_URL || "https://ep-fragrant-bird-b4hie5sp.neonauth.c-6.us-east-2.aws.neon.tech/neondb/auth").replace(/\/$/, "");
-  const trustedOrigin = (process.env.OMEGA_SECURITY_TEST_ORIGIN || "https://omega-solutions-git-development-pestria72-2760.vercel.app").replace(/\/$/, "");
+  const configuredOrigin = process.env.OMEGA_SECURITY_TEST_ORIGIN?.trim();
+  if (!configuredOrigin) throw new Error("OMEGA_SECURITY_TEST_ORIGIN is required; configure the verified development frontend origin.");
+  const originUrl = new URL(configuredOrigin);
+  if (originUrl.protocol !== "https:" || !originUrl.hostname.endsWith("-coll5.vercel.app") || originUrl.pathname !== "/") {
+    throw new Error("OMEGA_SECURITY_TEST_ORIGIN must be the HTTPS origin of a development Preview deployment in the coll5 Vercel team.");
+  }
+  const trustedOrigin = originUrl.origin;
   if (neonAuthBase) {
     // Neon Auth requires an allowed browser Origin even for this server-side smoke test.
     const response = await fetch(`${neonAuthBase}/sign-in/email`, {

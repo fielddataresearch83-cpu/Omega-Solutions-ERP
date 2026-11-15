@@ -4,6 +4,12 @@ name: Manufacturing live valuation smoke test
 # Keep it manual-only until its fixture cleanup is implemented.
 on:
   workflow_dispatch:
+    inputs:
+      acknowledge_isolated_test_database:
+        description: "I confirm the isolated-test API is connected to a disposable database, not shared Development or Production."
+        required: true
+        type: boolean
+        default: false
 
 concurrency:
   group: omega-development-manufacturing-live-smoke
@@ -14,8 +20,11 @@ permissions:
 
 jobs:
   manufacturing-live-smoke:
+    if: ${{ inputs.acknowledge_isolated_test_database == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      OMEGA_LIVE_SMOKE_CONFIRM_ISOLATED_TEST_DATABASE: YES
     steps:
       - name: Checkout existing development branch
         uses: actions/checkout@v4
@@ -27,7 +36,7 @@ jobs:
           node-version: 22
       - name: Verify authenticated manufacturing valuation and accounting
         env:
-          OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
+          OMEGA_API_URL: ${{ vars.OMEGA_ISOLATED_TEST_API_URL }}
           OMEGA_SECURITY_TEST_A_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
           OMEGA_SECURITY_TEST_A_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_A_PASSWORD }}
           OMEGA_SECURITY_TEST_B_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_B_EMAIL }}

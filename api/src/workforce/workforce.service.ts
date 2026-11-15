@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
+import { businessDateAt } from '../common/business-date.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
@@ -256,7 +257,7 @@ export class WorkforceService {
       const row=await this.db.transaction(async c=>{
         const employee=await c.query("SELECT id FROM employees WHERE id=$1 AND company_id=$2 AND employment_status NOT IN ('terminated','inactive') AND ($3::uuid IS NULL OR branch_id=$3::uuid) FOR UPDATE",[employeeId,m.companyId,m.branchId ?? null]);
         if(!employee.rows.length)throw new NotFoundException('Active employee not found in this company.');
-        if(assignmentId){const a=await c.query("SELECT id FROM employee_assignments WHERE id=$1 AND company_id=$2 AND employee_id=$3 AND status='active' AND start_date<=$4::date AND (end_date IS NULL OR end_date >= $4::date)",[assignmentId,m.companyId,employeeId,at.toISOString().slice(0,10)]);if(!a.rows.length)throw new BadRequestException('Assignment is not active for this employee at punch time.');}
+        if(assignmentId){const a=await c.query("SELECT id FROM employee_assignments WHERE id=$1 AND company_id=$2 AND employee_id=$3 AND status='active' AND start_date<=$4::date AND (end_date IS NULL OR end_date >= $4::date)",[assignmentId,m.companyId,employeeId,businessDateAt(m.timezone ?? 'Africa/Nairobi', at)]);if(!a.rows.length)throw new BadRequestException('Assignment is not active for this employee at punch time.');}
         const last=await c.query('SELECT punch_type,punched_at FROM attendance_records WHERE company_id=$1 AND employee_id=$2 ORDER BY punched_at DESC,id DESC LIMIT 1',[m.companyId,employeeId]);
         if (!last.rows.length && type === 'out') throw new BadRequestException('Employee must clock in before clocking out.');
         if(last.rows.length) {

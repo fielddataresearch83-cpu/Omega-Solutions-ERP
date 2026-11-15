@@ -30,7 +30,8 @@ jobs:
 
       - name: Verify business-data isolation (authentication sessions are created)
         env:
-          OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
+          OMEGA_API_URL: ${{ vars.OMEGA_DEVELOPMENT_API_URL }}
+          OMEGA_SECURITY_TEST_ORIGIN: ${{ vars.OMEGA_DEVELOPMENT_FRONTEND_ORIGIN }}
           OMEGA_SECURITY_TEST_A_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
           OMEGA_SECURITY_TEST_A_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_A_PASSWORD }}
           OMEGA_SECURITY_TEST_B_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_B_EMAIL }}

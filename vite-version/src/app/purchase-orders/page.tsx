@@ -22,7 +22,7 @@ type ReceiptItem={id:string;product_name:string;quantity:string|number;unit_cost
 type Receipt={id:string;warehouse_name:string;receipt_reference:string|null;notes:string|null;discrepancy_notes:string|null;received_at:string;receipt_value:string|number;items:ReceiptItem[]};
 const statusLabel:Record<PurchaseOrder["status"],string>={draft:"Draft",ordered:"Ordered",partially_received:"Partially received",received:"Received",cancelled:"Cancelled"};
 function messageOf(e:unknown){return e&&typeof e==="object"&&"message" in e?String((e as {message:unknown}).message):"Request failed. Please try again."}
-function statusStyle(s:PurchaseOrder["status"]){return s==="received"?"bg-emerald-500/10 text-emerald-700":s==="cancelled"?"bg-destructive/10 text-destructive":s==="partially_received"?"bg-amber-500/10 text-amber-700":s==="ordered"?"bg-blue-500/10 text-blue-700":"bg-muted text-muted-foreground"}
+function statusStyle(s:PurchaseOrder["status"]){return s==="received"?"bg-emerald-500/10 text-emerald-700":s==="cancelled"?"bg-destructive/10 text-destructive":s==="partially_received"?"bg-amber-500/10 text-amber-700":s==="ordered"?"bg-[var(--primary)]/10 text-[var(--primary)]":"bg-muted text-muted-foreground"}
 export default function PurchaseOrdersPage(){
  const [orders,setOrders]=React.useState<PurchaseOrder[]>([]);
  const [suppliers,setSuppliers]=React.useState<Supplier[]>([]);

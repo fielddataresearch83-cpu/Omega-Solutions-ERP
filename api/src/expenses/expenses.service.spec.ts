@@ -37,7 +37,7 @@ describe('ExpensesService',()=>{
   expect(audit.logInTransaction).not.toHaveBeenCalled();
  });
  it('posts a balanced expense journal and records its source atomically',async()=>{
-  const client={query:vi.fn().mockImplementation(async(sql:string,_params:unknown[] = [])=>{
+  const client={query:vi.fn().mockImplementation(async(sql:string,__params:unknown[] = [])=>{
    if(sql.includes("system_code='operating_expense'"))return {rows:[{id:'expense-account',code:'5100',name:'Operating Expenses'}],rowCount:1};
    if(sql.includes('system_code=$2'))return {rows:[{id:'cash-account'}],rowCount:1};
    if(sql.includes('INSERT INTO expense_sequences'))return {rows:[{next_number:1}],rowCount:1};
@@ -58,7 +58,7 @@ describe('ExpensesService',()=>{
  });
 
  it('tags the expense debit and expense record with the selected cost centre',async()=>{
-  const client={query:vi.fn().mockImplementation(async(sql:string,params:unknown[] = [])=>{
+  const client={query:vi.fn().mockImplementation(async(sql:string,_params:unknown[] = [])=>{
    if(sql.includes("system_code='operating_expense'"))return {rows:[{id:'expense-account',code:'5100',name:'Operating Expenses'}],rowCount:1};
    if(sql.includes('system_code=$2'))return {rows:[{id:'bank-account'}],rowCount:1};
    if(sql.includes('FROM cost_centres'))return {rows:[{id:'centre-1'}],rowCount:1};

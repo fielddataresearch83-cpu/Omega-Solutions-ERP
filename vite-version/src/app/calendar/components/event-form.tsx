@@ -53,7 +53,7 @@ interface EventFormProps {
 }
 
 const eventTypes = [
-  { value: "meeting", label: "Meeting", color: "bg-blue-500" },
+  { value: "meeting", label: "Meeting", color: "bg-[var(--primary)]" },
   { value: "event", label: "Event", color: "bg-green-500" },
   { value: "personal", label: "Personal", color: "bg-pink-500" },
   { value: "task", label: "Task", color: "bg-orange-500" },
@@ -153,7 +153,7 @@ export function EventForm({
     const eventData: Partial<CalendarEvent> = {
       ...formData,
       id: event?.id,
-      color: eventTypes.find((t) => t.value === formData.type)?.color || "bg-blue-500",
+      color: eventTypes.find((t) => t.value === formData.type)?.color || "bg-[var(--primary)]",
       allDay: formData.allDay,
       reminderEnabled: formData.reminder,
       projectId: formData.projectId || null,

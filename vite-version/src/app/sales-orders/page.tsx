@@ -13,7 +13,7 @@ type Warehouse = { id: string; code: string; name: string; is_active: boolean };
 type SalesOrder = { id: string; customer_name: string; source_quotation_number: string | null; order_number: string; order_date: string; status: SalesOrderStatus; total: string | number; item_count: number; notes: string | null };
 const labels: Record<SalesOrderStatus, string> = { confirmed: "Confirmed", processing: "Processing", fulfilled: "Fulfilled", cancelled: "Cancelled" };
 function messageOf(error: unknown) { return error && typeof error === "object" && "message" in error ? String((error as {message: unknown}).message) : "Request failed. Please try again."; }
-function badge(status: SalesOrderStatus) { return status === "fulfilled" ? "bg-emerald-500/10 text-emerald-700" : status === "cancelled" ? "bg-destructive/10 text-destructive" : status === "processing" ? "bg-blue-500/10 text-blue-700" : "bg-muted text-muted-foreground"; }
+function badge(status: SalesOrderStatus) { return status === "fulfilled" ? "bg-emerald-500/10 text-emerald-700" : status === "cancelled" ? "bg-destructive/10 text-destructive" : status === "processing" ? "bg-[var(--primary)]/10 text-[var(--primary)]" : "bg-muted text-muted-foreground"; }
 
 export default function SalesOrdersPage() {
   const [orders, setOrders] = React.useState<SalesOrder[]>([]);

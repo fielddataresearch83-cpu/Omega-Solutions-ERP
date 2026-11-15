@@ -78,7 +78,6 @@ describe('ProjectsService', () => {
   it('validates a task assignee against active membership in the same company', async () => {
     const client = {
       query: vi.fn()
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 })
         .mockResolvedValueOnce({ rows: [], rowCount: 0 }),
     };
     db.transaction.mockImplementation(async (callback) => callback(client));
@@ -88,7 +87,7 @@ describe('ProjectsService', () => {
       assignedTo: 'user-from-another-company',
     })).rejects.toThrow('Assignee must be an active member of this company.');
 
-    expect(client.query.mock.calls[1][1]).toEqual(['user-from-another-company', 'company-1']);
+    expect(client.query.mock.calls[0][1]).toEqual(['user-from-another-company', 'company-1']);
     expect(audit.logInTransaction).not.toHaveBeenCalled();
   });
   it('persists calendar attendees and reminder preferences in the audited transaction', async () => {
@@ -131,14 +130,26 @@ describe('ProjectsService', () => {
   });
 
 
-  it('dispatches one reminder per active company recipient and event start time', async () => {
-    db.query.mockResolvedValueOnce({ rows: [{ delivered_count: 2 }], rowCount: 1 });
+  it('dispatches reminders in each active company tenant context', async () => {
+    db.query
+      .mockResolvedValueOnce({
+        rows: [{
+          company_id: 'company-1',
+          user_id: 'user-1',
+          email: 'owner@example.test',
+          full_name: 'Company Owner',
+          role: 'owner',
+        }],
+        rowCount: 1,
+      })
+      .mockResolvedValueOnce({ rows: [{ delivered_count: 2 }], rowCount: 1 });
 
     await expect(service.dispatchEventReminders()).resolves.toEqual({ delivered: 2 });
 
-    const [sql] = db.query.mock.calls[0];
+    expect(db.query).toHaveBeenCalledTimes(2);
+    const [sql] = db.query.mock.calls[1];
     expect(sql).toContain("e.company_id = $1");
-    expect(db.query.mock.calls[0][1]).toEqual(['company-1']);
+    expect(db.query.mock.calls[1][1]).toEqual(['company-1']);
     expect(sql).toContain("e.reminder_enabled = TRUE");
     expect(sql).toContain("e.is_cancelled = FALSE");
     expect(sql).toContain("e.start_at <= NOW() + INTERVAL '24 hours'");

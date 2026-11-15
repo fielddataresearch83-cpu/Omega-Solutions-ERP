@@ -4,6 +4,9 @@ import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
 
 describe('AppController (e2e)', () => {
+  beforeAll(() => {
+    process.env.JWT_SECRET ??= 'test-only-jwt-secret-for-app-e2e-tests-32-chars';
+  });
   let app: INestApplication;
 
   beforeEach(async () => {
@@ -12,6 +15,7 @@ describe('AppController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api');
     await app.init();
   });
 
@@ -23,6 +27,6 @@ describe('AppController (e2e)', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) await app.close();
   });
 });

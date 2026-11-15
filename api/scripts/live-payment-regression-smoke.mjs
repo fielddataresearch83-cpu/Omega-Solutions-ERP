@@ -1,9 +1,12 @@
 import { neonTestLogin } from "./neon-test-auth.mjs";
 import crypto from "node:crypto";
+if (process.env.OMEGA_LIVE_SMOKE_CONFIRM_ISOLATED_TEST_DATABASE !== "YES") {
+  throw new Error("Refusing to write business data: explicitly confirm an isolated disposable test database with OMEGA_LIVE_SMOKE_CONFIRM_ISOLATED_TEST_DATABASE=YES.");
+}
 const configuredBase = process.env.OMEGA_API_URL;
 if (!configuredBase) throw new Error("OMEGA_API_URL is required; refusing to default to any shared or production API.");
 const parsedBase = new URL(configuredBase);
-if (parsedBase.hostname === "omega-solutions-api.onrender.com") throw new Error("Production API is forbidden for this development smoke test.");
+if (["omega-solutions-erp-9k9s.vercel.app", "omega-solutions-erp-9k9s-coll5.vercel.app"].includes(parsedBase.hostname) || parsedBase.protocol !== "https:" || !parsedBase.hostname.endsWith("-coll5.vercel.app")) throw new Error("Production API is forbidden for this development smoke test.");
 if (!parsedBase.pathname.replace(/\/$/, "").endsWith("/api")) throw new Error("OMEGA_API_URL must end in /api.");
 const base = configuredBase.replace(/\/$/, "");
 const stamp = Date.now();

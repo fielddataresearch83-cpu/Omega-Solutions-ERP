@@ -1,6 +1,6 @@
 -- Company-scoped Project Management foundation.
 CREATE TABLE IF NOT EXISTS projects (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   name VARCHAR(180) NOT NULL,
   description TEXT,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE INDEX IF NOT EXISTS idx_projects_company_status ON projects(company_id,status,updated_at DESC);
 
 CREATE TABLE IF NOT EXISTS project_tasks (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
   title VARCHAR(200) NOT NULL,
@@ -37,7 +37,7 @@ CREATE INDEX IF NOT EXISTS idx_project_tasks_project ON project_tasks(company_id
 CREATE INDEX IF NOT EXISTS idx_project_tasks_assignee ON project_tasks(company_id,assigned_to);
 
 CREATE TABLE IF NOT EXISTS project_events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
   title VARCHAR(180) NOT NULL,

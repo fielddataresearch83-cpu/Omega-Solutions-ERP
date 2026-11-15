@@ -30,7 +30,7 @@ function fromApi(event: ApiEvent): CalendarEvent {
     type: event.event_type,
     attendees: event.attendees ?? [],
     location: event.location ?? "",
-    color: ({ meeting: "bg-blue-500", event: "bg-green-500", personal: "bg-pink-500", task: "bg-orange-500", reminder: "bg-purple-500" } as Record<string,string>)[event.event_type] ?? "bg-blue-500",
+    color: ({ meeting: "bg-[var(--primary)]", event: "bg-green-500", personal: "bg-pink-500", task: "bg-orange-500", reminder: "bg-purple-500" } as Record<string,string>)[event.event_type] ?? "bg-[var(--primary)]",
     description: event.description ?? undefined,
     allDay: event.all_day ?? false,
     reminderEnabled: event.reminder_enabled ?? true,

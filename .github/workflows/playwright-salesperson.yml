@@ -49,8 +49,10 @@ jobs:
             echo "::error::E2E_API_BASE_URL must use HTTPS."
             exit 1
           fi
-          if [[ "${E2E_API_BASE_URL,,}" == *"omega-solutions-api.onrender.com"* && "${E2E_ALLOW_MUTATIONS}" != "false" ]]; then
-            echo "::error::Refusing to run mutating E2E tests against the live Omega API."
+          api_host="${E2E_API_BASE_URL#https://}"
+          api_host="${api_host%%/*}"
+          if [[ "$api_host" != *"-coll5.vercel.app" || "$api_host" == "omega-solutions-erp-9k9s.vercel.app" || "$api_host" == "omega-solutions-erp-9k9s-coll5.vercel.app" ]]; then
+            echo "::error::E2E_API_BASE_URL must target a Vercel Preview deployment, never the Production API."
             exit 1
           fi
           if [[ "${E2E_ALLOW_MUTATIONS}" != "false" ]]; then

@@ -310,7 +310,7 @@ describe('PayrollService tenant and workflow guards',()=>{
   await expect(service.getEmployeePaySettings({userId:'user-a',email:'a@b.test',fullName:'A',companyId:'company-a',branchId:'branch-a',role:'staff',permissions:['payroll:read']},'employee-b')).rejects.toThrow('Pay settings not found');
   const query=(db as {query:ReturnType<typeof vi.fn>}).query;
   expect(query.mock.calls[0][0]).toContain('e.branch_id=$3');
-  expect(query.mock.calls[0][1]).toEqual(['employee-b','company-a','branch-a']);
+  expect(query.mock.calls[0][1]).toEqual(['employee-b','company-a','branch-a',expect.any(String)]);
  });
  it('does not write pay settings for an employee outside the active branch',async()=>{
   const db={query:vi.fn().mockResolvedValue({rows:[]}),transaction:vi.fn()} as never;

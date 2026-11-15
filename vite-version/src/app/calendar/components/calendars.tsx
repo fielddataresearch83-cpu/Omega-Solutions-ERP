@@ -57,7 +57,7 @@ const enhancedCalendars: CalendarGroup[] = [
       {
         id: "personal",
         name: "Personal",
-        color: "bg-blue-500",
+        color: "bg-[var(--primary)]",
         visible: true,
         type: "personal",
       },

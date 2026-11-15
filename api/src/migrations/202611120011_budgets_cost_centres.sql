@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS cost_centres (
- id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
  code VARCHAR(40) NOT NULL,
  name VARCHAR(160) NOT NULL,
@@ -25,7 +25,7 @@ BEGIN
 END $$;
 
 CREATE TABLE IF NOT EXISTS budgets (
- id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
  fiscal_year INTEGER NOT NULL CHECK(fiscal_year BETWEEN 2000 AND 2200),
  period_month SMALLINT NOT NULL CHECK(period_month BETWEEN 1 AND 12),

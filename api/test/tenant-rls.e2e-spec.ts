@@ -37,6 +37,8 @@ suite('PostgreSQL tenant RLS isolation contract', () => {
 
   beforeAll(async () => {
     await pool.query(`CREATE ROLE "${role}" NOLOGIN NOBYPASSRLS`);
+    // The test connection must be a member before it can SET LOCAL ROLE.
+    await pool.query(`GRANT "${role}" TO CURRENT_USER`);
     await pool.query(`CREATE SCHEMA "${schema}"`);
     await pool.query(`
       CREATE TABLE "${schema}".tenant_records (
@@ -60,7 +62,14 @@ suite('PostgreSQL tenant RLS isolation contract', () => {
   afterAll(async () => {
     try {
       await pool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
-      await pool.query(`DROP ROLE IF EXISTS "${role}"`);
+      const roleExists = await pool.query(
+        'SELECT 1 FROM pg_roles WHERE rolname = $1',
+        [role],
+      );
+      if (roleExists.rowCount) {
+        await pool.query(`REVOKE "${role}" FROM CURRENT_USER`);
+        await pool.query(`DROP ROLE "${role}"`);
+      }
     } finally {
       await pool.end();
     }

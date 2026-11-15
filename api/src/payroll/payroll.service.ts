@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
+import { businessDateAt } from '../common/business-date.js';
 import { AuditService } from '../audit/audit.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
@@ -47,7 +48,7 @@ export class PayrollService {
  async getCompanyStatutorySettings(user:AuthenticatedUser,effectiveFromValue?:string){
   const membership=await this.membershipFor(user);this.assertCompanyWidePayroll(membership);
   const {companyId}=membership;
-  const effectiveFrom=effectiveFromValue??new Date().toISOString().slice(0,10);
+  const effectiveFrom=effectiveFromValue??businessDateAt(membership.timezone ?? 'Africa/Nairobi');
   if(!validDate(effectiveFrom))throw new BadRequestException('effectiveFrom must be a valid YYYY-MM-DD date.');
   const result=await this.db.query(`SELECT id,company_id,effective_from,nssf_method,nssf_employee_flat,nssf_employer_flat,nssf_employee_rate,nssf_employer_rate,nssf_pensionable_pay_cap,housing_levy_enabled,housing_levy_employee_rate,housing_levy_employer_rate,created_at
    FROM company_payroll_statutory_settings WHERE company_id=$1 AND effective_from<=$2::date ORDER BY effective_from DESC LIMIT 1`,[companyId,effectiveFrom]);
@@ -56,7 +57,7 @@ export class PayrollService {
  async setCompanyStatutorySettings(user:AuthenticatedUser,dto:Record<string,unknown>){
   const membership=await this.membershipFor(user);this.assertCompanyWidePayroll(membership);
   const {companyId}=membership;
-  const effectiveFrom=dto.effectiveFrom??new Date().toISOString().slice(0,10);
+  const effectiveFrom=dto.effectiveFrom??businessDateAt(membership.timezone ?? 'Africa/Nairobi');
   if(typeof effectiveFrom!=='string'||!validDate(effectiveFrom))throw new BadRequestException('effectiveFrom must be a valid YYYY-MM-DD date.');
   const nssfMethod=String(dto.nssfMethod??'YEAR4') as NssfMethod;
   if(!['YEAR4','LEGACY_FLAT_200','CUSTOM'].includes(String(nssfMethod)))throw new BadRequestException('nssfMethod must be YEAR4, LEGACY_FLAT_200, or CUSTOM.');
@@ -83,7 +84,7 @@ export class PayrollService {
   const {companyId}=membership;
   const result=await this.db.query(`SELECT s.id,s.company_id,s.employee_id,s.monthly_basic_salary,s.monthly_taxable_allowances,s.monthly_taxable_benefits,s.employee_pension_contribution,s.post_retirement_medical_contribution,s.qualifying_mortgage_interest,s.eligible_insurance_premiums,s.resident_for_tax_purposes,s.effective_from,s.created_at,s.updated_at
    FROM employee_pay_settings s JOIN employees e ON e.id=s.employee_id AND e.company_id=s.company_id
-   WHERE s.employee_id=$1 AND s.company_id=$2 AND ($3::uuid IS NULL OR e.branch_id=$3) AND s.effective_from<=CURRENT_DATE ORDER BY s.effective_from DESC LIMIT 1`,[employeeId,companyId,membership.branchId]);
+   WHERE s.employee_id=$1 AND s.company_id=$2 AND ($3::uuid IS NULL OR e.branch_id=$3) AND s.effective_from<=$4::date ORDER BY s.effective_from DESC LIMIT 1`,[employeeId,companyId,membership.branchId,businessDateAt(membership.timezone ?? 'Africa/Nairobi')]);
   if(!result.rows.length)throw new NotFoundException('Pay settings not found for this employee in this company.');
   return result.rows[0];
  }
@@ -98,7 +99,7 @@ export class PayrollService {
    if(typeof value!=='number'||!Number.isFinite(value)||value<0)throw new BadRequestException(`${key} must be a finite non-negative number.`);
   }
   if(dto.residentForTaxPurposes!==undefined&&typeof dto.residentForTaxPurposes!=='boolean')throw new BadRequestException('residentForTaxPurposes must be a boolean.');
-  const effectiveFrom=dto.effectiveFrom===undefined?new Date().toISOString().slice(0,10):dto.effectiveFrom;
+  const effectiveFrom=dto.effectiveFrom===undefined?businessDateAt(membership.timezone ?? 'Africa/Nairobi'):dto.effectiveFrom;
   if(typeof effectiveFrom!=='string'||!validDate(effectiveFrom))throw new BadRequestException('effectiveFrom must be a valid YYYY-MM-DD date.');
   const values=keys.map(key=>dto[key]===undefined?0:dto[key] as number);
   const result=await this.db.query(`INSERT INTO employee_pay_settings(company_id,employee_id,monthly_basic_salary,monthly_taxable_allowances,monthly_taxable_benefits,employee_pension_contribution,post_retirement_medical_contribution,qualifying_mortgage_interest,eligible_insurance_premiums,resident_for_tax_purposes,effective_from,created_by)

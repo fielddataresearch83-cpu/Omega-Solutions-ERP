@@ -3,6 +3,7 @@ import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { PoolClient } from 'pg';
+import { tenantDatabaseContext } from '../database/tenant-database-context.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import type { CreateProjectDto, CreateProjectEventDto, CreateProjectTaskDto, UpdateProjectDto, UpdateProjectEventDto, UpdateProjectTaskDto } from './dto/projects.dto.js';
 
@@ -184,7 +185,52 @@ export class ProjectsService {
     });
   }
 
-  async dispatchEventReminders(user: AuthenticatedUser) {
+  async dispatchEventReminders(user?: AuthenticatedUser) {
+    if (!user) {
+      // The scheduler has no interactive user. Select one active member per
+      // company, then execute each company's work under that member's tenant
+      // context so RLS remains enabled and delivery claims stay tenant-scoped.
+      const memberships = await this.db.query<{
+        company_id: string;
+        user_id: string;
+        email: string;
+        full_name: string;
+        role: string;
+      }>(
+        `SELECT DISTINCT ON (cm.company_id)
+           cm.company_id, cm.user_id, u.email, u.full_name, cm.role
+         FROM company_memberships cm
+         JOIN users u ON u.id = cm.user_id
+         WHERE cm.is_active = TRUE AND u.is_active = TRUE
+         ORDER BY cm.company_id,
+           CASE WHEN cm.role = 'owner' THEN 0 ELSE 1 END,
+           cm.user_id`,
+      );
+
+      let delivered = 0;
+      for (const member of memberships.rows) {
+        const tenant = {
+          userId: member.user_id,
+          companyId: member.company_id,
+          branchId: null,
+        };
+        const schedulerUser: AuthenticatedUser = {
+          userId: member.user_id,
+          email: member.email,
+          fullName: member.full_name,
+          companyId: member.company_id,
+          branchId: null,
+          role: member.role,
+          permissions: [],
+        };
+        const result = await tenantDatabaseContext.run(tenant, () =>
+          this.dispatchEventReminders(schedulerUser),
+        );
+        delivered += result.delivered;
+      }
+      return { delivered };
+    }
+
     const { companyId } = await this.scope(user);
     const result = await this.db.query<{ delivered_count: number }>(
       `WITH due_events AS (

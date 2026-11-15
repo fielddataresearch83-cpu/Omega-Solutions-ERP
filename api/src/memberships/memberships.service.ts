@@ -8,6 +8,7 @@ export interface MembershipInfo {
   companyId: string;
   branchId: string | null;
   role: string;
+  timezone?: string;
 }
 
 @Injectable()
@@ -15,8 +16,8 @@ export class MembershipsService {
   constructor(private readonly db: DatabaseService) {}
 
   async getMembership(userId: string): Promise<MembershipInfo> {
-    const result = await this.db.query<{ company_id: string; branch_id: string | null; role: string }>(
-      `SELECT cm.company_id, cm.branch_id, cm.role
+    const result = await this.db.query<{ company_id: string; branch_id: string | null; role: string; company_timezone: string | null }>(
+      `SELECT cm.company_id, cm.branch_id, cm.role, c.timezone AS company_timezone
        FROM company_memberships cm
        JOIN companies c ON c.id = cm.company_id AND c.is_active = true
        LEFT JOIN branches b ON b.id = cm.branch_id AND b.company_id = cm.company_id
@@ -39,12 +40,13 @@ export class MembershipsService {
       companyId: m.company_id,
       branchId: m.branch_id,
       role: m.role,
+      timezone: m.company_timezone ?? 'Africa/Nairobi',
     };
   }
 
   async getMembershipForCompany(userId: string, companyId: string): Promise<MembershipInfo> {
-    const result = await this.db.query<{ company_id: string; branch_id: string | null; role: string }>(
-      `SELECT cm.company_id, cm.branch_id, cm.role
+    const result = await this.db.query<{ company_id: string; branch_id: string | null; role: string; company_timezone: string | null }>(
+      `SELECT cm.company_id, cm.branch_id, cm.role, c.timezone AS company_timezone
        FROM company_memberships cm
        JOIN companies c ON c.id = cm.company_id AND c.is_active = true
        LEFT JOIN branches b ON b.id = cm.branch_id AND b.company_id = cm.company_id
@@ -63,6 +65,7 @@ export class MembershipsService {
       companyId: m.company_id,
       branchId: m.branch_id,
       role: m.role,
+      timezone: m.company_timezone ?? 'Africa/Nairobi',
     };
   }
 

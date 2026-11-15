@@ -2,9 +2,9 @@
   "name": "omega-solutions-api-deployment-wrapper",
   "version": "1.0.0",
   "private": true,
-  "description": "Root-level scripts for Render API services configured at the repository root.",
+  "description": "Root-level scripts for the Vercel API service.",
   "scripts": {
     "build": "npm --prefix api ci && npm --prefix api run build",
-    "start:prod": "npm --prefix api run migrate:subscriptions && npm --prefix api run start:prod"
+    "start:prod": "npm --prefix api run start:prod"
   }
 }

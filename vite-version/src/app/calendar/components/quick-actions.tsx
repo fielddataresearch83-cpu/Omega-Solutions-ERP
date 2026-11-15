@@ -30,7 +30,7 @@ export function QuickActions({
   onSettings,
 }: QuickActionsProps) {
   const quickStats = [
-    { label: "Today's Events", value: "3", color: "bg-blue-500" },
+    { label: "Today's Events", value: "3", color: "bg-[var(--primary)]" },
     { label: "This Week", value: "12", color: "bg-green-500" },
     { label: "Pending", value: "2", color: "bg-orange-500" },
   ]
@@ -133,7 +133,7 @@ export function QuickActions({
         <CardContent className="flex flex-col gap-3">
           <div className="flex flex-col gap-2">
             <div className="flex items-start gap-3">
-              <div className="size-2 bg-blue-500 rounded-full mt-2" />
+              <div className="size-2 bg-[var(--primary)] rounded-full mt-2" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">Team Standup</p>
                 <p className="text-xs text-muted-foreground">

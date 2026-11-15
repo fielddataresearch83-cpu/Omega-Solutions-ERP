@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS fixed_assets (
- id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
  asset_code VARCHAR(60) NOT NULL,
  name VARCHAR(240) NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS fixed_assets (
 );
 
 CREATE TABLE IF NOT EXISTS fixed_asset_depreciation (
- id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
  asset_id UUID NOT NULL,
  period_end DATE NOT NULL,
@@ -81,6 +81,6 @@ FROM companies c
 CROSS JOIN (VALUES
  ('1500','Fixed Assets','asset','debit','fixed_assets','investing'),
  ('1590','Accumulated Depreciation','asset','credit','accumulated_depreciation','investing'),
- ('5200','Depreciation Expense','expense','debit','depreciation_expense','operating')
+ ('5220','Depreciation Expense','expense','debit','depreciation_expense','operating')
 ) AS v(code,name,account_type,normal_side,system_code,cash_flow_category)
 ON CONFLICT(company_id,code) DO NOTHING;

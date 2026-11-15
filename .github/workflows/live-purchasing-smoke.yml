@@ -1,9 +1,15 @@
 name: Authenticated purchasing live smoke test
 
 on:
-  # The suite writes financial, POS, HRM and inventory records into development companies.
-  # Run manually only after reviewing data impact and cleanup.
+  # The suite writes financial, POS, HRM and inventory records.
+  # Run only against a disposable isolated test database after explicit confirmation.
   workflow_dispatch:
+    inputs:
+      acknowledge_isolated_test_database:
+        description: "I confirm OMEGA_ISOLATED_TEST_API_URL points to a disposable database, not shared Development or Production."
+        required: true
+        type: boolean
+        default: false
 
 concurrency:
   group: omega-development-live-smoke
@@ -12,12 +18,12 @@ concurrency:
 permissions:
   contents: read
 
-# Re-run after configuring the development-only cleanup secret; production is never targeted.
-# Tests target the development API. Tenant cleanup requires an explicitly configured
-# development-only database secret and strict tenant/email guards in the cleanup script.
+# Mutating test data must never be written to shared Development or Production.
+# API URL, database URL and branch name must all refer to the same disposable isolated test environment.
 
 jobs:
   live-purchasing-smoke:
+    if: ${{ inputs.acknowledge_isolated_test_database == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -28,9 +34,12 @@ jobs:
 
       - name: Verify development-only API URL
         env:
-          OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
+          OMEGA_API_URL: ${{ vars.OMEGA_ISOLATED_TEST_API_URL }}
         run: |
-          node --input-type=module -e 'const value=process.env.OMEGA_API_URL; const url=new URL(value); if (url.hostname !== "omega-solutions-api-development.onrender.com" || url.pathname !== "/api") throw new Error("Refusing to run smoke tests against anything except the fixed development API."); console.log("Development API target configured:", url.origin + url.pathname);'
+          node --input-type=module -e 'const value=process.env.OMEGA_API_URL; if (!value) throw new Error("OMEGA_ISOLATED_TEST_API_URL repository variable is required."); const url=new URL(value); if (url.protocol !== "https:" || !url.hostname.endsWith("-coll5.vercel.app") || ["omega-solutions-erp-9k9s.vercel.app", "omega-solutions-erp-9k9s-coll5.vercel.app"].includes(url.hostname) || url.pathname.replace(/\/$/, "") !== "/api") throw new Error("Refusing an unapproved API target; expected an HTTPS development API ending in /api."); console.log("Development API target configured:", url.origin + url.pathname);'
+
+      - name: Confirm isolated disposable database for mutating regression suites
+        run: echo "OMEGA_LIVE_SMOKE_CONFIRM_ISOLATED_TEST_DATABASE=YES" >> "$GITHUB_ENV"
 
       - name: Set up Node.js for read-only approver diagnostic
         uses: actions/setup-node@v4
@@ -45,19 +54,19 @@ jobs:
 
       - name: Classify configured approver against Fezaton membership without logging credentials
         env:
-          OMEGA_DEVELOPMENT_DATABASE_URL: ${{ secrets.OMEGA_DEVELOPMENT_DATABASE_URL }}
-          OMEGA_DEVELOPMENT_DATABASE_BRANCH: omega-migration-smoke-test-live
+          OMEGA_ISOLATED_TEST_DATABASE_URL: ${{ secrets.OMEGA_ISOLATED_TEST_DATABASE_URL }}
+          OMEGA_ISOLATED_TEST_DATABASE_BRANCH: ${{ vars.OMEGA_ISOLATED_TEST_DATABASE_BRANCH }}
           OMEGA_SECURITY_TEST_APPROVER_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_APPROVER_EMAIL }}
         working-directory: api
         run: |
           node --input-type=module -e '
             import pg from "pg";
             const { Pool } = pg;
-            const url = process.env.OMEGA_DEVELOPMENT_DATABASE_URL;
-            const branch = process.env.OMEGA_DEVELOPMENT_DATABASE_BRANCH;
+            const url = process.env.OMEGA_ISOLATED_TEST_DATABASE_URL;
+            const branch = process.env.OMEGA_ISOLATED_TEST_DATABASE_BRANCH;
             const email = process.env.OMEGA_SECURITY_TEST_APPROVER_EMAIL?.trim().toLowerCase();
-            if (!url || branch !== "omega-migration-smoke-test-live" || !email) {
-              throw new Error("Approver diagnostic requires the approved development DB secret, exact branch guard, and configured approver email.");
+            if (!url || !/^omega-erp-e2e-[a-z0-9-]+$/.test(branch || "") || !email) {
+              throw new Error("Approver diagnostic requires the isolated-test DB secret, disposable branch guard, and configured approver email.");
             }
             const pool = new Pool({
               connectionString: url,
@@ -130,7 +139,7 @@ jobs:
 
       - name: Verify live authenticated purchasing and accounting workflow
         env:
-          OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
+          OMEGA_API_URL: ${{ vars.OMEGA_ISOLATED_TEST_API_URL }}
           OMEGA_SECURITY_TEST_A_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
           OMEGA_SECURITY_TEST_A_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_A_PASSWORD }}
           OMEGA_SECURITY_TEST_B_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_B_EMAIL }}
@@ -141,7 +150,7 @@ jobs:
 
       - name: Verify live payment, reconciliation, POS and tenant-isolation workflow
         env:
-          OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
+          OMEGA_API_URL: ${{ vars.OMEGA_ISOLATED_TEST_API_URL }}
           OMEGA_SECURITY_TEST_A_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
           OMEGA_SECURITY_TEST_A_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_A_PASSWORD }}
           OMEGA_SECURITY_TEST_B_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_B_EMAIL }}
@@ -150,7 +159,7 @@ jobs:
 
       - name: Verify live authenticated HRM, expenses, CRM and trial balance
         env:
-          OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
+          OMEGA_API_URL: ${{ vars.OMEGA_ISOLATED_TEST_API_URL }}
           OMEGA_SECURITY_TEST_A_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
           OMEGA_SECURITY_TEST_A_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_A_PASSWORD }}
           OMEGA_SECURITY_TEST_B_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_B_EMAIL }}
@@ -159,31 +168,31 @@ jobs:
 
       - name: Verify employee statutory privacy and draft payroll calculations
         env:
-          OMEGA_API_URL: https://omega-solutions-api-development.onrender.com/api
+          OMEGA_API_URL: ${{ vars.OMEGA_ISOLATED_TEST_API_URL }}
           OMEGA_SECURITY_TEST_A_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
           OMEGA_SECURITY_TEST_A_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_A_PASSWORD }}
           OMEGA_SECURITY_TEST_B_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_B_EMAIL }}
           OMEGA_SECURITY_TEST_B_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_B_PASSWORD }}
-          OMEGA_PAYROLL_SMOKE_CONFIRM_DEVELOPMENT: YES
+          OMEGA_LIVE_SMOKE_CONFIRM_ISOLATED_TEST_DATABASE: YES
         run: node api/scripts/live-payroll-smoke.mjs
 
   cleanup-test-tenants:
-    name: Clean up development smoke-test tenants
+    name: Clean up isolated-test smoke-test tenants
     needs: live-purchasing-smoke
-    if: ${{ always() }}
+    if: ${{ always() && inputs.acknowledge_isolated_test_database == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      OMEGA_DEVELOPMENT_DATABASE_URL: ${{ secrets.OMEGA_DEVELOPMENT_DATABASE_URL }}
+      OMEGA_ISOLATED_TEST_DATABASE_URL: ${{ secrets.OMEGA_ISOLATED_TEST_DATABASE_URL }}
     steps:
       - name: Checkout development
-        if: ${{ env.OMEGA_DEVELOPMENT_DATABASE_URL != '' }}
+        if: ${{ env.OMEGA_ISOLATED_TEST_DATABASE_URL != '' }}
         uses: actions/checkout@v4
         with:
           ref: development
 
       - name: Set up Node.js
-        if: ${{ env.OMEGA_DEVELOPMENT_DATABASE_URL != '' }}
+        if: ${{ env.OMEGA_ISOLATED_TEST_DATABASE_URL != '' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -191,17 +200,17 @@ jobs:
       - name: Use npm 11.6.0 for stable peer resolution
         run: npm install --global npm@11.6.0
       - name: Install cleanup script dependency
-        if: ${{ env.OMEGA_DEVELOPMENT_DATABASE_URL != '' }}
+        if: ${{ env.OMEGA_ISOLATED_TEST_DATABASE_URL != '' }}
         working-directory: api
         run: npm ci --ignore-scripts
 
-      - name: Clean up automated test tenants on the approved Neon development branch
-        if: ${{ env.OMEGA_DEVELOPMENT_DATABASE_URL != '' }}
+      - name: Clean up automated test tenants on the approved isolated Neon branch
+        if: ${{ env.OMEGA_ISOLATED_TEST_DATABASE_URL != '' }}
         env:
-          OMEGA_DEVELOPMENT_DATABASE_BRANCH: omega-migration-smoke-test-live
+          OMEGA_ISOLATED_TEST_DATABASE_BRANCH: ${{ vars.OMEGA_ISOLATED_TEST_DATABASE_BRANCH }}
           OMEGA_CLEANUP_TEST_TENANTS_CONFIRM: YES
         run: node api/scripts/cleanup-live-smoke-tenants.mjs
 
       - name: Report cleanup not configured
-        if: ${{ env.OMEGA_DEVELOPMENT_DATABASE_URL == '' }}
-        run: echo "::warning::Automated tenant cleanup skipped. Configure the GitHub Actions secret OMEGA_DEVELOPMENT_DATABASE_URL with the connection string for the existing omega-migration-smoke-test-live branch."
+        if: ${{ env.OMEGA_ISOLATED_TEST_DATABASE_URL == '' }}
+        run: echo "::warning::Automated tenant cleanup skipped. Configure the GitHub Actions secret OMEGA_ISOLATED_TEST_DATABASE_URL with the connection string for a disposable isolated test branch, and set OMEGA_ISOLATED_TEST_DATABASE_BRANCH to its exact branch name."

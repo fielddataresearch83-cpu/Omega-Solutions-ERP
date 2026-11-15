@@ -23,7 +23,7 @@ export function Image3D({
     <div className={cn("group relative aspect-[4/3] w-full", className)}>
       <div className="perspective-distant transform-3d">
         {/* Animated background glow */}
-        <div className="absolute sm:-inset-8 rounded-3xl bg-gradient-to-r from-primary/10 via-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-all duration-1000 blur-2xl" />
+        <div className="absolute sm:-inset-8 rounded-3xl bg-gradient-to-r from-primary/10 via-[var(--omega-ocean)]/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-all duration-1000 blur-2xl" />
 
         {/* Main 3D container */}
         <div className="relative size-full transform-3d group-hover:rotate-x-8 group-hover:rotate-y-12 group-hover:translate-z-16 transition-all duration-700 ease-out">

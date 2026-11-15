@@ -21,7 +21,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 const validDate = () => { const date = new Date(); date.setDate(date.getDate() + 14); return date.toISOString().slice(0, 10); };
 const statusLabels: Record<QuotationStatus, string> = { draft: "Draft", sent: "Sent", accepted: "Accepted", rejected: "Rejected", expired: "Expired", cancelled: "Cancelled", converted: "Converted" };
 function messageOf(error: unknown) { return error && typeof error === "object" && "message" in error ? String((error as {message: unknown}).message) : "Request failed. Please try again."; }
-function statusClass(status: QuotationStatus) { return status === "accepted" || status === "converted" ? "bg-emerald-500/10 text-emerald-700" : status === "rejected" || status === "cancelled" ? "bg-destructive/10 text-destructive" : status === "sent" ? "bg-blue-500/10 text-blue-700" : "bg-muted text-muted-foreground"; }
+function statusClass(status: QuotationStatus) { return status === "accepted" || status === "converted" ? "bg-emerald-500/10 text-emerald-700" : status === "rejected" || status === "cancelled" ? "bg-destructive/10 text-destructive" : status === "sent" ? "bg-[var(--primary)]/10 text-[var(--primary)]" : "bg-muted text-muted-foreground"; }
 
 export default function QuotationsPage() {
   const [quotations, setQuotations] = React.useState<Quotation[]>([]);

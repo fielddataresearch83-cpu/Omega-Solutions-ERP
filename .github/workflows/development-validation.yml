@@ -74,6 +74,12 @@ jobs:
           MFA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_ci_test
         run: npm test
 
+      - name: Verify PostgreSQL tenant RLS isolation
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_ci_test
+        run: npm run test:e2e -- test/tenant-rls.e2e-spec.ts test/application-rls.e2e-spec.ts --no-file-parallelism
+
       - name: Report API dependency audit findings
         working-directory: api
         run: |

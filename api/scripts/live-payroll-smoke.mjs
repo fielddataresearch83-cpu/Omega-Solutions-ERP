@@ -4,13 +4,14 @@ import { randomInt, randomUUID } from "node:crypto";
 // This creates a dedicated test tenant, employee, pay settings and an unapproved draft run.
 // It never approves or posts payroll. The created records are intentionally retained for audit.
 
-const expectedBase = "https://omega-solutions-api.onrender.com/api";
-const configuredBase = process.env.OMEGA_API_URL?.replace(/\/$/, "");
-if (process.env.OMEGA_PAYROLL_SMOKE_CONFIRM_DEVELOPMENT !== "YES") {
-  throw new Error("Refusing to run: set OMEGA_PAYROLL_SMOKE_CONFIRM_DEVELOPMENT=YES only after confirming this is the development API.");
+const configuredBase = process.env.OMEGA_API_URL?.trim()?.replace(/\/$/, "");
+if (process.env.OMEGA_LIVE_SMOKE_CONFIRM_ISOLATED_TEST_DATABASE !== "YES") {
+  throw new Error("Refusing to run: set OMEGA_LIVE_SMOKE_CONFIRM_ISOLATED_TEST_DATABASE=YES only after confirming this is an isolated disposable test database.");
 }
-if (configuredBase !== expectedBase) {
-  throw new Error(`Refusing to run against an unapproved API URL. Expected exactly ${expectedBase}.`);
+if (!configuredBase) throw new Error("OMEGA_API_URL is required; refusing to default to a shared or production API.");
+const target = new URL(configuredBase);
+if (target.protocol !== "https:" || target.pathname.replace(/\/$/, "") !== "/api" || ["omega-solutions-erp-9k9s.vercel.app", "omega-solutions-erp-9k9s-coll5.vercel.app"].includes(target.hostname) || !target.hostname.endsWith("-coll5.vercel.app")) {
+  throw new Error("OMEGA_API_URL must be an approved HTTPS development API URL ending in /api.");
 }
 const base = configuredBase;
 const stamp = Date.now();

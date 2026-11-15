@@ -17,20 +17,18 @@ async function bootstrap() {
   const corsOrigins = new Set(
     configuredOrigins.length ? configuredOrigins : ['http://localhost:5173'],
   );
-  const isVercelPreview = (origin: string): boolean => {
+  const isLocalDevelopmentOrigin = (origin: string): boolean => {
+    if (process.env.NODE_ENV === 'production') return false;
     try {
       const url = new URL(origin);
-      return url.hostname.endsWith('.vercel.app')
-        || url.hostname.endsWith('.bolt.new') || url.hostname.endsWith('.local-credentialless.webcontainer-api.io')
-        || url.hostname === 'localhost'
-        || url.hostname === '127.0.0.1';
+      return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
     } catch {
       return false;
     }
   };
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (!origin || corsOrigins.has(origin) || isVercelPreview(origin)) {
+      if (!origin || corsOrigins.has(origin) || isLocalDevelopmentOrigin(origin)) {
         callback(null, true);
         return;
       }

@@ -1,6 +1,8 @@
 name: CRM activity reminders
 
 on:
+  schedule:
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -15,17 +17,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
-      API_BASE_URL: https://omega-solutions-api-development.onrender.com
+      API_BASE_URL: ${{ vars.OMEGA_DEVELOPMENT_API_BASE_URL }}
       CRM_REMINDER_CRON_SECRET: ${{ secrets.CRM_REMINDER_CRON_SECRET }}
     steps:
       - name: Dispatch development CRM reminders
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$CRM_REMINDER_CRON_SECRET" ]]; then
-            echo "::warning::CRM_REMINDER_CRON_SECRET is not configured; no reminder dispatch was attempted."
+          if [[ -z "$API_BASE_URL" || -z "$CRM_REMINDER_CRON_SECRET" ]]; then
+            echo "::warning::API_BASE_URL or CRM_REMINDER_CRON_SECRET is not configured; no reminder dispatch was attempted."
             exit 0
           fi
+          node --input-type=module -e '
+            const url = new URL(process.env.API_BASE_URL);
+            if (url.protocol !== "https:" || !url.hostname.endsWith("-coll5.vercel.app") || url.hostname.includes("production")) {
+              throw new Error("CRM reminders may only target an HTTPS Vercel Preview deployment.");
+            }
+          '
           curl --fail-with-body --silent --show-error \
             --retry 2 --retry-delay 5 --max-time 45 \
             -X POST \

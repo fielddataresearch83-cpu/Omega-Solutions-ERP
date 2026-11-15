@@ -3,11 +3,14 @@ import { ProjectsService } from './projects.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
+import { RequireModule } from '../subscriptions/require-module.decorator.js';
+import { ModuleEntitlementsGuard } from '../subscriptions/module-entitlements.guard.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import { CreateProjectDto, CreateProjectEventDto, CreateProjectTaskDto, UpdateProjectDto, UpdateProjectEventDto, UpdateProjectTaskDto } from './dto/projects.dto.js';
 
 @Controller('projects')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+@RequireModule('core')
+@UseGuards(JwtAuthGuard, PermissionsGuard, ModuleEntitlementsGuard)
 export class ProjectsController {
   constructor(private readonly projects: ProjectsService) {}
   @Get('members') @RequirePermissions('projects:read')
@@ -26,7 +29,7 @@ export class ProjectsController {
   updateTask(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Body() dto:UpdateProjectTaskDto){return this.projects.updateTask(req.user,id,dto);}
   @Get('events') @RequirePermissions('projects:read')
   listEvents(@Req() req:{user:AuthenticatedUser},@Query('from') from?:string,@Query('to') to?:string){return this.projects.listEvents(req.user,from,to);}
-  @Post('events/reminders/dispatch') @RequirePermissions('projects:read')
+  @Post('events/reminders/dispatch') @RequirePermissions('projects:write')
   dispatchEventReminders(@Req() req:{user:AuthenticatedUser}){return this.projects.dispatchEventReminders(req.user);}
   @Post('events') @RequirePermissions('projects:write')
   createEvent(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateProjectEventDto){return this.projects.createEvent(req.user,dto);}

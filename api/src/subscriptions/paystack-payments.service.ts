@@ -41,7 +41,7 @@ export class PaystackPaymentsService {
     // charging real customers from the development API.
     if (mode !== 'test') {
       throw new ServiceUnavailableException(
-        'Paystack configuration check failed: the development API process does not see PAYSTACK_MODE=test. Verify the variable is saved on the omega-solutions-api-development Render service and restart/redeploy that service.',
+        'Paystack configuration check failed: the development API process does not see PAYSTACK_MODE=test. Verify the variable is configured in the API deployment environment and redeploy the development API.',
       );
     }
     if (!key) {

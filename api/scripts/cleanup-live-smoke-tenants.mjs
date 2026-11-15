@@ -1,12 +1,12 @@
 import pg from "pg";
 
 const { Pool } = pg;
-const databaseUrl = process.env.OMEGA_DEVELOPMENT_DATABASE_URL;
-const approvedBranch = process.env.OMEGA_DEVELOPMENT_DATABASE_BRANCH;
+const databaseUrl = process.env.OMEGA_ISOLATED_TEST_DATABASE_URL;
+const approvedBranch = process.env.OMEGA_ISOLATED_TEST_DATABASE_BRANCH;
 
-if (!databaseUrl) throw new Error("OMEGA_DEVELOPMENT_DATABASE_URL is required.");
-if (approvedBranch !== "omega-migration-smoke-test-live") {
-  throw new Error("Refusing cleanup: OMEGA_DEVELOPMENT_DATABASE_BRANCH must exactly equal omega-migration-smoke-test-live.");
+if (!databaseUrl) throw new Error("OMEGA_ISOLATED_TEST_DATABASE_URL is required.");
+if (!approvedBranch || !/^omega-erp-e2e-[a-z0-9-]+$/.test(approvedBranch)) {
+  throw new Error("Refusing cleanup: OMEGA_ISOLATED_TEST_DATABASE_BRANCH must be a disposable omega-erp-e2e-* branch. Shared Development and Production branches are forbidden.");
 }
 if (process.env.OMEGA_CLEANUP_TEST_TENANTS_CONFIRM !== "YES") {
   throw new Error("Refusing cleanup without OMEGA_CLEANUP_TEST_TENANTS_CONFIRM=YES.");

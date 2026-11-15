@@ -1,0 +1,47 @@
+name: Project calendar event reminders
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omega-project-event-reminders-development
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Dispatch development project event reminders
+        env:
+          OMEGA_API_URL: ${{ vars.OMEGA_DEVELOPMENT_API_URL }}
+          PROJECT_EVENT_REMINDER_CRON_SECRET: ${{ secrets.PROJECT_EVENT_REMINDER_CRON_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$OMEGA_API_URL" || -z "$PROJECT_EVENT_REMINDER_CRON_SECRET" ]]; then
+            echo "::error::Set OMEGA_DEVELOPMENT_API_URL and PROJECT_EVENT_REMINDER_CRON_SECRET before enabling reminder delivery."
+            exit 1
+          fi
+          node --input-type=module -e '
+            const url = new URL(process.env.OMEGA_API_URL);
+            if (
+              url.protocol !== "https:" ||
+              url.hostname !== "omega-solutions-erp-9k9s-git-development-coll5.vercel.app" ||
+              url.pathname !== "/api" ||
+              url.username || url.password || url.search || url.hash
+            ) {
+              throw new Error("Refusing an unapproved target. OMEGA_DEVELOPMENT_API_URL must point to the exact Development API deployment URL ending in /api.");
+            }
+            console.log("Development reminder endpoint:", url.origin + url.pathname);
+          '
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 5 --max-time 45 \
+            -X POST \
+            -H "x-cron-secret: $PROJECT_EVENT_REMINDER_CRON_SECRET" \
+            "$OMEGA_API_URL/internal/project-event-reminders/dispatch"

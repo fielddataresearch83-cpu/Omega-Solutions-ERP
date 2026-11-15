@@ -1,4 +1,8 @@
-const base = (process.env.OMEGA_API_URL || "https://omega-solutions-api-development.onrender.com/api").replace(/\/$/, "");
+const configuredBase = process.env.OMEGA_API_URL?.trim();
+if (!configuredBase) throw new Error("OMEGA_API_URL is required; refusing to default to a shared or production API.");
+const base = configuredBase.replace(/\/$/, "");
+const target = new URL(base);
+if (target.protocol !== "https:" || target.pathname.replace(/\/$/, "") !== "/api" || ["omega-solutions-erp-9k9s.vercel.app", "omega-solutions-erp-9k9s-coll5.vercel.app"].includes(target.hostname) || !target.hostname.endsWith("-coll5.vercel.app")) throw new Error("OMEGA_API_URL must be an approved HTTPS development API URL ending in /api.");
 const endpoint = `${base}/health`;
 let lastError;
 for (let attempt = 1; attempt <= 3; attempt += 1) {

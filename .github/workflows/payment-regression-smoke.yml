@@ -4,6 +4,12 @@ on:
   # This smoke test creates persistent invoices, payments, supplier bills and POS records.
   # Run manually only when its data impact and cleanup plan have been reviewed.
   workflow_dispatch:
+    inputs:
+      acknowledge_isolated_test_database:
+        description: "I confirm the isolated-test API is connected to a disposable database, not shared Development or Production."
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -14,15 +20,18 @@ concurrency:
 
 jobs:
   payment-regression:
+    if: ${{ inputs.acknowledge_isolated_test_database == true }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      OMEGA_LIVE_SMOKE_CONFIRM_ISOLATED_TEST_DATABASE: YES
     steps:
       - uses: actions/checkout@v4
         with:
           ref: development
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: "22"
       - name: Verify required test credentials are configured
         env:
           OMEGA_SECURITY_TEST_A_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
@@ -40,14 +49,14 @@ jobs:
           exit "$missing"
       - name: Validate explicit development API target
         env:
-          # Prefer configured GitHub Actions values; use the verified Render development service if none is configured.
-          OMEGA_API_URL: ${{ vars.OMEGA_DEVELOPMENT_API_URL || secrets.OMEGA_DEVELOPMENT_API_URL || 'https://omega-solutions-api-development.onrender.com/api' }}
+          # Use the explicitly configured development API URL; there is no fallback target.
+          OMEGA_API_URL: ${{ vars.OMEGA_ISOLATED_TEST_API_URL }}
         run: |
-          node --input-type=module -e 'const value=process.env.OMEGA_API_URL; if (!value) throw new Error("No development API URL is configured; refusing to run."); const url=new URL(value); if (url.hostname === "omega-solutions-api.onrender.com") throw new Error("Production API URL is forbidden in development smoke tests."); if (url.hostname !== "omega-solutions-api-development.onrender.com" && url.hostname !== "omega-solutions-api-preview.onrender.com" && !url.pathname.endsWith("/api")) throw new Error("Unexpected development API target."); if (!url.pathname.endsWith("/api") && !url.pathname.endsWith("/api/")) throw new Error("Development API URL must end in /api."); console.log("Development API target configured:", url.origin + url.pathname);'
+          node --input-type=module -e 'const value=process.env.OMEGA_API_URL; if (!value) throw new Error("OMEGA_ISOLATED_TEST_API_URL repository variable is required; refusing to run."); const url=new URL(value); if (url.protocol !== "https:" || !url.hostname.endsWith("-coll5.vercel.app") || ["omega-solutions-erp-9k9s.vercel.app", "omega-solutions-erp-9k9s-coll5.vercel.app"].includes(url.hostname) || !url.pathname.replace(/\/$/, "").endsWith("/api")) throw new Error("API target must be an isolated Vercel Preview deployment ending in /api."); console.log("Isolated test API target configured:", url.origin + url.pathname);'
 
       - name: Run authenticated payment regression against development API
         env:
-          OMEGA_API_URL: ${{ vars.OMEGA_DEVELOPMENT_API_URL || secrets.OMEGA_DEVELOPMENT_API_URL || 'https://omega-solutions-api-development.onrender.com/api' }}
+          OMEGA_API_URL: ${{ vars.OMEGA_ISOLATED_TEST_API_URL }}
           OMEGA_SECURITY_TEST_A_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_A_EMAIL }}
           OMEGA_SECURITY_TEST_A_PASSWORD: ${{ secrets.OMEGA_SECURITY_TEST_A_PASSWORD }}
           OMEGA_SECURITY_TEST_B_EMAIL: ${{ secrets.OMEGA_SECURITY_TEST_B_EMAIL }}

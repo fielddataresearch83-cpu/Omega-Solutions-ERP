@@ -25,13 +25,13 @@ describe('MembershipsService', () => {
   describe('getMembership', () => {
     it('returns the only active company membership for a user', async () => {
       db.query.mockResolvedValue({
-        rows: [{ company_id: 'comp-1', branch_id: null, role: 'owner' }],
+        rows: [{ company_id: 'comp-1', branch_id: null, role: 'owner', company_timezone: 'Africa/Nairobi' }],
         rowCount: 1,
       });
 
       const result = await service.getMembership('user-1');
 
-      expect(result).toEqual({ companyId: 'comp-1', branchId: null, role: 'owner' });
+      expect(result).toEqual({ companyId: 'comp-1', branchId: null, role: 'owner', timezone: 'Africa/Nairobi' });
     });
 
     it('throws when multiple active company memberships require explicit selection', async () => {
@@ -60,13 +60,13 @@ describe('MembershipsService', () => {
   describe('getMembershipForCompany', () => {
     it('returns membership when user belongs to the requested company', async () => {
       db.query.mockResolvedValue({
-        rows: [{ company_id: 'comp-1', branch_id: 'br-1', role: 'admin' }],
+        rows: [{ company_id: 'comp-1', branch_id: 'br-1', role: 'admin', company_timezone: 'Africa/Nairobi' }],
         rowCount: 1,
       });
 
       const result = await service.getMembershipForCompany('user-1', 'comp-1');
 
-      expect(result).toEqual({ companyId: 'comp-1', branchId: 'br-1', role: 'admin' });
+      expect(result).toEqual({ companyId: 'comp-1', branchId: 'br-1', role: 'admin', timezone: 'Africa/Nairobi' });
       expect(db.query).toHaveBeenCalledWith(
         expect.stringContaining('cm.user_id = $1 AND cm.company_id = $2 AND cm.is_active = true'),
         ['user-1', 'comp-1'],
@@ -121,7 +121,7 @@ describe('MembershipsService', () => {
   describe('requireOwnerOrAdmin', () => {
     it('passes for owner', async () => {
       db.query.mockResolvedValue({
-        rows: [{ company_id: 'comp-1', branch_id: null, role: 'owner' }],
+        rows: [{ company_id: 'comp-1', branch_id: null, role: 'owner', company_timezone: 'Africa/Nairobi' }],
         rowCount: 1,
       });
 

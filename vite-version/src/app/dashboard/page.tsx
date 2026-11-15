@@ -254,13 +254,13 @@ export default function Page() {
   return (
     <BaseLayout>
       <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-7 px-4 pb-8 pt-3 sm:px-6 lg:gap-8 lg:px-8">
-        <section className="relative isolate overflow-hidden rounded-[1.65rem] bg-[#142746] px-5 py-6 text-white shadow-[0_16px_44px_rgb(20_39_70/0.18)] sm:px-8 sm:py-8 lg:px-9">
+        <section className="relative isolate overflow-hidden rounded-[1.65rem] bg-[var(--omega-deep)] px-5 py-6 text-white shadow-[0_16px_44px_rgb(20_39_70/0.18)] sm:px-8 sm:py-8 lg:px-9">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_82%_10%,rgb(107_150_255/0.25),transparent_35%),radial-gradient(ellipse_at_8%_100%,rgb(36_107_253/0.20),transparent_42%)]" />
           <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-28 -z-10 size-[22rem] rounded-full border border-white/[0.07]" />
           <div aria-hidden="true" className="pointer-events-none absolute -right-2 -top-14 -z-10 size-[17rem] rounded-full border border-white/[0.07]" />
           <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
             <div className="max-w-2xl">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-300/25 bg-blue-300/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.17em] text-blue-200">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[var(--omega-sky)]/25 bg-[var(--omega-sky)]/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.17em] text-[var(--omega-sky)]">
                 <Sparkles className="size-3.5" /> Business overview
               </div>
               <p className="text-sm font-medium text-slate-300">{today}</p>
@@ -273,7 +273,7 @@ export default function Page() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {canReadSales && (
-                <Link to="/invoices" className={buttonVariants({ className: "h-10 rounded-xl border border-blue-300/30 bg-blue-400 px-4 text-xs font-bold text-[#142746] shadow-lg shadow-blue-950/15 hover:bg-blue-300" })}>
+                <Link to="/invoices" className={buttonVariants({ className: "h-10 rounded-xl border border-[var(--omega-sky)]/30 bg-[var(--omega-ocean)] px-4 text-xs font-bold text-[var(--omega-deep)] shadow-lg shadow-[0_16px_44px_rgba(2,48,71,0.15)] hover:bg-[var(--omega-sky)]" })}>
                   <FilePlus2 className="mr-2 size-4" /> Create invoice
                 </Link>
               )}
@@ -286,15 +286,15 @@ export default function Page() {
           </div>
           <div className="mt-7 grid grid-cols-1 gap-3 border-t border-white/10 pt-5 sm:grid-cols-3">
             <div className="flex items-center gap-3">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-blue-200"><CalendarDays className="size-4" /></span>
+              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-[var(--omega-sky)]"><CalendarDays className="size-4" /></span>
               <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Workspace</p><p className="mt-0.5 text-xs font-semibold text-white">{company?.name ?? "Your company"}</p></div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-blue-200"><TrendingUp className="size-4" /></span>
+              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-[var(--omega-sky)]"><TrendingUp className="size-4" /></span>
               <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Reporting currency</p><p className="mt-0.5 text-xs font-semibold text-white">{currency}</p></div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-blue-200"><CheckCircle2 className="size-4" /></span>
+              <span className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-[var(--omega-sky)]"><CheckCircle2 className="size-4" /></span>
               <div><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Data scope</p><p className="mt-0.5 text-xs font-semibold text-white">Current company</p></div>
             </div>
           </div>
@@ -439,7 +439,7 @@ export default function Page() {
               <CardHeader className="border-b border-border/70 px-5 pb-4 pt-5"><CardTitle className="text-sm font-bold">Quick actions</CardTitle><CardDescription className="mt-1.5 text-xs">Shortcuts to your everyday work</CardDescription></CardHeader>
               <CardContent className="divide-y divide-border/70 px-5 py-1">
                 {canReadSales && <Link to="/invoices" className="group flex items-center gap-3 rounded-xl py-3.5 transition hover:bg-muted/70"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><ReceiptText className="size-[18px]" /></span><span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Sales invoices</span><span className="mt-1 block text-[10px] text-muted-foreground">Manage customer billing</span></span><ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" /></Link>}
-                {canReadCustomers && <Link to="/customers" className="group flex items-center gap-3 rounded-xl py-3.5 transition hover:bg-muted/70"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400"><Users className="size-[18px]" /></span><span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Manage customers</span><span className="mt-1 block text-[10px] text-muted-foreground">Open your customer directory</span></span><ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" /></Link>}
+                {canReadCustomers && <Link to="/customers" className="group flex items-center gap-3 rounded-xl py-3.5 transition hover:bg-muted/70"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--omega-ocean)]/10 text-[var(--primary)] dark:text-[var(--omega-sky)]"><Users className="size-[18px]" /></span><span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Manage customers</span><span className="mt-1 block text-[10px] text-muted-foreground">Open your customer directory</span></span><ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" /></Link>}
                 {canReadProcurement && <Link to="/suppliers" className="group flex items-center gap-3 rounded-xl py-3.5 transition hover:bg-muted/70"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400"><BriefcaseBusiness className="size-[18px]" /></span><span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Manage suppliers</span><span className="mt-1 block text-[10px] text-muted-foreground">Review supplier records</span></span><ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" /></Link>}
                 {canReadProducts && <Link to="/products" className="group flex items-center gap-3 rounded-xl py-3.5 transition hover:bg-muted/70"><span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400"><Boxes className="size-[18px]" /></span><span className="min-w-0 flex-1"><span className="block text-xs font-bold text-foreground">Product catalogue</span><span className="mt-1 block text-[10px] text-muted-foreground">Check products and stock levels</span></span><ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-primary" /></Link>}
                 {!canReadSales && !canReadCustomers && !canReadProcurement && !canReadProducts && <p className="py-5 text-xs leading-relaxed text-muted-foreground">No quick actions are available for the current role and enabled modules.</p>}
@@ -472,7 +472,7 @@ export default function Page() {
                 </CardContent>
               </Panel>
               <Panel className="relative">
-                <div aria-hidden className="pointer-events-none absolute -right-8 -top-12 size-40 rounded-full bg-sky-500/[0.06] blur-3xl" />
+                <div aria-hidden className="pointer-events-none absolute -right-8 -top-12 size-40 rounded-full bg-[var(--omega-ocean)]/[0.06] blur-3xl" />
                 <CardContent className="relative p-5">
                   <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Collected payments</p>
                   <p className="mt-3 break-words text-2xl font-bold tracking-[-0.045em] text-foreground sm:text-3xl">{formatCompanyCurrency(sales.currentPeriodCollected)}</p>

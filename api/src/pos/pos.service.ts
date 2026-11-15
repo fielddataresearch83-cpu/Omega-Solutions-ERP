@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
+import { businessDateAt } from '../common/business-date.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
@@ -216,7 +217,7 @@ export class PosService {
   async checkout(user:AuthenticatedUser,dto:PosCheckoutDto) {
     const membership=await this.company(user);
     const {companyId,branchId}=membership;
-    const today=new Date().toISOString().slice(0,10);
+    const today=businessDateAt(membership.timezone ?? 'Africa/Nairobi');
     const totals=await this.db.transaction(async client=>{
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[dto.requestId]);
       const prior=await client.query<{

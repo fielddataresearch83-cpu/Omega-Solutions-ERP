@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
+import { businessDateAt } from '../common/business-date.js';
 import type { PoolClient } from 'pg';
 import { MembershipsService } from '../memberships/memberships.service.js';
 import { AuditService } from '../audit/audit.service.js';
@@ -29,7 +30,7 @@ const DEFAULT_ACCOUNTS = [
  {code:'4000',name:'Sales Revenue',type:'income',side:'credit',system:'sales_revenue',cashFlowCategory:'operating'},
  {code:'5000',name:'Purchases and Cost of Goods',type:'expense',side:'debit',system:'purchases_expense',cashFlowCategory:'operating'},
  {code:'5100',name:'Operating Expenses',type:'expense',side:'debit',system:'operating_expense',cashFlowCategory:'operating'},
- {code:'5200',name:'Depreciation Expense',type:'expense',side:'debit',system:'depreciation_expense',cashFlowCategory:'operating'},
+ {code:'5220',name:'Depreciation Expense',type:'expense',side:'debit',system:'depreciation_expense',cashFlowCategory:'operating'},
  {code:'4300',name:'Gain on Disposal of Fixed Assets',type:'income',side:'credit',system:'fixed_asset_disposal_gain',cashFlowCategory:'investing'},
  {code:'5300',name:'Loss on Disposal of Fixed Assets',type:'expense',side:'debit',system:'fixed_asset_disposal_loss',cashFlowCategory:'investing'}
 ] as const;
@@ -74,6 +75,7 @@ export class AccountingService {
  async trialBalance(user:AuthenticatedUser,asOfDate?:string){
   const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
   const {companyId}=membership;
+  const effectiveAsOfDate=asOfDate??businessDateAt(membership.timezone ?? 'Africa/Nairobi');
   const validDate=(value:string)=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value+'T00:00:00Z'))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
   if(asOfDate&&!validDate(asOfDate))throw new BadRequestException('asOfDate must be a valid YYYY-MM-DD date.');
   const result=await this.db.query<{id:string;code:string;name:string;account_type:string;normal_side:string;total_debits:string|number;total_credits:string|number;debit_balance:string|number;credit_balance:string|number}>(`SELECT a.id,a.code,a.name,a.account_type,a.normal_side,
@@ -87,16 +89,17 @@ export class AccountingService {
       AND ($2::date IS NULL OR j.entry_date <= $2::date)
     WHERE a.company_id=$1
     GROUP BY a.id
-    ORDER BY a.code`,[companyId,asOfDate??null]);
+    ORDER BY a.code`,[companyId,effectiveAsOfDate]);
   const accounts=result.rows.map(row=>({...row,total_debits:Number(row.total_debits),total_credits:Number(row.total_credits),debit_balance:Number(row.debit_balance),credit_balance:Number(row.credit_balance)}));
   const totalDebits=Math.round(accounts.reduce((sum,row)=>sum+row.debit_balance,0)*100)/100;
   const totalCredits=Math.round(accounts.reduce((sum,row)=>sum+row.credit_balance,0)*100)/100;
   const variance=Math.round((totalDebits-totalCredits)*100)/100;
-  return {companyId,asOfDate:asOfDate??new Date().toISOString().slice(0,10),accounts,totalDebits,totalCredits,variance,balanced:Math.abs(variance)<=0.01};
+  return {companyId,asOfDate:effectiveAsOfDate,accounts,totalDebits,totalCredits,variance,balanced:Math.abs(variance)<=0.01};
  }
  async payablesReconciliation(user:AuthenticatedUser){
   const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
   const {companyId}=membership;
+  const asOf=businessDateAt(membership.timezone ?? 'Africa/Nairobi');
   const [control,subledger,aging]=await this.db.transaction(async client=>{
    await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
    return Promise.all([
@@ -107,21 +110,22 @@ export class AccountingService {
    client.query(`SELECT COALESCE(SUM(b.total-b.paid_amount),0)::numeric(14,2) AS balance
     FROM supplier_bills b WHERE b.company_id=$1 AND b.status<>'void'`,[companyId]),
    client.query(`SELECT
-    COALESCE(SUM(CASE WHEN b.due_date IS NULL OR b.due_date>=CURRENT_DATE THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS current,
-    COALESCE(SUM(CASE WHEN b.due_date<CURRENT_DATE AND b.due_date>=CURRENT_DATE-30 THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS days_1_to_30,
-    COALESCE(SUM(CASE WHEN b.due_date<CURRENT_DATE-30 AND b.due_date>=CURRENT_DATE-60 THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS days_31_to_60,
-    COALESCE(SUM(CASE WHEN b.due_date<CURRENT_DATE-60 THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS days_61_plus
-    FROM supplier_bills b WHERE b.company_id=$1 AND b.status<>'void'`,[companyId])
+    COALESCE(SUM(CASE WHEN b.due_date IS NULL OR b.due_date>=$2::date THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS current,
+    COALESCE(SUM(CASE WHEN b.due_date<$2::date AND b.due_date>=($2::date-30) THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS days_1_to_30,
+    COALESCE(SUM(CASE WHEN b.due_date<($2::date-30) AND b.due_date>=($2::date-60) THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS days_31_to_60,
+    COALESCE(SUM(CASE WHEN b.due_date<($2::date-60) THEN b.total-b.paid_amount ELSE 0 END),0)::numeric(14,2) AS days_61_plus
+    FROM supplier_bills b WHERE b.company_id=$1 AND b.status<>'void'`,[companyId,asOf])
    ]);
   });
   const controlBalance=Number(control.rows[0]?.balance??0),billBalance=Number(subledger.rows[0]?.balance??0);
   const variance=Math.round((controlBalance-billBalance)*100)/100;
-  return {companyId,asOf:new Date().toISOString().slice(0,10),controlAccountBalance:controlBalance,supplierBillsBalance:billBalance,variance,reconciled:Math.abs(variance)<=0.01,ageing:{current:Number(aging.rows[0]?.current??0),days1to30:Number(aging.rows[0]?.days_1_to_30??0),days31to60:Number(aging.rows[0]?.days_31_to_60??0),days61plus:Number(aging.rows[0]?.days_61_plus??0)}};
+  return {companyId,asOf,controlAccountBalance:controlBalance,supplierBillsBalance:billBalance,variance,reconciled:Math.abs(variance)<=0.01,ageing:{current:Number(aging.rows[0]?.current??0),days1to30:Number(aging.rows[0]?.days_1_to_30??0),days31to60:Number(aging.rows[0]?.days_31_to_60??0),days61plus:Number(aging.rows[0]?.days_61_plus??0)}};
  }
 
  async receivablesReconciliation(user:AuthenticatedUser){
   const membership=await this.companyFor(user);this.assertCompanyWideAccounting(membership);
   const {companyId}=membership;
+  const asOf=businessDateAt(membership.timezone ?? 'Africa/Nairobi');
   const [control,subledger,aging]=await this.db.transaction(async client=>{
    await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
    return Promise.all([
@@ -132,16 +136,16 @@ export class AccountingService {
    client.query(`SELECT COALESCE(SUM(GREATEST(i.total-i.amount_paid-i.credited_amount,0)),0)::numeric(14,2) AS balance
     FROM invoices i WHERE i.company_id=$1 AND i.status NOT IN ('draft','cancelled')`,[companyId]),
    client.query(`SELECT
-    COALESCE(SUM(CASE WHEN i.due_date>=CURRENT_DATE THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS current,
-    COALESCE(SUM(CASE WHEN i.due_date<CURRENT_DATE AND i.due_date>=CURRENT_DATE-30 THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS days_1_to_30,
-    COALESCE(SUM(CASE WHEN i.due_date<CURRENT_DATE-30 AND i.due_date>=CURRENT_DATE-60 THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS days_31_to_60,
-    COALESCE(SUM(CASE WHEN i.due_date<CURRENT_DATE-60 THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS days_61_plus
-    FROM invoices i WHERE i.company_id=$1 AND i.status NOT IN ('draft','cancelled')`,[companyId])
+    COALESCE(SUM(CASE WHEN i.due_date>=$2::date THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS current,
+    COALESCE(SUM(CASE WHEN i.due_date<$2::date AND i.due_date>=($2::date-30) THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS days_1_to_30,
+    COALESCE(SUM(CASE WHEN i.due_date<($2::date-30) AND i.due_date>=($2::date-60) THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS days_31_to_60,
+    COALESCE(SUM(CASE WHEN i.due_date<($2::date-60) THEN GREATEST(i.total-i.amount_paid-i.credited_amount,0) ELSE 0 END),0)::numeric(14,2) AS days_61_plus
+    FROM invoices i WHERE i.company_id=$1 AND i.status NOT IN ('draft','cancelled')`,[companyId,asOf])
    ]);
   });
   const controlBalance=Number(control.rows[0]?.balance??0),invoiceBalance=Number(subledger.rows[0]?.balance??0);
   const variance=Math.round((controlBalance-invoiceBalance)*100)/100;
-  return {companyId,asOf:new Date().toISOString().slice(0,10),controlAccountBalance:controlBalance,customerInvoicesBalance:invoiceBalance,variance,reconciled:Math.abs(variance)<=0.01,ageing:{current:Number(aging.rows[0]?.current??0),days1to30:Number(aging.rows[0]?.days_1_to_30??0),days31to60:Number(aging.rows[0]?.days_31_to_60??0),days61plus:Number(aging.rows[0]?.days_61_plus??0)}};
+  return {companyId,asOf,controlAccountBalance:controlBalance,customerInvoicesBalance:invoiceBalance,variance,reconciled:Math.abs(variance)<=0.01,ageing:{current:Number(aging.rows[0]?.current??0),days1to30:Number(aging.rows[0]?.days_1_to_30??0),days31to60:Number(aging.rows[0]?.days_31_to_60??0),days61plus:Number(aging.rows[0]?.days_61_plus??0)}};
  }
 
 
@@ -440,7 +444,7 @@ export class AccountingService {
      VALUES($1,$2,$3::date,$4,'fixed_asset_depreciation',NULL,'posted',NOW(),$5) RETURNING id`,
     [companyId,entryNumber,periodEnd,`Monthly depreciation - ${asset.asset_code} - ${asset.name}`,user.userId],
    );
-   const depreciation=await client.query<{id:string}>(
+   await client.query<{id:string}>(
     `INSERT INTO fixed_asset_depreciation(company_id,asset_id,period_end,depreciation_amount,journal_entry_id,posted_by)
      VALUES($1,$2,$3::date,$4,$5,$6) RETURNING id`,
     [companyId,id,periodEnd,amount,journal.rows[0].id,user.userId],
@@ -832,7 +836,7 @@ export class AccountingService {
   const membership = await this.companyFor(user);
   this.assertCompanyWideAccounting(membership);
   const { companyId } = membership;
-  const entryDate = this.validateDate(reversalDate ?? new Date().toISOString().slice(0, 10), 'reversalDate');
+  const entryDate = this.validateDate(reversalDate ?? businessDateAt(membership.timezone ?? 'Africa/Nairobi'), 'reversalDate');
   const reversalId = await this.db.transaction(async client => {
    const originalResult = await client.query<{
     id: string; entry_number: string; description: string; source_type: string | null; status: string; reversal_journal_id: string | null;
