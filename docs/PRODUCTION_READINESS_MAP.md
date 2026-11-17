@@ -5,7 +5,7 @@
 > Repository: [fielddataresearch83-cpu/Omega-Solutions-ERP](https://github.com/fielddataresearch83-cpu/Omega-Solutions-ERP)
 > Source repository `pestria72-code/Omega-Solutions` is not to be modified.  
 > Working branch: `development` only  
-> Current workspace HEAD: `c302e6f29dc2c23cd5e81277d8ff3c579a0ebfc3` (2026-11-15; working tree contains pre-existing uncommitted changes; not pushed or CI-verified)
+> Current workspace HEAD: `0f3adcb48ac2993b6bf5a68d8c2361dc70b139fe` (2026-11-17 audit; two local commits ahead of `origin/development`; company-timezone DTO validation remains uncommitted)
 > Status: **AUDIT IN PROGRESS — not approved for production**
 
 ## Operating rules
@@ -46,7 +46,7 @@
 
 **Last completed task (2026-11-15):** Consolidated API workflow review across sales, procurement, inventory/POS, accounting, payroll, manufacturing and projects; added company-switch authorization regression tests and an application RLS test wired into development CI; implemented company-timezone-aware business dates for POS, payroll, accounting and workforce. API unit suite: 557 passed, 2 PostgreSQL-dependent tests skipped; API lint/build passed. No production, shared Neon, Vercel or business data was changed.
 
-**Next task:** Run the newly wired RLS suite in disposable PostgreSQL CI once a development push is explicitly authorized; local PostgreSQL and Docker are unavailable in the current workspace, so skipped tests are not evidence of RLS success. Then add isolated PostgreSQL API E2E workflows for sales-to-cash, procure-to-pay, POS stock/accounting, payroll posting/remittance and manufacturing. Preserve all existing working-tree changes; do not push, deploy or touch shared/production databases without explicit authorization.
+**Next task (updated 2026-11-17):** Safely publish the two validated local commits plus the uncommitted timezone DTO validation to the existing `development` branch only, after confirming Vercel Production protection and GitHub remote head. Then require the PostgreSQL RLS CI job to execute and pass (not skip). Follow with isolated PostgreSQL API E2E workflows for sales-to-cash, procure-to-pay, POS stock/accounting, payroll posting/remittance and manufacturing. Preserve all existing working-tree changes; do not force-push, create branches, deploy to Production or touch shared/production databases.
 
 **Current branch:** `development` (existing branch only). No new branches.
 
@@ -430,3 +430,26 @@ At the end of each work session, update this block:
 - **Correction to the 2026-10-29 DB-03/FIND-21 note:** a broader read-only `pg_indexes` query confirms that both POS partial unique indexes `uq_pos_one_open_shift_per_register` and `uq_pos_one_open_shift_per_cashier_company` are present and match migration 030's declared keys/predicates. The earlier targeted query's “absent” result was incomplete; do not treat these two indexes as a schema gap or attempt to create them.
 - The tax snapshot and credit-note link columns remain absent from the inspected schema, and `supplier_bills_supplier_invoice_number_unique` remains absent. The 18 migration-ledger gaps remain unresolved. No database writes or deployments were performed.
 - Follow-up details are recorded in [the schema reconciliation plan](https://github.com/pestria72-code/Omega-Solutions/blob/development/docs/DEVELOPMENT_SCHEMA_RECONCILIATION_PLAN.md). The full catalog output was truncated, so exact all-object reconciliation is still outstanding.
+
+
+## Latest checkpoint audit — 2026-11-17
+
+**Workspace and Git state**
+- Workspace HEAD: `0f3adcb48ac2993b6bf5a68d8c2361dc70b139fe` (`Complete development workflow hardening and timezone support`).
+- `origin/development` at last fetch: `ea130a9219fd12105347157bbfdd3d0a2bfa5048`; workspace is two commits ahead.
+- Two local commits are present: `c302e6f2` (Midnight ERP UI design system) and `0f3adcb4` (development workflow hardening and timezone support).
+- Preserved uncommitted files: modified `api/src/companies/dto/company.dto.ts` and new `api/src/companies/dto/company.dto.spec.ts` (valid/invalid IANA timezone validation). No deletions were reported.
+- No push, deployment, migration, shared Neon write or Production change was performed during this audit.
+
+**Validation evidence**
+- API unit suite: **559 passed, 2 skipped**; 70 test files passed and 1 skipped (71 total).
+- API lint (`oxlint src/ test/`): passed, zero warnings/errors.
+- API production build (`nest build`): passed.
+- Frontend lint (`eslint .`): passed.
+- Frontend production build (`tsc -b && vite build`): passed; 3,815 modules transformed.
+- `git diff --check`: passed.
+- PostgreSQL RLS E2E invocation exited successfully but **all 7 tests were skipped** because no disposable local PostgreSQL `DATABASE_URL` was available. This is not evidence that tenant isolation/RLS passes.
+
+**Readiness decision**
+- The local code-quality gate is green, but this checkpoint is **not production-ready**. P0 remains: execute and pass tenant-isolation/RLS tests against disposable PostgreSQL in CI, then add PostgreSQL-backed critical workflow E2E coverage. P1 remains: live Preview acceptance for dashboard, company/branch context, navigation and Inventory.
+- Do not treat skipped PostgreSQL tests as passing. Keep Production and its database untouched.

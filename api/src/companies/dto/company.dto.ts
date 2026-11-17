@@ -13,6 +13,7 @@ import {
   Min,
   Max,
   ValidateIf,
+  IsTimeZone,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -53,6 +54,7 @@ export class CreateCompanyDto {
 
   @IsString()
   @MaxLength(50)
+  @IsTimeZone()
   @IsOptional()
   timezone?: string;
 
@@ -126,6 +128,7 @@ export class UpdateCompanyDto {
 
   @IsString()
   @MaxLength(50)
+  @IsTimeZone()
   @IsOptional()
   timezone?: string;
 
