@@ -8,7 +8,7 @@ const suite = describe.skipIf(!connectionString);
 
 suite('MfaService recovery-code PostgreSQL concurrency', () => {
   const pool = new Pool({ connectionString });
-  const userId = `mfa-concurrency-${randomUUID()}`;
+  const userId = randomUUID();
   let service: MfaService;
 
   beforeAll(async () => {
@@ -24,6 +24,11 @@ suite('MfaService recovery-code PostgreSQL concurrency', () => {
         updated_at timestamptz NOT NULL DEFAULT NOW()
       )
     `);
+    await pool.query(
+      `INSERT INTO public.users (id, email, password_hash, full_name)
+       VALUES ($1, $2, 'mfa-test-placeholder', 'MFA concurrency test')`,
+      [userId, `${userId}@example.test`],
+    );
     service = new MfaService({
       query: async (sql: string, params?: unknown[]) => {
         const result = await pool.query(sql, params as any[]);
@@ -33,7 +38,7 @@ suite('MfaService recovery-code PostgreSQL concurrency', () => {
   });
 
   afterAll(async () => {
-    await pool.query('DELETE FROM public.user_mfa WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM public.users WHERE id = $1', [userId]);
     await pool.end();
   });
 
