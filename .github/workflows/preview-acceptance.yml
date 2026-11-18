@@ -2,6 +2,12 @@ name: Preview ERP acceptance
 run-name: Preview acceptance on ${{ github.ref_name }}
 
 on:
+  push:
+    branches:
+      - development
+    paths:
+      - "vite-version/**"
+      - ".github/workflows/preview-acceptance.yml"
   workflow_dispatch:
   schedule:
     - cron: "0 6 * * *" # Daily at 09:00 East Africa Time
