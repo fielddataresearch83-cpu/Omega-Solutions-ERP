@@ -108,6 +108,26 @@ describe('InventoryService tenant isolation', () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 
+  it('scopes stocktake lists to the selected company and branch', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+
+    await service.listStocktakes(user);
+
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query.mock.calls[0][0]).toContain('WHERE t.company_id=$1');
+    expect(db.query.mock.calls[0][1]).toEqual(['company-2', null]);
+  });
+
+  it('does not reveal a stocktake belonging to another company', async () => {
+    db.query.mockResolvedValue({ rows: [], rowCount: 0 });
+
+    await expect(service.getStocktake(user, 'stocktake-from-company-1')).rejects.toThrow(NotFoundException);
+
+    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(db.query.mock.calls[0][0]).toContain('t.company_id=$2');
+    expect(db.query.mock.calls[0][1]).toEqual(['stocktake-from-company-1', 'company-2', null]);
+  });
+
   it('rejects a destination warehouse outside the member company before transfer writes', async () => {
     const client = {
       query: vi.fn(async (sql: string, params?: unknown[]) => {
