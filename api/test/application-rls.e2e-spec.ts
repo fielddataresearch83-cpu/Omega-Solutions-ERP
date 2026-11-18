@@ -9,7 +9,12 @@ const isDisposableLocalDatabase = (() => {
   if (!connectionString) return false;
   try {
     const url = new URL(connectionString);
-    return ['localhost', '127.0.0.1', '::1'].includes(url.hostname) && url.pathname === '/omega_ci_test';
+    const isLocalDisposable = ['localhost', '127.0.0.1', '::1'].includes(url.hostname);
+    const isExplicitlyApprovedIsolatedNeon =
+      process.env.OMEGA_ISOLATED_RLS_DB_ACK === 'true' &&
+      url.hostname.endsWith('.neon.tech') &&
+      url.pathname === '/omega_ci_test';
+    return url.pathname === '/omega_ci_test' && (isLocalDisposable || isExplicitlyApprovedIsolatedNeon);
   } catch {
     return false;
   }
