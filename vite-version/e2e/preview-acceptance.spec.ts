@@ -54,7 +54,13 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
 
     // Some accounts have one company and proceed directly; others are asked to choose.
     const companyChooser = page.locator('[aria-label="Choose company"]');
-    if (await companyChooser.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    // isVisible() is an immediate snapshot; wait for the asynchronous post-login
+    // company-selection state so slower Preview responses do not race this check.
+    const companySelectionRequired = await companyChooser
+      .waitFor({ state: "visible", timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (companySelectionRequired) {
       const choice = companyName
         ? companyChooser.getByRole("button", { name: new RegExp(companyName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") })
         : companyChooser.getByRole("button").first();
