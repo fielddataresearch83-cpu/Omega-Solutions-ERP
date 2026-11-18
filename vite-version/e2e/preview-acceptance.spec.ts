@@ -66,7 +66,7 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
   });
 
   test("signs in, selects a company, and smoke-tests core modules", async ({ page }) => {
-    test.skip(!email || !password, "Configure E2E_ACCEPTANCE_EMAIL and E2E_ACCEPTANCE_PASSWORD GitHub Actions secrets.");
+    test.skip(!email || !password, "Authenticated acceptance requires E2E credentials in the test runner environment; Vercel project secrets are not automatically available in this workspace.");
 
     const pageErrors: string[] = [];
     const serverErrors: string[] = [];
