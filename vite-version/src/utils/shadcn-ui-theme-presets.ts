@@ -739,3 +739,51 @@ export const shadcnThemePresets: Record<string, ThemePreset> = {
     },
   },
 }
+
+// Omega Solutions brand preset. Keep the neutral surfaces readable while using
+// the approved Refreshing Summer Fun palette for primary actions and data accents.
+shadcnThemePresets.omega = {
+  label: "Omega Solutions",
+  styles: {
+    light: {
+      ...shadcnThemePresets.default.styles.light,
+      primary: "#219EBC",
+      "primary-foreground": "#FFFFFF",
+      secondary: "#E7F4F8",
+      "secondary-foreground": "#023047",
+      accent: "#DDF0F6",
+      "accent-foreground": "#023047",
+      ring: "#219EBC",
+      "chart-1": "#219EBC",
+      "chart-2": "#8ECAE6",
+      "chart-3": "#FFB703",
+      "chart-4": "#FB8500",
+      "chart-5": "#023047",
+    },
+    dark: {
+      ...shadcnThemePresets.default.styles.dark,
+      background: "#071923",
+      foreground: "#F2F8FA",
+      card: "#0D2633",
+      "card-foreground": "#F2F8FA",
+      popover: "#0D2633",
+      "popover-foreground": "#F2F8FA",
+      primary: "#8ECAE6",
+      "primary-foreground": "#023047",
+      secondary: "#153746",
+      "secondary-foreground": "#EAF5F8",
+      muted: "#153746",
+      "muted-foreground": "#B4CBD4",
+      accent: "#19495B",
+      "accent-foreground": "#F2F8FA",
+      border: "#244654",
+      input: "#244654",
+      ring: "#8ECAE6",
+      "chart-1": "#8ECAE6",
+      "chart-2": "#219EBC",
+      "chart-3": "#FFB703",
+      "chart-4": "#FB8500",
+      "chart-5": "#F2F8FA",
+    },
+  },
+}
