@@ -174,6 +174,18 @@ describe('CompaniesService', () => {
     expect(db.query.mock.calls[1][1]).toEqual([JSON.stringify(policy), 'comp-a']);
   });
 
+  it('persists fiscal year start in company settings', async () => {
+    memberships.requireOwnerOrAdmin.mockResolvedValue({ companyId: 'comp-a', branchId: null, role: 'owner' });
+    db.query.mockResolvedValueOnce({ rows: [COMPANY_A], rowCount: 1 });
+    db.query.mockResolvedValueOnce({ rows: [{ ...COMPANY_A, settings: { fiscalYearStart: 'July' } }], rowCount: 1 });
+
+    const result = await service.update(USER_A, 'comp-a', { fiscalYearStart: 'July' });
+
+    expect(result.settings).toEqual({ fiscalYearStart: 'July' });
+    expect(db.query.mock.calls[1][0]).toContain("jsonb_set(COALESCE(settings, '{}'::jsonb), '{fiscalYearStart}'");
+    expect(db.query.mock.calls[1][1]).toEqual(['July', 'comp-a']);
+  });
+
   it('rejects an explicit null standard tax rate without writing company settings', async () => {
     memberships.requireOwnerOrAdmin.mockResolvedValue({ companyId: 'comp-a', branchId: null, role: 'owner' });
     db.query.mockResolvedValueOnce({ rows: [COMPANY_A], rowCount: 1 });

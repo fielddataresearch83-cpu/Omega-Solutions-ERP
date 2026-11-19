@@ -3,7 +3,6 @@ import { Link } from "react-router-dom"
 import { Sun, Moon, Monitor, Save, RotateCcw } from "lucide-react"
 import { BaseLayout } from "@/components/layouts/base-layout"
 import { PageHeader } from "@/components/page-header"
-import { DemoBanner } from "@/components/demo-banner"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -18,9 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useTheme } from "@/hooks/use-theme"
 import { cn } from "cn"
 import { QRCodeSVG } from "qrcode.react"
-import { getAccessToken } from "@/lib/api-client"
-
-const PREFS_KEY = "omega-demo-preferences"
+import { getAccessToken, api } from "@/lib/api-client"
+import { useAuth } from "@/contexts/auth-context"
 
 interface DemoPrefs {
   currency: string
@@ -36,14 +34,12 @@ const defaultPrefs: DemoPrefs = {
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
-  const [prefs, setPrefs] = React.useState<DemoPrefs>(() => {
-    try {
-      const stored = localStorage.getItem(PREFS_KEY)
-      return stored ? { ...defaultPrefs, ...JSON.parse(stored) } : defaultPrefs
-    } catch {
-      return defaultPrefs
-    }
-  })
+  const { user } = useAuth()
+  const canManageCompany = user?.role === "owner" || user?.role === "admin"
+  const [prefs, setPrefs] = React.useState<DemoPrefs>(defaultPrefs)
+  const [prefsLoading, setPrefsLoading] = React.useState(true)
+  const [prefsSaving, setPrefsSaving] = React.useState(false)
+  const [prefsError, setPrefsError] = React.useState<string | null>(null)
   const [saved, setSaved] = React.useState(false)
   const [mfaEnabled, setMfaEnabled] = React.useState(false)
   const [mfaSecret, setMfaSecret] = React.useState("")
@@ -75,16 +71,57 @@ export default function SettingsPage() {
     return () => { active = false }
   }, [mfaRequest])
 
-  const handleSave = () => {
-    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs))
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  React.useEffect(() => {
+    if (!user?.companyId) return
+    let active = true
+    void Promise.allSettled([
+      api.get<{ currency: string; settings?: Record<string, unknown> }>(`/companies/${user.companyId}`),
+      api.get<{ dateFormat: string }>("/user-preferences/display"),
+    ]).then(([companyResult, displayResult]) => {
+      if (!active) return
+      const companyPrefs = companyResult.status === "fulfilled" ? companyResult.value : null
+      const displayPrefs = displayResult.status === "fulfilled" ? displayResult.value : null
+      setPrefs({
+        currency: companyPrefs?.currency ?? defaultPrefs.currency,
+        fiscalYearStart: typeof companyPrefs?.settings?.fiscalYearStart === "string" ? companyPrefs.settings.fiscalYearStart : defaultPrefs.fiscalYearStart,
+        dateFormat: displayPrefs?.dateFormat ?? defaultPrefs.dateFormat,
+      })
+      if (displayResult.status === "rejected") {
+        setPrefsError("Personal date-format sync is waiting for the pending development database migration. Other company settings loaded normally.")
+      } else if (companyResult.status === "rejected") {
+        setPrefsError("Company preferences could not be loaded. Check your company access.")
+      }
+    }).finally(() => { if (active) setPrefsLoading(false) })
+    return () => { active = false }
+  }, [user?.companyId])
+
+  const persistPreferences = async (next: DemoPrefs) => {
+    if (!user?.companyId) {
+      setPrefsError("Select a company before saving preferences.")
+      return
+    }
+    setPrefsSaving(true)
+    setPrefsError(null)
+    setSaved(false)
+    try {
+      if (canManageCompany) {
+        await api.patch(`/companies/${user.companyId}`, {
+          currency: next.currency,
+          fiscalYearStart: next.fiscalYearStart,
+        })
+      }
+      await api.put("/user-preferences/display", { dateFormat: next.dateFormat })
+      setPrefs(next)
+      setSaved(true)
+    } catch (error) {
+      setPrefsError(error instanceof Error ? error.message : "Could not save preferences.")
+    } finally {
+      setPrefsSaving(false)
+    }
   }
 
-  const handleReset = () => {
-    setPrefs(defaultPrefs)
-    localStorage.removeItem(PREFS_KEY)
-  }
+  const handleSave = () => { void persistPreferences(prefs) }
+  const handleReset = () => { void persistPreferences(defaultPrefs) }
 
   const themeOptions = [
     { value: "light" as const, label: "Light", icon: Sun },
@@ -100,18 +137,19 @@ export default function SettingsPage() {
           description="Configure appearance and display preferences"
           action={
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleReset} className="cursor-pointer">
+              <Button variant="outline" onClick={handleReset} disabled={prefsSaving || prefsLoading} className="cursor-pointer">
                 <RotateCcw className="size-4" />
                 Reset
               </Button>
-              <Button onClick={handleSave} className="cursor-pointer">
+              <Button onClick={handleSave} disabled={prefsSaving || prefsLoading} className="cursor-pointer">
                 <Save className="size-4" />
-                {saved ? "Saved!" : "Save Preferences"}
+                {prefsSaving ? "Saving…" : saved ? "Saved!" : "Save Preferences"}
               </Button>
             </div>
           }
         />
-        <DemoBanner message="These preferences are stored locally in your browser only. They are demo settings and will be replaced by server-side preferences when the backend is connected." />
+        {prefsError && <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{prefsError}</div>}
+        {prefsLoading && <p className="text-sm text-muted-foreground">Loading saved preferences…</p>}
 
         <Card>
           <CardHeader>
@@ -206,7 +244,7 @@ export default function SettingsPage() {
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="pref-currency">Currency</Label>
-                  <Select value={prefs.currency} onValueChange={(v) => v && setPrefs({ ...prefs, currency: v })}>
+                  <Select value={prefs.currency} disabled={!canManageCompany || prefsLoading} onValueChange={(v) => v && setPrefs({ ...prefs, currency: v })}>
                     <SelectTrigger id="pref-currency" size="sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="KES">Kenyan Shilling (KSh)</SelectItem>
@@ -218,7 +256,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="pref-date">Date Format</Label>
-                  <Select value={prefs.dateFormat} onValueChange={(v) => v && setPrefs({ ...prefs, dateFormat: v })}>
+                  <Select value={prefs.dateFormat} disabled={prefsLoading} onValueChange={(v) => v && setPrefs({ ...prefs, dateFormat: v })}>
                     <SelectTrigger id="pref-date" size="sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="DD MMM YYYY">DD MMM YYYY (14 Oct 2024)</SelectItem>
@@ -230,7 +268,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="pref-fy">Fiscal Year Start</Label>
-                  <Select value={prefs.fiscalYearStart} onValueChange={(v) => v && setPrefs({ ...prefs, fiscalYearStart: v })}>
+                  <Select value={prefs.fiscalYearStart} disabled={!canManageCompany || prefsLoading} onValueChange={(v) => v && setPrefs({ ...prefs, fiscalYearStart: v })}>
                     <SelectTrigger id="pref-fy" size="sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="January">January</SelectItem>

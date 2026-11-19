@@ -99,6 +99,11 @@ export class CreateCompanyDto {
 }
 
 export class UpdateCompanyDto {
+  @IsString()
+  @IsIn(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'])
+  @IsOptional()
+  fiscalYearStart?: string;
+
   @IsObject()
   @ValidateNested()
   @Type(() => CompanyTaxPolicyDto)

@@ -36,6 +36,7 @@ import { UsersRolesModule } from './users-roles/users-roles.module.js';
 import { CreditNotesModule } from './credit-notes/credit-notes.module.js';
 import { SearchModule } from './search/search.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { UserPreferencesModule } from './user-preferences/user-preferences.module.js';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module.js';
 import { EntitlementsModule } from './subscriptions/entitlements.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
@@ -50,7 +51,7 @@ import { TenantDatabaseContextInterceptor } from './database/tenant-database-con
     SalesOrdersModule, CrmModule, InventoryModule, PurchaseOrdersModule, SupplierBillsModule,
     AccountingModule, ManufacturingModule, EmployeesModule, ExpensesModule, PayrollModule,
     WorkforceModule, ProjectsModule, PosModule, RequisitionsModule, ContractsModule, ApprovalsModule, UsersRolesModule,
-    CreditNotesModule, SearchModule, NotificationsModule, SubscriptionsModule, EntitlementsModule, DashboardModule,
+    CreditNotesModule, SearchModule, NotificationsModule, UserPreferencesModule, SubscriptionsModule, EntitlementsModule, DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_INTERCEPTOR, useClass: TenantDatabaseContextInterceptor }],

@@ -201,6 +201,12 @@ export class CompaniesService {
     const values: (string | boolean | null)[] = [];
     let paramIndex = 1;
 
+    if (dto.fiscalYearStart !== undefined) {
+      fields.push(`settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{fiscalYearStart}', to_jsonb($${paramIndex}::text), true)`);
+      values.push(dto.fiscalYearStart);
+      paramIndex++;
+    }
+
     const fieldMap: Record<string, string> = {
       name: 'name',
       registrationNumber: 'registration_number',
@@ -263,8 +269,8 @@ export class CompaniesService {
       action: 'company.update',
       entityType: 'company',
       entityId: updated.id,
-      oldValues: { name: existing.name, taxPolicy: existing.settings?.taxPolicy ?? null },
-      newValues: { name: updated.name, taxPolicy: updated.settings?.taxPolicy ?? null },
+      oldValues: { name: existing.name, currency: existing.currency, fiscalYearStart: existing.settings?.fiscalYearStart ?? 'January', taxPolicy: existing.settings?.taxPolicy ?? null },
+      newValues: { name: updated.name, currency: updated.currency, fiscalYearStart: updated.settings?.fiscalYearStart ?? 'January', taxPolicy: updated.settings?.taxPolicy ?? null },
       ipAddress: null,
     });
 
