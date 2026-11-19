@@ -49,6 +49,19 @@ export default function CompaniesPage() {
   const [formError, setFormError] = React.useState<string | null>(null)
   const [companyActionBusy, setCompanyActionBusy] = React.useState(false)
   const [companyActionError, setCompanyActionError] = React.useState<string | null>(null)
+  const [archivedCompanies, setArchivedCompanies] = React.useState<Array<{ id: string; name: string }>>([])
+  const [archivedLoading, setArchivedLoading] = React.useState(false)
+  const [restoringCompanyId, setRestoringCompanyId] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (user?.role !== "owner" && user?.role !== "admin") return
+    let active = true
+    void api.get<Array<{ id: string; name: string }>>("/companies/archived")
+      .then((items) => { if (active) setArchivedCompanies(items) })
+      .catch(() => { if (active) setArchivedCompanies([]) })
+      .finally(() => { if (active) setArchivedLoading(false) })
+    return () => { active = false }
+  }, [user?.role])
 
   const [formData, setFormData] = React.useState({
     name: "",
@@ -167,12 +180,12 @@ export default function CompaniesPage() {
               {(user?.role === "owner" || user?.role === "admin") && (
                 company.is_active ? (
                   <Button variant="outline" size="sm" disabled={companyActionBusy} onClick={async () => {
-                    if (!window.confirm(`Archive ${company.name}? Users will lose normal access. Company records will be retained and an owner or administrator can restore it later.`)) return
+                    if (!window.confirm(`Delete ${company.name}? It will be moved to Archived Companies, where an owner or administrator can restore it. All company records will be retained.`)) return
                     setCompanyActionBusy(true); setCompanyActionError(null)
                     try { await api.post(`/companies/${company.id}/archive`); window.location.reload() }
                     catch (error) { setCompanyActionError(error instanceof Error ? error.message : "Unable to archive company."); setCompanyActionBusy(false) }
                   }}>
-                    <Archive className="size-4" /> Archive company
+                    <Archive className="size-4" /> Delete company
                   </Button>
                 ) : (
                   <Button size="sm" disabled={companyActionBusy} onClick={async () => {
@@ -225,6 +238,40 @@ export default function CompaniesPage() {
             </div>
           </CardContent>
         </Card>
+
+        {(user?.role === "owner" || user?.role === "admin") && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Archived Companies</CardTitle>
+              <CardDescription>Deleted companies are retained here and can be restored without losing their records.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {archivedLoading ? <LoadingSpinner /> : archivedCompanies.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No archived companies.</p>
+              ) : (
+                <div className="flex flex-col divide-y">
+                  {archivedCompanies.map((item) => (
+                    <div key={item.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-sm font-medium">{item.name}</span>
+                      <Button size="sm" variant="outline" disabled={restoringCompanyId === item.id} onClick={async () => {
+                        setRestoringCompanyId(item.id)
+                        try {
+                          await api.post(`/companies/${item.id}/restore`)
+                          setArchivedCompanies((current) => current.filter((entry) => entry.id !== item.id))
+                          if (item.id === company.id) window.location.reload()
+                        } catch (error) {
+                          setCompanyActionError(error instanceof Error ? error.message : "Unable to restore company.")
+                        } finally { setRestoringCompanyId(null) }
+                      }}>
+                        <RotateCcw className="size-4" /> Restore
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

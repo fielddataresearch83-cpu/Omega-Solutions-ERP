@@ -38,6 +38,21 @@ export class CompaniesService {
     return this.getById(membership.companyId);
   }
 
+  async listArchived(user: AuthenticatedUser): Promise<CompanyRow[]> {
+    const result = await this.db.query<CompanyRow>(
+      `SELECT DISTINCT c.id, c.name, c.registration_number, c.vat_number, c.currency, c.timezone,
+              c.address_line1, c.address_line2, c.city, c.county, c.postal_code,
+              c.phone, c.email, c.website, c.settings, c.is_active, c.created_at, c.updated_at
+       FROM companies c
+       JOIN company_memberships cm ON cm.company_id = c.id
+       WHERE cm.user_id = $1 AND cm.is_active = true
+         AND cm.role IN ('owner', 'admin') AND c.is_active = false
+       ORDER BY c.name ASC`,
+      [user.userId],
+    );
+    return result.rows;
+  }
+
   async getById(companyId: string): Promise<CompanyRow> {
     const result = await this.db.query<CompanyRow>(
       `SELECT ${COMPANY_COLUMNS} FROM companies WHERE id = $1`,

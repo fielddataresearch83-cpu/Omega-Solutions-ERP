@@ -21,6 +21,12 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js
 export class CompaniesController {
   constructor(private readonly companies: CompaniesService) {}
 
+  @Get('archived')
+  @RequirePermissions('companies:read')
+  async listArchived(@Request() req: { user: AuthenticatedUser }) {
+    return this.companies.listArchived(req.user);
+  }
+
   @Get('me')
   @RequirePermissions('companies:read')
   async getMyCompany(@Request() req: { user: AuthenticatedUser }) {
