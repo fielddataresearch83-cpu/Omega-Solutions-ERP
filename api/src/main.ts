@@ -26,9 +26,26 @@ async function bootstrap() {
       return false;
     }
   };
+  const isOmegaPreviewOrigin = (origin: string): boolean => {
+    try {
+      const url = new URL(origin);
+      return (
+        url.protocol === 'https:' &&
+        /^omega-solutions-[a-z0-9-]+-coll5\.vercel\.app$/.test(url.hostname)
+      );
+    } catch {
+      return false;
+    }
+  };
+
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (!origin || corsOrigins.has(origin) || isLocalDevelopmentOrigin(origin)) {
+      if (
+        !origin ||
+        corsOrigins.has(origin) ||
+        isLocalDevelopmentOrigin(origin) ||
+        isOmegaPreviewOrigin(origin)
+      ) {
         callback(null, true);
         return;
       }
