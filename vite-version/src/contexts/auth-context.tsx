@@ -166,6 +166,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.companyId]);
 
+  React.useEffect(() => {
+    const handleSessionExpired = () => {
+      // Clear all in-memory identity and tenant-selection state immediately.
+      clearTokens();
+      setUser(null);
+      setMfaChallengeToken(null);
+      setCompanyChoices([]);
+      setPendingIdentityToken(null);
+      setPendingIdentityEmail(null);
+      setError("Your session has expired. Please sign in again.");
+    };
+    window.addEventListener("omega:session-expired", handleSessionExpired);
+    return () => window.removeEventListener("omega:session-expired", handleSessionExpired);
+  }, []);
+
   const logout = React.useCallback(() => {
     void api.post('/auth/logout', {}).catch(() => undefined);
     clearTokens();
