@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Pool, type PoolClient } from 'pg';
+import { getDisposableAdminDatabaseUrl, getLocalDisposableTestDatabaseUrl } from './helpers/disposable-database.js';
 
-const connectionString = process.env.DATABASE_URL;
-const suite = describe.skipIf(!connectionString);
+const appConnectionString = getLocalDisposableTestDatabaseUrl();
+const connectionString = appConnectionString ? (getDisposableAdminDatabaseUrl() ?? appConnectionString) : undefined;
+const suite = connectionString ? describe : describe.skip;
 
 suite('PostgreSQL tenant RLS isolation contract', () => {
   const suffix = randomUUID().replaceAll('-', '');

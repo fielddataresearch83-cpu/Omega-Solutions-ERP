@@ -188,12 +188,51 @@ export class SalesOrdersService {
             'UPDATE inventory_stock_levels SET reserved_quantity = reserved_quantity + $1, updated_at = NOW() WHERE company_id = $2 AND warehouse_id = $3 AND product_id = $4',
             [quantity, membership.companyId, warehouseId, item.product_id],
           );
-          await client.query(
+          const reservationInsert = await client.query<{ id: string }>(
             `INSERT INTO sales_order_reservations
               (company_id, sales_order_id, sales_order_item_id, product_id, warehouse_id, quantity, status, created_by)
-             VALUES ($1, $2, $3, $4, $5, $6, 'reserved', $7)`,
+             VALUES ($1, $2, $3, $4, $5, $6, 'reserved', $7) RETURNING id`,
             [membership.companyId, id, item.id, item.product_id, warehouseId, quantity, user.userId],
           );
+
+          // Batch tracking is activated only after its additive migration is installed.
+          const batchSchema = await client.query<{ present: boolean }>(
+            `SELECT to_regclass('public.inventory_batches') IS NOT NULL
+              AND to_regclass('public.sales_order_reservation_batch_allocations') IS NOT NULL AS present`,
+          );
+          if (batchSchema.rows[0]?.present) {
+            const lots = await client.query<{ id: string; quantity_on_hand: string | number; reserved_quantity: string | number }>(
+              `SELECT id, quantity_on_hand, reserved_quantity FROM inventory_batches
+               WHERE company_id = $1 AND product_id = $2 AND warehouse_id = $3
+                 AND status = 'available' AND quality_status = 'released'
+                 AND (expires_on IS NULL OR expires_on >= CURRENT_DATE)
+                 AND quantity_on_hand > reserved_quantity
+               ORDER BY expires_on ASC NULLS LAST, created_at ASC, id ASC FOR UPDATE`,
+              [membership.companyId, item.product_id, warehouseId],
+            );
+            let remaining = quantity;
+            for (const lot of lots.rows) {
+              if (remaining <= 0.0000001) break;
+              const allocatable = Math.max(0, Number(lot.quantity_on_hand) - Number(lot.reserved_quantity));
+              const allocated = Math.min(remaining, allocatable);
+              if (allocated <= 0) continue;
+              await client.query(
+                `UPDATE inventory_batches SET reserved_quantity = reserved_quantity + $1, updated_at = NOW()
+                 WHERE company_id = $2 AND id = $3`,
+                [allocated, membership.companyId, lot.id],
+              );
+              await client.query(
+                `INSERT INTO sales_order_reservation_batch_allocations
+                  (company_id, reservation_id, batch_id, product_id, warehouse_id, quantity)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [membership.companyId, reservationInsert.rows[0].id, lot.id, item.product_id, warehouseId, allocated],
+              );
+              remaining -= allocated;
+            }
+            if (remaining > 0.0000001) {
+              throw new BadRequestException(`Released, unexpired batches cannot cover the reservation for "${item.product_name}".`);
+            }
+          }
         }
       }
 
@@ -209,6 +248,29 @@ export class SalesOrdersService {
           [membership.companyId, id],
         );
         for (const reservation of reservations.rows) {
+          const batchSchema = await client.query<{ present: boolean }>(
+            `SELECT to_regclass('public.sales_order_reservation_batch_allocations') IS NOT NULL AS present`,
+          );
+          if (batchSchema.rows[0]?.present) {
+            const allocations = await client.query<{ batch_id: string; quantity: string | number }>(
+              `SELECT batch_id, quantity FROM sales_order_reservation_batch_allocations
+               WHERE company_id = $1 AND reservation_id = $2 AND status = 'reserved' FOR UPDATE`,
+              [membership.companyId, reservation.id],
+            );
+            for (const allocation of allocations.rows) {
+              const batchRelease = await client.query<{ id: string }>(
+                `UPDATE inventory_batches SET reserved_quantity = reserved_quantity - $1, updated_at = NOW()
+                 WHERE company_id = $2 AND id = $3 AND reserved_quantity >= $1 RETURNING id`,
+                [Number(allocation.quantity), membership.companyId, allocation.batch_id],
+              );
+              if (!batchRelease.rows[0]) throw new BadRequestException('The batch reservation ledger is inconsistent; cancellation was rolled back.');
+            }
+            await client.query(
+              `UPDATE sales_order_reservation_batch_allocations SET status = 'released', updated_at = NOW()
+               WHERE company_id = $1 AND reservation_id = $2 AND status = 'reserved'`,
+              [membership.companyId, reservation.id],
+            );
+          }
           const released = await client.query<{ id: string }>(
             `UPDATE inventory_stock_levels
              SET reserved_quantity = reserved_quantity - $1, updated_at = NOW()
@@ -296,8 +358,7 @@ export class SalesOrdersService {
             throw new BadRequestException(`Insufficient available stock for "${item.product_name}" in the selected warehouse.`);
           }
 
-          const issueCost = Number(stockRow.average_unit_cost ?? item.cost_price ?? 0);
-          costOfGoods += quantity * issueCost;
+          let issueCost = Number(stockRow.average_unit_cost ?? item.cost_price ?? 0);
           const updated = await client.query<{ id: string }>(
             `UPDATE inventory_stock_levels
              SET quantity = quantity - $1,
@@ -319,12 +380,102 @@ export class SalesOrdersService {
             );
           }
 
-          await client.query(
+          const movement = await client.query<{ id: string }>(
             `INSERT INTO inventory_stock_movements
               (company_id, product_id, warehouse_id, movement_type, quantity, unit_cost, reference, notes, created_by)
-             VALUES ($1, $2, $3, 'issue', $4, $5, $6, $7, $8)`,
+             VALUES ($1, $2, $3, 'issue', $4, $5, $6, $7, $8) RETURNING id`,
             [membership.companyId, item.product_id, warehouseId, -quantity, issueCost, order.order_number, `Sales order fulfilment ${order.order_number}`, user.userId],
           );
+
+          const batchSchema = await client.query<{ present: boolean }>(
+            `SELECT to_regclass('public.inventory_batches') IS NOT NULL
+               AND to_regclass('public.inventory_stock_movement_allocations') IS NOT NULL
+               AND to_regclass('public.sales_order_reservation_batch_allocations') IS NOT NULL AS present`,
+          );
+          if (batchSchema.rows[0]?.present) {
+            const lots = await client.query<{
+              id: string; quantity_on_hand: string | number; reserved_quantity: string | number;
+              reservation_quantity: string | number; allocation_id: string | null; unit_cost: string | number;
+            }>(
+              `SELECT b.id, b.quantity_on_hand, b.reserved_quantity, b.unit_cost,
+                      a.quantity AS reservation_quantity, a.id AS allocation_id
+               FROM inventory_batches b
+               LEFT JOIN sales_order_reservation_batch_allocations a
+                 ON a.company_id = b.company_id AND a.batch_id = b.id
+                AND a.reservation_id = $4 AND a.status = 'reserved'
+               WHERE b.company_id = $1 AND b.product_id = $2 AND b.warehouse_id = $3
+                 AND b.quality_status = 'released' AND b.status = 'available'
+                 AND (b.expires_on IS NULL OR b.expires_on >= CURRENT_DATE)
+                 AND CASE WHEN $5::boolean
+                   THEN COALESCE(a.quantity, 0)
+                   ELSE b.quantity_on_hand - b.reserved_quantity END > 0
+               ORDER BY b.expires_on ASC NULLS LAST, b.created_at, b.id
+               FOR UPDATE OF b`,
+              [membership.companyId, item.product_id, warehouseId, reservation?.id ?? null, Boolean(reservation)],
+            );
+            let remaining = quantity;
+            let batchCost = 0;
+            for (const lot of lots.rows) {
+              const take = Math.min(
+                remaining,
+                reservation
+                  ? Number(lot.reservation_quantity ?? lot.reserved_quantity)
+                  : Number(lot.quantity_on_hand) - Number(lot.reserved_quantity),
+              );
+              if (take <= 0) continue;
+              const changed = await client.query(
+                `UPDATE inventory_batches SET quantity_on_hand = quantity_on_hand - $1,
+                   reserved_quantity = reserved_quantity - $4,
+                   status = CASE WHEN quantity_on_hand - $1 <= 0.00005 THEN 'depleted' ELSE status END,
+                   updated_at = NOW()
+                 WHERE company_id = $2 AND id = $3
+                   AND quantity_on_hand >= $1 AND reserved_quantity >= $4
+                   AND quantity_on_hand - reserved_quantity >= $1 - $4`,
+                [take, membership.companyId, lot.id, reservation ? take : 0],
+              );
+              if ((changed.rowCount ?? 0) !== 1) {
+                throw new BadRequestException(`Batch stock changed for "${item.product_name}"; retry fulfilment.`);
+              }
+              await client.query(
+                `INSERT INTO inventory_stock_movement_allocations
+                  (company_id, movement_id, batch_id, product_id, warehouse_id, quantity, unit_cost)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [membership.companyId, movement.rows[0].id, lot.id, item.product_id, warehouseId, take, lot.unit_cost],
+              );
+              if (reservation) {
+                const allocationTable = await client.query<{ present: boolean }>(
+                  `SELECT to_regclass('public.sales_order_reservation_batch_allocations') IS NOT NULL AS present`,
+                );
+                if (allocationTable.rows[0]?.present) {
+                  await client.query(
+                    `UPDATE sales_order_reservation_batch_allocations
+                     SET status = 'consumed', updated_at = NOW()
+                     WHERE company_id = $1 AND reservation_id = $2 AND batch_id = $3 AND status = 'reserved'`,
+                    [membership.companyId, reservation.id, lot.id],
+                  );
+                }
+              }
+              batchCost += take * Number(lot.unit_cost);
+              remaining -= take;
+              if (remaining <= 0.0000001) break;
+            }
+            if (remaining > 0.0000001) {
+              throw new BadRequestException(
+                reservation
+                  ? `The reservation for "${item.product_name}" has no complete batch allocation. Cancel and re-reserve this order after batch traceability is enabled.`
+                  : `Released, unexpired batch stock cannot cover "${item.product_name}" for fulfilment.`,
+              );
+            }
+            issueCost = batchCost / quantity;
+            await client.query(
+              `UPDATE inventory_stock_movements SET unit_cost = $1
+               WHERE id = $2 AND company_id = $3`,
+              [issueCost, movement.rows[0].id, membership.companyId],
+            );
+            costOfGoods += quantity * issueCost;
+          } else {
+            costOfGoods += quantity * issueCost;
+          }
           await client.query(
             `UPDATE products SET stock_quantity = COALESCE(
                (SELECT SUM(quantity) FROM inventory_stock_levels WHERE company_id = $1 AND product_id = $2), 0

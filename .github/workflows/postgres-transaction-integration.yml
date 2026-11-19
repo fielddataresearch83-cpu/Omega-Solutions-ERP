@@ -62,5 +62,5 @@ jobs:
       - name: Verify PostgreSQL transaction rollback against disposable database
         working-directory: api
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_transaction_test
+          OMEGA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_transaction_test
         run: npx vitest run --config ./vitest.config.e2e.ts test/database-transaction.e2e-spec.ts test/tenant-rls.e2e-spec.ts

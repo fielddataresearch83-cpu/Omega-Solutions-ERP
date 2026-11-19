@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
 import { ManufacturingService } from './manufacturing.service.js';
-import { CreateBomDto, CreateProductionOrderDto, CreateProductionCostDto } from './dto/manufacturing.dto.js';
+import { CreateBomDto, CreateProductionOrderDto, CreateProductionCostDto, CreateManufacturingQualityEventDto } from './dto/manufacturing.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -23,4 +23,8 @@ export class ManufacturingController {
  @Post('orders/:id/cancel') @RequirePermissions('manufacturing:write') cancelOrder(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.manufacturing.cancelOrder(req.user,id);}
  @Post('orders/:id/complete') @RequirePermissions('manufacturing:write') completeOrder(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string){return this.manufacturing.completeOrder(req.user,id);}
  @Post('orders') @RequirePermissions('manufacturing:write') createOrder(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateProductionOrderDto){return this.manufacturing.createOrder(req.user,dto);}
+
+ @Get('quality-events') @RequirePermissions('manufacturing:read') listQualityEvents(@Req() req:{user:AuthenticatedUser}){return this.manufacturing.listQualityEvents(req.user);}
+ @Post('quality-events') @RequirePermissions('manufacturing:write') createQualityEvent(@Req() req:{user:AuthenticatedUser},@Body() dto:CreateManufacturingQualityEventDto){return this.manufacturing.createQualityEvent(req.user,dto);}
+ @Post('quality-events/:id/approve') @RequirePermissions('manufacturing:write') approveQualityEvent(@Req() req:{user:AuthenticatedUser},@Param('id',ParseUUIDPipe) id:string,@Body('inspectionResult') inspectionResult?:string){return this.manufacturing.approveQualityEvent(req.user,id,inspectionResult);}
 }

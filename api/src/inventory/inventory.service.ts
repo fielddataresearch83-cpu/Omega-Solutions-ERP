@@ -237,6 +237,57 @@ export class InventoryService {
     return result.rows;
   }
 
+  async listBatches(user: AuthenticatedUser, warehouseId?: string, productId?: string, search?: string) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    const values: (string | null)[] = [companyId, branchId];
+    let filters = 'b.company_id=$1 AND ($2::uuid IS NULL OR w.branch_id=$2)';
+    if (warehouseId) { values.push(warehouseId); filters += ` AND b.warehouse_id=$${values.length}`; }
+    if (productId) { values.push(productId); filters += ` AND b.product_id=$${values.length}`; }
+    if (search?.trim()) {
+      values.push(`%${search.trim()}%`);
+      filters += ` AND (b.batch_code ILIKE $${values.length} OR p.name ILIKE $${values.length} OR p.sku ILIKE $${values.length} OR b.source_reference ILIKE $${values.length})`;
+    }
+    const result = await this.db.query(
+      `SELECT b.id,b.company_id,b.product_id,p.sku,p.name AS product_name,b.warehouse_id,w.name AS warehouse_name,
+              b.batch_code,b.manufactured_on,b.expires_on,b.received_quantity,b.quantity_on_hand,b.reserved_quantity,
+              (b.quantity_on_hand-b.reserved_quantity)::numeric AS available_quantity,b.unit_cost,b.source_type,
+              b.source_reference,b.quality_status,b.status,b.created_at,b.updated_at
+       FROM inventory_batches b
+       JOIN products p ON p.id=b.product_id AND p.company_id=b.company_id
+       JOIN warehouses w ON w.id=b.warehouse_id AND w.company_id=b.company_id
+       WHERE ${filters}
+       ORDER BY b.expires_on ASC NULLS LAST,b.created_at ASC,b.batch_code ASC
+       LIMIT 500`, values,
+    );
+    return result.rows;
+  }
+
+  async getBatchTrace(user: AuthenticatedUser, batchId: string) {
+    const { companyId, branchId } = await this.resolveMembership(user);
+    const batch = await this.db.query(
+      `SELECT b.*,p.sku,p.name AS product_name,w.name AS warehouse_name
+       FROM inventory_batches b
+       JOIN products p ON p.id=b.product_id AND p.company_id=b.company_id
+       JOIN warehouses w ON w.id=b.warehouse_id AND w.company_id=b.company_id
+       WHERE b.company_id=$1 AND b.id=$2 AND ($3::uuid IS NULL OR w.branch_id=$3)`,
+      [companyId,batchId,branchId],
+    );
+    if (!batch.rows[0]) throw new NotFoundException('Inventory batch not found.');
+    const movements = await this.db.query(
+      `SELECT a.id AS allocation_id,a.quantity AS allocated_quantity,a.unit_cost AS allocated_unit_cost,
+              m.id AS movement_id,m.movement_type,m.quantity AS movement_quantity,m.reference,m.notes,m.created_at,
+              m.created_by
+       FROM inventory_stock_movement_allocations a
+       JOIN inventory_stock_movements m
+         ON m.id=a.movement_id AND m.company_id=a.company_id
+        AND m.product_id=a.product_id AND m.warehouse_id=a.warehouse_id
+       WHERE a.company_id=$1 AND a.batch_id=$2
+       ORDER BY m.created_at ASC,a.created_at ASC`,
+      [companyId,batchId],
+    );
+    return { batch: batch.rows[0], movements: movements.rows };
+  }
+
   async summary(user: AuthenticatedUser) {
     const { companyId, branchId } = await this.resolveMembership(user);
     const result = await this.db.query<Record<string, string|number>>(
@@ -388,6 +439,7 @@ export class InventoryService {
           await client.query("UPDATE inventory_stock_levels SET quantity=$1,updated_at=NOW() WHERE company_id=$2 AND warehouse_id=$3 AND product_id=$4", [line.counted_quantity, companyId, session.rows[0].warehouse_id, line.product_id]);
         }
         const movement = await this.insertMovement(client,{companyId,productId:line.product_id,warehouseId:session.rows[0].warehouse_id,type:'adjustment',quantity:delta,unitCost,reference:session.rows[0].reference || 'STOCKTAKE-' + stocktakeId,notes:'Stocktake variance: counted ' + line.counted_quantity + ' ' + line.unit,userId:user.userId});
+        await this.applyBatchMovement(client,movement);
         await this.postMovementJournal(client,{companyId,userId:user.userId,movementId:movement.id,quantity:delta,unitCost,description:'Stocktake variance ' + (session.rows[0].reference || stocktakeId)});
         await this.syncLegacyProductQuantity(client,companyId,line.product_id);
       }
@@ -445,6 +497,7 @@ export class InventoryService {
         await client.query('UPDATE inventory_stock_levels SET quantity=$1,updated_at=NOW() WHERE company_id=$2 AND warehouse_id=$3 AND product_id=$4',[dto.newQuantity,companyId,dto.warehouseId,dto.productId]);
       }
       const movement = await this.insertMovement(client,{companyId,productId:dto.productId,warehouseId:dto.warehouseId,type:'adjustment',quantity:delta,unitCost:adjustmentCost,reference:dto.reference,notes:dto.notes,userId:user.userId});
+      await this.applyBatchMovement(client,movement);
       await this.postMovementJournal(client,{companyId,userId:user.userId,movementId:movement.id,quantity:delta,unitCost:adjustmentCost,description:`Inventory adjustment ${dto.reference?.trim() || movement.id}`});
       await this.syncLegacyProductQuantity(client,companyId,dto.productId);
       await this.logMovement(client,user,companyId,branchId,movement.id,'inventory.stock.adjust',{productId:dto.productId,warehouseId:dto.warehouseId,quantity:dto.newQuantity});
@@ -484,7 +537,9 @@ export class InventoryService {
         [dto.quantity,transferCost,companyId,dto.destinationWarehouseId,dto.productId],
       );
       const out=await this.insertMovement(client,{companyId,productId:dto.productId,warehouseId:dto.sourceWarehouseId,type:'transfer_out',quantity:-dto.quantity,unitCost:transferCost,reference:dto.reference,notes:dto.notes,userId:user.userId,transferGroupId});
+      await this.applyBatchMovement(client,out);
       const into=await this.insertMovement(client,{companyId,productId:dto.productId,warehouseId:dto.destinationWarehouseId,type:'transfer_in',quantity:dto.quantity,unitCost:transferCost,reference:dto.reference,notes:dto.notes,userId:user.userId,transferGroupId});
+      await this.applyBatchMovement(client,into);
       await this.syncLegacyProductQuantity(client,companyId,dto.productId);
       await this.logMovement(client,user,companyId,branchId,transferGroupId,'inventory.stock.transfer',{productId:dto.productId,sourceWarehouseId:dto.sourceWarehouseId,destinationWarehouseId:dto.destinationWarehouseId,quantity:dto.quantity});
       return {transferGroupId,sourceMovement:out,destinationMovement:into};
@@ -874,6 +929,7 @@ export class InventoryService {
         );
       }
       const saved=await this.insertMovement(client,{companyId,productId:dto.productId,warehouseId:dto.warehouseId,type,quantity:signedQuantity,unitCost:movementCost,reference:dto.reference,notes:dto.notes,userId:user.userId});
+      await this.applyBatchMovement(client,saved);
       await this.postMovementJournal(client,{companyId,userId:user.userId,movementId:saved.id,quantity:signedQuantity,unitCost:movementCost,description:`Manual stock ${type} ${dto.reference?.trim() || saved.id}`});
       await this.syncLegacyProductQuantity(client,companyId,dto.productId);
       await this.logMovement(client,user,companyId,branchId,saved.id,type==='receipt'?'inventory.stock.receipt':'inventory.stock.issue',{productId:dto.productId,warehouseId:dto.warehouseId,quantity:dto.quantity});
@@ -920,6 +976,77 @@ export class InventoryService {
         [input.companyId,entry.rows[0].id,adjustment.id,amount,inventory.id],
       );
     }
+  }
+
+  /** Keep lot allocations atomic with aggregate stock movements after the batch migration is installed. */
+  private async applyBatchMovement(client:PoolClient,movement:MovementRow) {
+    const ready=await client.query<{exists:boolean}>("SELECT to_regclass('public.inventory_batches') IS NOT NULL AS exists");
+    if (!ready.rows[0]?.exists) return;
+    const quantity=Number(movement.quantity);
+    if (!Number.isFinite(quantity) || Math.abs(quantity)<0.00005) return;
+    if (quantity>0) {
+      if (movement.movement_type==='transfer_in' && movement.transfer_group_id) {
+        const sourceAllocations=await client.query<{batch_id:string;quantity:string|number;unit_cost:string|number;batch_code:string;manufactured_on:string|null;expires_on:string|null;source_reference:string|null}>(
+          `SELECT a.batch_id,a.quantity,a.unit_cost,b.batch_code,b.manufactured_on,b.expires_on,b.source_reference
+           FROM inventory_stock_movement_allocations a
+           JOIN inventory_stock_movements m ON m.id=a.movement_id AND m.company_id=a.company_id
+           JOIN inventory_batches b ON b.id=a.batch_id AND b.company_id=a.company_id
+           WHERE a.company_id=$1 AND m.transfer_group_id=$2 AND m.movement_type='transfer_out'
+             AND a.product_id=$3 AND a.quantity>0
+           ORDER BY b.expires_on ASC NULLS LAST,b.created_at ASC,b.id ASC FOR UPDATE OF b`,
+          [movement.company_id,movement.transfer_group_id,movement.product_id],
+        );
+        const allocated=sourceAllocations.rows.reduce((sum,row)=>sum+Number(row.quantity),0);
+        if (Math.abs(allocated-quantity)>0.0000001) {
+          throw new BadRequestException('Transfer batch allocations do not match the incoming transfer quantity.');
+        }
+        for (const source of sourceAllocations.rows) {
+          const transferredQuantity=Number(source.quantity);
+          const batchCode=`TRF-${movement.id.replace(/-/g,'').slice(0,10).toUpperCase()}-${source.batch_code}`.slice(0,100);
+          const inserted=await client.query<{id:string}>(
+            `INSERT INTO inventory_batches(company_id,product_id,warehouse_id,batch_code,manufactured_on,expires_on,received_quantity,quantity_on_hand,unit_cost,source_type,source_reference,quality_status,status,created_by)
+             VALUES($1,$2,$3,$4,$5,$6,$7,$7,$8,'transfer',$9,'released','available',$10) RETURNING id`,
+            [movement.company_id,movement.product_id,movement.warehouse_id,batchCode,source.manufactured_on,source.expires_on,transferredQuantity,Number(source.unit_cost),source.batch_id,movement.created_by],
+          );
+          await client.query(
+            `INSERT INTO inventory_stock_movement_allocations(company_id,movement_id,batch_id,product_id,warehouse_id,quantity,unit_cost) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+            [movement.company_id,movement.id,inserted.rows[0].id,movement.product_id,movement.warehouse_id,transferredQuantity,Number(source.unit_cost)],
+          );
+        }
+        return;
+      }
+      const batchCode='AUTO-'+movement.id.replace(/-/g,'').slice(0,20).toUpperCase();
+      const inserted=await client.query<{id:string}>(
+        `INSERT INTO inventory_batches(company_id,product_id,warehouse_id,batch_code,received_quantity,quantity_on_hand,unit_cost,source_type,source_reference,quality_status,status,created_by)
+         VALUES($1,$2,$3,$4,$5,$5,$6,$7,$8,'released','available',$9) RETURNING id`,
+        [movement.company_id,movement.product_id,movement.warehouse_id,batchCode,quantity,Number(movement.unit_cost),movement.movement_type==='transfer_in'?'opening_balance':'receipt',movement.transfer_group_id??movement.id,movement.created_by],
+      );
+      await client.query(
+        `INSERT INTO inventory_stock_movement_allocations(company_id,movement_id,batch_id,product_id,warehouse_id,quantity,unit_cost) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+        [movement.company_id,movement.id,inserted.rows[0].id,movement.product_id,movement.warehouse_id,quantity,Number(movement.unit_cost)],
+      );
+      return;
+    }
+    let remaining=Math.abs(quantity);
+    const lots=await client.query<{id:string;quantity_on_hand:string;reserved_quantity:string;unit_cost:string|number}>(
+      `SELECT id,quantity_on_hand,reserved_quantity,unit_cost FROM inventory_batches
+       WHERE company_id=$1 AND product_id=$2 AND warehouse_id=$3 AND status='available' AND quality_status='released'
+       AND (expires_on IS NULL OR expires_on>=CURRENT_DATE) AND quantity_on_hand>reserved_quantity
+       ORDER BY expires_on ASC NULLS LAST,created_at ASC,id ASC FOR UPDATE`,
+      [movement.company_id,movement.product_id,movement.warehouse_id],
+    );
+    for (const lot of lots.rows) {
+      if (remaining<0.00005) break;
+      const alloc=Math.min(remaining,Number(lot.quantity_on_hand)-Number(lot.reserved_quantity));
+      if (alloc<=0) continue;
+      await client.query(`UPDATE inventory_batches SET quantity_on_hand=quantity_on_hand-$1,status=CASE WHEN quantity_on_hand-$1<=0.00005 THEN 'depleted' ELSE status END,updated_at=NOW() WHERE id=$2 AND company_id=$3`,[alloc,lot.id,movement.company_id]);
+      await client.query(
+        `INSERT INTO inventory_stock_movement_allocations(company_id,movement_id,batch_id,product_id,warehouse_id,quantity,unit_cost) VALUES($1,$2,$3,$4,$5,$6,$7)`,
+        [movement.company_id,movement.id,lot.id,movement.product_id,movement.warehouse_id,alloc,Number(lot.unit_cost)],
+      );
+      remaining-=alloc;
+    }
+    if (remaining>0.00005) throw new BadRequestException('Batch allocation could not cover this stock movement; check released, unexpired, unreserved batch balances.');
   }
 
   private async insertMovement(client:PoolClient,input:{companyId:string;productId:string;warehouseId:string;type:string;quantity:number;unitCost:number;reference?:string;notes?:string;userId:string;transferGroupId?:string}) {

@@ -56,6 +56,23 @@ export class InventoryController {
     return this.inventory.listStock(req.user, warehouseId, search);
   }
 
+  @Get('batches')
+  @RequirePermissions('inventory:read')
+  batches(
+    @Req() req: { user: AuthenticatedUser },
+    @Query('warehouseId') warehouseId?: string,
+    @Query('productId') productId?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.inventory.listBatches(req.user, warehouseId, productId, search);
+  }
+
+  @Get('batches/:batchId/trace')
+  @RequirePermissions('inventory:read')
+  batchTrace(@Req() req: { user: AuthenticatedUser }, @Param('batchId', ParseUUIDPipe) batchId: string) {
+    return this.inventory.getBatchTrace(req.user, batchId);
+  }
+
   @Get('movements')
   @RequirePermissions('inventory:read')
   movements(@Req() req: { user: AuthenticatedUser }, @Query('limit') limit?: string) {

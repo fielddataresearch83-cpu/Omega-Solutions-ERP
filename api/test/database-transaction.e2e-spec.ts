@@ -1,13 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DatabaseService } from '../src/database.service.js';
 import { AuditService } from '../src/audit/audit.service.js';
+import { getLocalDisposableTestDatabaseUrl, isLocalDisposableTestDatabase } from './helpers/disposable-database.js';
 
-describe('DatabaseService PostgreSQL transaction integration', () => {
+const testDatabaseUrl = getLocalDisposableTestDatabaseUrl();
+const suite = testDatabaseUrl && isLocalDisposableTestDatabase() ? describe : describe.skip;
+
+suite('DatabaseService PostgreSQL transaction integration', () => {
   let db: DatabaseService;
 
   beforeAll(async () => {
-    process.env.DATABASE_URL ??=
-      'postgres://postgres:postgres@localhost:5432/omega_transaction_test';
     db = new DatabaseService();
     await db.query(
       'CREATE TABLE IF NOT EXISTS transaction_rollback_probe (id integer PRIMARY KEY, value text NOT NULL)',
@@ -18,7 +20,6 @@ describe('DatabaseService PostgreSQL transaction integration', () => {
   afterAll(async () => {
     if (db) {
       try {
-        await db.query('DROP TABLE IF EXISTS audit_logs CASCADE');
         await db.query('DROP TABLE IF EXISTS transaction_rollback_probe');
       } finally {
         await db.onModuleDestroy();

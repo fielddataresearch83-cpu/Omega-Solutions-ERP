@@ -661,3 +661,66 @@ describe('InventoryService supplier return balance synchronization', () => {
     expect(client.query.mock.calls[0][0]).toContain('SUM(GREATEST(0, b.total - b.paid_amount))');
   });
 });
+
+describe('InventoryService batch movement allocation', () => {
+  const service = new InventoryService({} as any, {} as any, {} as any, {} as any);
+  const movement = {
+    id: 'movement-1', company_id: 'company-1', product_id: 'product-1',
+    warehouse_id: 'warehouse-1', movement_type: 'sale', quantity: -7,
+    unit_cost: 10, created_by: 'user-1', transfer_group_id: null,
+  } as any;
+
+  it('allocates negative movements FEFO across released, unexpired, unreserved lots', async () => {
+    const client = { query: vi.fn(async (sql: string) => {
+      if (sql.includes("to_regclass('public.inventory_batches')")) return { rows: [{ exists: true }], rowCount: 1 };
+      if (sql.includes('FROM inventory_batches')) return { rows: [
+        { id: 'lot-expiring-first', quantity_on_hand: '4', reserved_quantity: '0', unit_cost: '8.5' },
+        { id: 'lot-expiring-later', quantity_on_hand: '5', reserved_quantity: '1', unit_cost: '9.25' },
+      ], rowCount: 2 };
+      return { rows: [], rowCount: 1 };
+    }) };
+
+    await (service as any).applyBatchMovement(client, movement);
+
+    const selection = client.query.mock.calls.find(([sql]) => String(sql).includes('FROM inventory_batches'))?.[0] as string;
+    expect(selection).toContain("quality_status='released'");
+    expect(selection).toContain("expires_on>=CURRENT_DATE");
+    expect(selection).toContain('ORDER BY expires_on ASC NULLS LAST');
+    expect(selection).toContain('FOR UPDATE');
+    const updates = client.query.mock.calls.filter(([sql]) => String(sql).includes('UPDATE inventory_batches'));
+    expect(updates.map(([, params]) => params)).toEqual([
+      [4, 'lot-expiring-first', 'company-1'],
+      [3, 'lot-expiring-later', 'company-1'],
+    ]);
+    const allocations = client.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO inventory_stock_movement_allocations'));
+    expect(allocations.map(([, params]) => params?.[5])).toEqual([4, 3]);
+    expect(allocations.map(([, params]) => params?.[6])).toEqual([8.5, 9.25]);
+  });
+
+  it('rejects a movement when eligible lot balances cannot cover the full quantity', async () => {
+    const client = { query: vi.fn(async (sql: string) => {
+      if (sql.includes("to_regclass('public.inventory_batches')")) return { rows: [{ exists: true }], rowCount: 1 };
+      if (sql.includes('FROM inventory_batches')) return { rows: [
+        { id: 'lot-1', quantity_on_hand: '2', reserved_quantity: '0', unit_cost: '8.5' },
+      ], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    }) };
+
+    await expect((service as any).applyBatchMovement(client, { ...movement, quantity: -5 }))
+      .rejects.toThrow('Batch allocation could not cover this stock movement');
+  });
+
+  it('creates a released receipt lot and links the positive movement to it', async () => {
+    const client = { query: vi.fn(async (sql: string) => {
+      if (sql.includes("to_regclass('public.inventory_batches')")) return { rows: [{ exists: true }], rowCount: 1 };
+      if (sql.includes('INSERT INTO inventory_batches')) return { rows: [{ id: 'new-lot-1' }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    }) };
+
+    await (service as any).applyBatchMovement(client, { ...movement, movement_type: 'receipt', quantity: 12 });
+
+    const batchInsert = client.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO inventory_batches'));
+    expect(batchInsert?.[1]).toEqual(['company-1', 'product-1', 'warehouse-1', 'AUTO-MOVEMENT1', 12, 10, 'receipt', 'movement-1', 'user-1']);
+    expect(client.query.mock.calls.some(([sql, params]) => String(sql).includes('INSERT INTO inventory_stock_movement_allocations') && params?.[2] === 'new-lot-1')).toBe(true);
+  });
+});

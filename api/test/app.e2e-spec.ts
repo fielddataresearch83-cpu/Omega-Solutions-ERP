@@ -2,8 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
+import { getLocalDisposableTestDatabaseUrl } from './helpers/disposable-database.js';
 
-describe('AppController (e2e)', () => {
+const testDatabaseUrl = getLocalDisposableTestDatabaseUrl();
+const suite = testDatabaseUrl ? describe : describe.skip;
+
+suite('AppController (e2e)', () => {
   beforeAll(() => {
     process.env.JWT_SECRET ??= 'test-only-jwt-secret-for-app-e2e-tests-32-chars';
   });
