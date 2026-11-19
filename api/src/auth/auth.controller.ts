@@ -64,8 +64,11 @@ export class AuthController {
       ...(process.env.CORS_ORIGIN || '').split(','),
     ].map((value) => value.trim()).filter(Boolean);
     const allowedOrigins = configured.length ? configured : ['http://localhost:5173'];
+    // Match the exact Vercel preview-host policy in api/src/main.ts.
+    // Deployment-specific hostnames may not contain the project name (for example,
+    // omega-solutions-<deployment-id>-coll5.vercel.app).
     const trustedVercelOrigin =
-      /^https:\/\/omega-solutions-erp(?:-[a-z0-9-]+)?\.vercel\.app$/.test(origin);
+      /^https:\/\/omega-solutions-[a-z0-9-]+-coll5\.vercel\.app$/.test(origin);
     if (!allowedOrigins.includes(origin) && !trustedVercelOrigin) {
       throw new UnauthorizedException('This request origin is not allowed.');
     }
