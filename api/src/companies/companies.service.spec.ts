@@ -49,7 +49,7 @@ describe('CompaniesService', () => {
     requireOwnerOrAdmin: Mock;
     requireRole: Mock;
   };
-  let audit: { log: Mock };
+  let audit: { log: Mock; logInTransaction: Mock };
 
   beforeEach(async () => {
     db = { query: vi.fn(), transaction: vi.fn() };
@@ -60,7 +60,7 @@ describe('CompaniesService', () => {
       requireOwnerOrAdmin: vi.fn(),
       requireRole: vi.fn(),
     };
-    audit = { log: vi.fn().mockResolvedValue(undefined) };
+    audit = { log: vi.fn().mockResolvedValue(undefined), logInTransaction: vi.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -193,4 +193,27 @@ describe('CompaniesService', () => {
       await expect(service.getById('nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
+  describe('archive and restore', () => {
+    it('archives a company without deleting records and writes an audit event', async () => {
+      db.query.mockResolvedValueOnce({ rows: [{ role: 'owner' }] });
+      db.query.mockResolvedValueOnce({ rows: [COMPANY_A], rowCount: 1 });
+      db.query.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      await expect(service.archive(USER_A, 'comp-a')).resolves.toEqual({ success: true, is_active: false });
+      expect(db.query.mock.calls[2][0]).toContain('SET is_active = false');
+      expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'company.archived' }));
+    });
+
+    it('restores an archived company for an active owner membership', async () => {
+      const archivedCompany = { ...COMPANY_A, is_active: false };
+      db.query.mockResolvedValueOnce({ rows: [{ role: 'owner' }] });
+      db.query.mockResolvedValueOnce({ rows: [archivedCompany], rowCount: 1 });
+      db.query.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+      await expect(service.restore(USER_A, 'comp-a')).resolves.toEqual({ success: true, is_active: true });
+      expect(db.query.mock.calls[2][0]).toContain('SET is_active = true');
+      expect(audit.logInTransaction).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: 'company.restored' }));
+    });
+  });
+
 });

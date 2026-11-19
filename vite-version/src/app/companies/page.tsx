@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Plus, Pencil, AlertCircle, Building2 } from "lucide-react"
+import { Plus, Pencil, AlertCircle, Building2, Archive, RotateCcw } from "lucide-react"
 import { BaseLayout } from "@/components/layouts/base-layout"
 import { PageHeader } from "@/components/page-header"
 import { StatusBadge } from "@/components/status-badge"
@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { useAuth } from "@/contexts/auth-context"
+import { api } from "@/lib/api-client"
 import { useCompany, useBranches, createBranch, updateBranch } from "@/hooks/use-company"
 import type { BranchRow } from "@/lib/api-types"
 
@@ -46,6 +47,8 @@ export default function CompaniesPage() {
   const [editingBranch, setEditingBranch] = React.useState<BranchRow | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
   const [formError, setFormError] = React.useState<string | null>(null)
+  const [companyActionBusy, setCompanyActionBusy] = React.useState(false)
+  const [companyActionError, setCompanyActionError] = React.useState<string | null>(null)
 
   const [formData, setFormData] = React.useState({
     name: "",
@@ -154,8 +157,34 @@ export default function CompaniesPage() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Company Profile</CardTitle>
-            <CardDescription>{company.name}</CardDescription>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle>Company Profile</CardTitle>
+                <CardDescription>{company.name}</CardDescription>
+                {!company.is_active && <p className="mt-2 text-sm font-medium text-destructive">This company is archived. Restore it to resume normal operations.</p>}
+                {companyActionError && <p role="alert" className="mt-2 text-sm text-destructive">{companyActionError}</p>}
+              </div>
+              {(user?.role === "owner" || user?.role === "admin") && (
+                company.is_active ? (
+                  <Button variant="outline" size="sm" disabled={companyActionBusy} onClick={async () => {
+                    if (!window.confirm(`Archive ${company.name}? Users will lose normal access. Company records will be retained and an owner or administrator can restore it later.`)) return
+                    setCompanyActionBusy(true); setCompanyActionError(null)
+                    try { await api.post(`/companies/${company.id}/archive`); window.location.reload() }
+                    catch (error) { setCompanyActionError(error instanceof Error ? error.message : "Unable to archive company."); setCompanyActionBusy(false) }
+                  }}>
+                    <Archive className="size-4" /> Archive company
+                  </Button>
+                ) : (
+                  <Button size="sm" disabled={companyActionBusy} onClick={async () => {
+                    setCompanyActionBusy(true); setCompanyActionError(null)
+                    try { await api.post(`/companies/${company.id}/restore`); window.location.reload() }
+                    catch (error) { setCompanyActionError(error instanceof Error ? error.message : "Unable to restore company."); setCompanyActionBusy(false) }
+                  }}>
+                    <RotateCcw className="size-4" /> Restore company
+                  </Button>
+                )
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

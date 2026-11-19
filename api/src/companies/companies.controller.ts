@@ -45,6 +45,24 @@ export class CompaniesController {
     return this.companies.create(req.user, dto);
   }
 
+  @Post(':companyId/archive')
+  @RequirePermissions('companies:write')
+  async archive(
+    @Request() req: { user: AuthenticatedUser },
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+  ) {
+    return this.companies.archive(req.user, companyId);
+  }
+
+  @Post(':companyId/restore')
+  @RequirePermissions('companies:write')
+  async restore(
+    @Request() req: { user: AuthenticatedUser },
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+  ) {
+    return this.companies.restore(req.user, companyId);
+  }
+
   @Patch(':companyId')
   @RequirePermissions('companies:write')
   async update(

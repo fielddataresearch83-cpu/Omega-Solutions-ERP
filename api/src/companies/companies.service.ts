@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { DatabaseService } from '../database.service.js';
 import { MembershipsService } from '../memberships/memberships.service.js';
@@ -51,8 +52,72 @@ export class CompaniesService {
   }
 
   async getForUser(user: AuthenticatedUser, companyId: string): Promise<CompanyRow> {
-    await this.memberships.getMembershipForCompany(user.userId, companyId);
+    try {
+      await this.memberships.getMembershipForCompany(user.userId, companyId);
+    } catch {
+      // Archived companies are excluded by the normal membership lookup. Permit
+      // an existing active owner/admin membership to reach the restore action.
+      const membership = await this.db.query<{ role: string; is_active: boolean }>(
+        `SELECT cm.role, c.is_active
+         FROM company_memberships cm
+         JOIN companies c ON c.id = cm.company_id
+         WHERE cm.user_id = $1 AND cm.company_id = $2 AND cm.is_active = true
+         LIMIT 1`,
+        [user.userId, companyId],
+      );
+      const row = membership?.rows?.[0];
+      if (!row || row.is_active || !['owner', 'admin'].includes(row.role)) {
+        throw new ForbiddenException('You do not have access to this company.');
+      }
+    }
     return this.getById(companyId);
+  }
+
+  private async requireCompanyOwner(userId: string, companyId: string): Promise<void> {
+    const result = await this.db.query<{ role: string }>(
+      `SELECT role FROM company_memberships
+       WHERE user_id = $1 AND company_id = $2 AND is_active = true LIMIT 1`,
+      [userId, companyId],
+    );
+    if (!result.rows[0] || !['owner', 'admin'].includes(result.rows[0].role)) {
+      throw new ForbiddenException('Only an active company owner or administrator can archive or restore this company.');
+    }
+  }
+
+  async archive(user: AuthenticatedUser, companyId: string) {
+    await this.requireCompanyOwner(user.userId, companyId);
+    const company = await this.getById(companyId);
+    if (!company.is_active) return { success: true, is_active: false };
+    await this.db.transaction(async (client) => {
+      await client.query(
+        `UPDATE companies SET is_active = false, updated_at = NOW() WHERE id = $1 AND is_active = true`,
+        [companyId],
+      );
+      await this.audit.logInTransaction(client, {
+        userId: user.userId, companyId, branchId: user.branchId ?? null,
+        action: 'company.archived', entityType: 'company', entityId: companyId,
+        oldValues: { is_active: true }, newValues: { is_active: false }, ipAddress: null,
+      });
+    });
+    return { success: true, is_active: false };
+  }
+
+  async restore(user: AuthenticatedUser, companyId: string) {
+    await this.requireCompanyOwner(user.userId, companyId);
+    const company = await this.getById(companyId);
+    if (company.is_active) return { success: true, is_active: true };
+    await this.db.transaction(async (client) => {
+      await client.query(
+        `UPDATE companies SET is_active = true, updated_at = NOW() WHERE id = $1 AND is_active = false`,
+        [companyId],
+      );
+      await this.audit.logInTransaction(client, {
+        userId: user.userId, companyId, branchId: user.branchId ?? null,
+        action: 'company.restored', entityType: 'company', entityId: companyId,
+        oldValues: { is_active: false }, newValues: { is_active: true }, ipAddress: null,
+      });
+    });
+    return { success: true, is_active: true };
   }
 
   async create(
