@@ -87,7 +87,7 @@ export default function SettingsPage() {
         dateFormat: displayPrefs?.dateFormat ?? defaultPrefs.dateFormat,
       })
       if (displayResult.status === "rejected") {
-        setPrefsError("Personal date-format sync is waiting for the pending development database migration. Other company settings loaded normally.")
+        setPrefsError("Personal date-format preference could not be loaded. Retry the page or contact your administrator if the problem continues.")
       } else if (companyResult.status === "rejected") {
         setPrefsError("Company preferences could not be loaded. Check your company access.")
       }
