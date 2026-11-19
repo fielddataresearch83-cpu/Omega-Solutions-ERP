@@ -132,6 +132,9 @@ export async function apiRequest<T>(
 
   if (res.status === 401) {
     clearTokens();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("omega:session-expired"));
+    }
     throw { statusCode: 401, message: "Your session has expired. Please sign in again." } as ApiError;
   }
 
@@ -163,6 +166,9 @@ export async function apiRequest<T>(
       const retry = await request();
       if (retry.status === 401) {
         clearTokens();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("omega:session-expired"));
+        }
         throw { statusCode: 401, message: "Your session has expired. Please sign in again." } as ApiError;
       }
       if (!retry.ok) {
