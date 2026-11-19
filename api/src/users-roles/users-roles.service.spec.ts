@@ -159,4 +159,36 @@ describe('UsersRolesService', () => {
       newValues: { role: 'manager' },
     }));
   });
+  it('suspends a company membership and records an audit event', async () => {
+    client.query.mockResolvedValueOnce({ rows: [{ id: 'membership-2', user_id: 'staff-2', role: 'staff', is_active: true }] });
+    client.query.mockResolvedValueOnce({ rows: [{ id: 'membership-2', user_id: 'staff-2', role: 'staff', is_active: false }] });
+    await expect(service.setMembershipStatus(owner, 'membership-2', false)).resolves.toMatchObject({ is_active: false });
+    expect(client.query.mock.calls[1][1]).toEqual([false, 'company-1', 'membership-2']);
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'suspend_membership', oldValues: { is_active: true }, newValues: { is_active: false } }));
+  });
+
+  it('reactivates an inactive company membership', async () => {
+    client.query.mockResolvedValueOnce({ rows: [{ id: 'membership-2', user_id: 'staff-2', role: 'staff', is_active: false }] });
+    client.query.mockResolvedValueOnce({ rows: [{ id: 'membership-2', user_id: 'staff-2', role: 'staff', is_active: true }] });
+    await expect(service.setMembershipStatus(owner, 'membership-2', true)).resolves.toMatchObject({ is_active: true });
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'reactivate_membership' }));
+  });
+
+  it('prevents a user from suspending their own membership', async () => {
+    client.query.mockResolvedValueOnce({ rows: [{ id: 'membership-1', user_id: owner.userId, role: 'owner', is_active: true }] });
+    await expect(service.setMembershipStatus(owner, 'membership-1', false)).rejects.toThrow(BadRequestException);
+  });
+
+  it('prevents suspending an owner membership', async () => {
+    client.query.mockResolvedValueOnce({ rows: [{ id: 'membership-3', user_id: 'owner-2', role: 'owner', is_active: true }] });
+    await expect(service.setMembershipStatus(owner, 'membership-3', false)).rejects.toThrow(ForbiddenException);
+  });
+
+  it('prevents administrators from suspending another administrator', async () => {
+    memberships.getMembershipForCompany.mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'admin' });
+    memberships.requireOwnerOrAdmin.mockResolvedValue({ companyId: 'company-1', branchId: null, role: 'admin' });
+    client.query.mockResolvedValueOnce({ rows: [{ id: 'membership-4', user_id: 'admin-2', role: 'admin', is_active: true }] });
+    await expect(service.setMembershipStatus({ ...owner, userId: 'admin-1' }, 'membership-4', false)).rejects.toThrow(ForbiddenException);
+  });
+
 });

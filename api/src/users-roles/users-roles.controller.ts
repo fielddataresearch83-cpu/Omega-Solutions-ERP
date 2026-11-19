@@ -3,6 +3,7 @@ import { UsersRolesService } from './users-roles.service.js';
 import { InvitationsService } from './invitations.service.js';
 import { AcceptInvitationDto, CreateInvitationDto } from './dto/invitations.dto.js';
 import { UpdateMembershipRoleDto } from './dto/update-membership-role.dto.js';
+import { UpdateMembershipStatusDto } from './dto/update-membership-status.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from '../rbac/guards/permissions.guard.js';
 import { RequirePermissions } from '../rbac/decorators/require-permissions.decorator.js';
@@ -52,6 +53,16 @@ export class UsersRolesController {
   @Post('invitations/accept')
   acceptInvitation(@Req() req: { user: AuthenticatedUser }, @Body() dto: AcceptInvitationDto) {
     return this.invitations.accept(req.user, dto.token);
+  }
+
+  @Patch(':membershipId/status')
+  @RequirePermissions('users:write')
+  setMembershipStatus(
+    @Req() req: { user: AuthenticatedUser },
+    @Param('membershipId', ParseUUIDPipe) membershipId: string,
+    @Body() dto: UpdateMembershipStatusDto,
+  ) {
+    return this.service.setMembershipStatus(req.user, membershipId, dto.isActive);
   }
 
   @Patch(':membershipId/role')

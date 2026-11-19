@@ -97,6 +97,17 @@ export default function UsersRolesPage() {
     } catch (e) { setError(errorText(e)); }
     finally { setSaving(""); }
   };
+  const setMemberStatus = async (member: Member, isActive: boolean) => {
+    const action = isActive ? "reactivate" : "suspend"
+    if (!window.confirm(`${action === "suspend" ? "Suspend" : "Reactivate"} ${member.full_name}'s access to this company? ${isActive ? "They will be able to sign in to this company again." : "They will immediately lose access to this company. Their records and access to other companies will remain unchanged."}`)) return
+    setSaving(member.membership_id); setError(""); setNotice("")
+    try {
+      await api.patch("/users-roles/" + member.membership_id + "/status", { isActive })
+      await refresh()
+      setNotice(`${member.full_name}'s company access was ${isActive ? "reactivated" : "suspended"}.`)
+    } catch (e) { setError(errorText(e)) }
+    finally { setSaving("") }
+  }
   const sendInvitation = async (e: React.FormEvent) => {
     e.preventDefault();
     setInvitationLoading(true); setError(""); setNotice("");
@@ -132,7 +143,7 @@ export default function UsersRolesPage() {
       : <div className="space-y-3">{filtered.map(m=><div key={m.membership_id} className="flex flex-col gap-3 rounded-lg border p-4 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0"><p className="font-semibold">{m.full_name}</p><p className="break-all text-sm text-muted-foreground">{m.email}</p><p className="mt-1 text-xs text-muted-foreground">{m.branch_name ?? "All branches / no branch assigned"} · {m.is_active ? "Active membership" : "Inactive membership"} · {m.last_login_at ? "Last login " + new Date(m.last_login_at).toLocaleString() : "No recorded login"}</p></div>
         <div className="flex items-center gap-3"><span className="rounded-full bg-muted px-3 py-1 text-xs font-medium">{title(m.role)}</span>
-        {canManage && m.role !== "owner" && m.user_id !== user?.userId && <div className="flex items-center gap-2"><Label className="sr-only" htmlFor={"role-"+m.membership_id}>Change role for {m.full_name}</Label><select id={"role-"+m.membership_id} aria-label={"Change role for "+m.full_name} className="h-9 rounded-md border bg-background px-3 text-sm" value={m.role} disabled={saving===m.membership_id} onChange={e=>void changeRole(m,e.target.value as Role)}>{roles.filter(r=>r!=="admin"||user?.role==="owner").map(r=><option key={r} value={r}>{title(r)}</option>)}</select>{saving===m.membership_id&&<Loader2 className="size-4 animate-spin"/>}</div>}
+        {canManage && m.role !== "owner" && m.user_id !== user?.userId && <div className="flex flex-wrap items-center gap-2"><Label className="sr-only" htmlFor={"role-"+m.membership_id}>Change role for {m.full_name}</Label><select id={"role-"+m.membership_id} aria-label={"Change role for "+m.full_name} className="h-9 rounded-md border bg-background px-3 text-sm" value={m.role} disabled={saving===m.membership_id} onChange={e=>void changeRole(m,e.target.value as Role)}>{roles.filter(r=>r!=="admin"||user?.role==="owner").map(r=><option key={r} value={r}>{title(r)}</option>)}</select>{(m.role !== "admin" || user?.role === "owner") && <Button type="button" size="sm" variant="outline" disabled={saving===m.membership_id} onClick={()=>void setMemberStatus(m,!m.is_active)}>{saving===m.membership_id?<Loader2 className="mr-1 size-4 animate-spin"/>:m.is_active?<Ban className="mr-1 size-4"/>:<RefreshCw className="mr-1 size-4"/>}{m.is_active?"Suspend":"Reactivate"}</Button>}</div>}
         </div>
       </div>)}</div>}
     </CardContent></Card>

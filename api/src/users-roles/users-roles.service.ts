@@ -57,6 +57,43 @@ export class UsersRolesService {
     )).rows;
   }
 
+  async setMembershipStatus(user: AuthenticatedUser, membershipId: string, isActive: boolean) {
+    const actor = await this.companyFor(user);
+    const actorMembership = await this.memberships.requireOwnerOrAdmin(user.userId, actor.companyId);
+    const result = await this.db.transaction(async client => {
+      const found = await client.query(
+        'SELECT id,user_id,role,is_active FROM company_memberships WHERE company_id=$1 AND id=$2 FOR UPDATE',
+        [actor.companyId, membershipId],
+      );
+      const target = found.rows[0];
+      if (!target) throw new NotFoundException('Company membership not found.');
+      if (target.user_id === user.userId) throw new BadRequestException('You cannot suspend or reactivate your own membership.');
+      if (target.role === 'owner' && !isActive) {
+        throw new ForbiddenException('Owner memberships cannot be suspended. Transfer ownership before changing owner access.');
+      }
+      if (target.role === 'owner' && actorMembership.role !== 'owner') {
+        throw new ForbiddenException('Only another company owner can reactivate an owner membership.');
+      }
+      if (target.role === 'admin' && actorMembership.role !== 'owner') {
+        throw new ForbiddenException('Only a company owner can suspend or reactivate an administrator.');
+      }
+      if (target.is_active === isActive) return target;
+      const updated = await client.query(
+        'UPDATE company_memberships SET is_active=$1,updated_at=NOW() WHERE company_id=$2 AND id=$3 RETURNING id,user_id,role,is_active',
+        [isActive, actor.companyId, membershipId],
+      );
+      return updated.rows[0];
+    });
+    await this.audit.log({
+      userId: user.userId, companyId: actor.companyId, branchId: actor.branchId,
+      action: isActive ? 'reactivate_membership' : 'suspend_membership',
+      entityType: 'company_membership', entityId: membershipId, ipAddress: null,
+      oldValues: { is_active: !isActive },
+      newValues: { is_active: result.is_active },
+    });
+    return result;
+  }
+
   async updateRole(user: AuthenticatedUser, membershipId: string, dto: UpdateMembershipRoleDto) {
     const actor = await this.companyFor(user);
     const actorMembership = await this.memberships.requireOwnerOrAdmin(user.userId, actor.companyId);
