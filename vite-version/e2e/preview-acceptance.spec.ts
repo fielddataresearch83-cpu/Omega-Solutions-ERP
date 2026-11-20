@@ -125,8 +125,10 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
     }
     // Finance planning must complete its three API-backed initial reads, not merely render a shell.
     await page.goto("/finance-planning", { waitUntil: "domcontentloaded" });
+    // Wait for the page's API-backed content before draining captured 5xx bodies;
+    // otherwise a fast DOMContentLoaded can race the initial React data fetches.
+    await expect(page.getByRole("heading", { name: "Create cost centre" })).toBeVisible({ timeout: 20_000 });
     await Promise.all(serverErrorBodies);
-    await expect(page.getByRole("heading", { name: "Create cost centre" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Create monthly budget" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Budget vs actual" })).toBeVisible();
     await expect(page.getByRole("alert")).toHaveCount(0);
