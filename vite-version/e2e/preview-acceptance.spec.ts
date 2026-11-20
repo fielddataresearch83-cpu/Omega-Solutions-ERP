@@ -106,8 +106,10 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
         await expect(page.locator("body")).toBeVisible();
         await expect(page.locator("body")).not.toContainText(/application error|unexpected error|something went wrong|404 not found/i);
         await expect(page).toHaveURL(new RegExp(`${module.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[?#].*)?$`), { timeout: 15_000 });
-        const bodyText = (await page.locator("body").innerText()).trim();
-        expect(bodyText.length, `${module.name} rendered an empty page`).toBeGreaterThan(20);
+        await expect.poll(
+          async () => (await page.locator("body").innerText()).trim().length,
+          { timeout: 15_000, message: `${module.name} should finish rendering its lazy-loaded page` },
+        ).toBeGreaterThan(20);
         results.push(`${module.name}: PASS`);
       } catch (error) {
         const detail = error instanceof Error ? error.message.split("\n")[0] : String(error);
@@ -116,9 +118,8 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
       }
     }
     console.log("\nPreview module acceptance results:\n" + results.join("\n"));
-    expect(moduleFailures, `Module failures:\n${moduleFailures.join("\n")}`).toEqual([]);
-
     expect(pageErrors, `Browser JavaScript errors:\n${pageErrors.join("\n")}`).toEqual([]);
     expect(serverErrors, `API/server 5xx responses:\n${serverErrors.join("\n")}`).toEqual([]);
+    expect(moduleFailures, `Module failures:\n${moduleFailures.join("\n")}`).toEqual([]);
   });
 });
