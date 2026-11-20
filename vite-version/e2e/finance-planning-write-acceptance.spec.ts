@@ -59,7 +59,12 @@ test("creates and reads back a test cost centre and monthly budget", async ({ pa
   expect(expenseAccount, "An active expense account must be available").toBeTruthy();
   await accountSelect.selectOption(expenseAccount!.value);
   const centreSelect = selects.nth(2);
-  await centreSelect.selectOption({ label: new RegExp(code).source });
+  const centreOptions = await centreSelect.locator("option").evaluateAll(options =>
+    options.map(option => ({ label: (option as HTMLOptionElement).textContent?.trim() ?? "", value: (option as HTMLOptionElement).value })),
+  );
+  const testCentreOption = centreOptions.find(option => option.label.startsWith(code));
+  expect(testCentreOption, "The newly created cost centre must be selectable").toBeTruthy();
+  await centreSelect.selectOption(testCentreOption!.value);
 
   await page.locator('input[type="number"][min="0"][step="0.01"]').fill(amount);
   const budgetResponsePromise = page.waitForResponse(response =>
