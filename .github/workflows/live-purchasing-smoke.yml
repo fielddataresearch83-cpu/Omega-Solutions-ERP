@@ -46,11 +46,9 @@ jobs:
         with:
           node-version: 22
 
-      - name: Use npm 11.6.0 for stable peer resolution
-        run: npm install --global npm@11.6.0
       - name: Install API dependencies for read-only approver diagnostic
         working-directory: api
-        run: npm ci --ignore-scripts
+        run: npx --yes npm@11.6.0 ci --ignore-scripts
 
       - name: Classify configured approver against Fezaton membership without logging credentials
         env:
@@ -197,12 +195,10 @@ jobs:
         with:
           node-version: 22
 
-      - name: Use npm 11.6.0 for stable peer resolution
-        run: npm install --global npm@11.6.0
       - name: Install cleanup script dependency
         if: ${{ env.OMEGA_ISOLATED_TEST_DATABASE_URL != '' }}
         working-directory: api
-        run: npm ci --ignore-scripts
+        run: npx --yes npm@11.6.0 ci --ignore-scripts
 
       - name: Clean up automated test tenants on the approved isolated Neon branch
         if: ${{ env.OMEGA_ISOLATED_TEST_DATABASE_URL != '' }}
