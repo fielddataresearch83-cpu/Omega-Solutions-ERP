@@ -1,0 +1,60 @@
+name: Finance Planning Preview write acceptance
+run-name: Finance Planning write acceptance on ${{ github.ref_name }}
+
+on:
+  push:
+    branches:
+      - development
+    paths:
+      - "vite-version/e2e/finance-planning-write-acceptance.spec.ts"
+      - ".github/workflows/finance-planning-write-acceptance.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finance-planning-write-acceptance-preview
+  cancel-in-progress: false
+
+jobs:
+  finance-planning-write-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: vite-version
+    env:
+      CI: "true"
+      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+      E2E_ACCEPTANCE_EMAIL: ${{ secrets.E2E_ACCEPTANCE_EMAIL }}
+      E2E_ACCEPTANCE_PASSWORD: ${{ secrets.E2E_ACCEPTANCE_PASSWORD }}
+      E2E_COMPANY_NAME: ${{ vars.E2E_COMPANY_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: vite-version/package-lock.json
+      - name: Validate isolated Preview target and test credentials
+        run: |
+          missing=0
+          for key in E2E_BASE_URL E2E_ACCEPTANCE_EMAIL E2E_ACCEPTANCE_PASSWORD; do
+            if [ -z "${!key}" ]; then echo "Missing GitHub Actions secret: $key"; missing=1; fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          node -e 'const u = new URL(process.env.E2E_BASE_URL); if (u.protocol !== "https:" || !u.hostname.endsWith("-coll5.vercel.app")) { console.error("Refusing to run finance write tests outside the dedicated Vercel Preview hostname."); process.exit(1); }'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Create and verify isolated test cost centre and budget
+        run: npx playwright test e2e/finance-planning-write-acceptance.spec.ts
+      - name: Upload Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: finance-planning-write-acceptance-results
+          path: |
+            vite-version/test-results/
+            vite-version/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
