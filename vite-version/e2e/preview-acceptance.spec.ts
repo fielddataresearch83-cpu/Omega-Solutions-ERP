@@ -71,8 +71,12 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
     const pageErrors: string[] = [];
     const serverErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
-    page.on("response", (response) => {
-      if (response.status() >= 500) serverErrors.push(`${response.status()} ${response.url()}`);
+    page.on("response", async (response) => {
+      if (response.status() >= 500) {
+        let body = "<unreadable response body>";
+        try { body = (await response.text()).slice(0, 2000); } catch { /* response body unavailable */ }
+        serverErrors.push(`${response.status()} ${response.url()} :: ${body}`);
+      }
     });
 
     await page.goto("/login");
