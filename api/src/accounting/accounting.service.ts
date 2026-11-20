@@ -251,11 +251,11 @@ export class AccountingService {
   let filter = '';
   if (fiscalYear !== undefined) {
    params.push(fiscalYear);
-   filter += ` AND b.fiscal_year=${params.length}`;
+   filter += ` AND b.fiscal_year=$${params.length}`;
   }
   if (periodMonth !== undefined) {
    params.push(periodMonth);
-   filter += ` AND b.period_month=${params.length}`;
+   filter += ` AND b.period_month=$${params.length}`;
   }
   return (await this.db.query(
    `SELECT b.id,b.fiscal_year,b.period_month,b.budget_amount,b.status,
