@@ -156,8 +156,15 @@ export class AuthController {
       this.clearRefreshCookie(response);
       throw new UnauthorizedException('Refresh session is missing. Please sign in again.');
     }
-    const result = await this.authService.refresh({ refreshToken: token });
-    return this.sessionResponse(result, response);
+    try {
+      const result = await this.authService.refresh({ refreshToken: token });
+      return this.sessionResponse(result, response);
+    } catch (error) {
+      // An expired, revoked, or otherwise invalid refresh token must not remain
+      // in the browser's HttpOnly cookie after the session has been rejected.
+      this.clearRefreshCookie(response);
+      throw error;
+    }
   }
 
   @Get('companies')
