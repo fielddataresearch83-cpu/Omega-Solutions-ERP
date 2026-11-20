@@ -46,7 +46,8 @@ test("creates and reads back a test cost centre and monthly budget", async ({ pa
   );
   await page.getByRole("button", { name: "Create cost centre" }).click();
   const centreResponse = await centreResponsePromise;
-  expect(centreResponse.status(), "Cost centre creation response").toBe(201);
+  const centreBody = await centreResponse.text();
+  expect(centreResponse.status(), `Cost centre creation response: ${centreBody}`).toBe(201);
   await expect(page.getByRole("row").filter({ hasText: code })).toBeVisible();
 
   // Select a valid active expense account and the test cost centre.
@@ -73,7 +74,8 @@ test("creates and reads back a test cost centre and monthly budget", async ({ pa
   );
   await page.getByRole("button", { name: "Add budget" }).click();
   const budgetResponse = await budgetResponsePromise;
-  expect(budgetResponse.status(), "Monthly budget creation response").toBe(201);
+  const budgetBody = await budgetResponse.text();
+  expect(budgetResponse.status(), `Monthly budget creation response: ${budgetBody}`).toBe(201);
 
   const budgetRow = page.getByRole("row").filter({ hasText: code });
   await expect(budgetRow).toBeVisible();
