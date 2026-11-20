@@ -104,6 +104,16 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
 
     await expect(page).toHaveURL(/\/(dashboard|sales-dashboard)(\?|$)/, { timeout: 45_000 });
 
+    // Verify Finance Planning immediately after authentication. The full module
+    // sweep is intentionally later so session expiry during a long sweep cannot
+    // turn this focused API-backed page check into a misleading login-page failure.
+    await page.goto("/finance-planning", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "Create cost centre" })).toBeVisible({ timeout: 20_000 });
+    await Promise.all(serverErrorBodies);
+    await expect(page.getByRole("heading", { name: "Create monthly budget" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Budget vs actual" })).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+
     const results: string[] = [];
     const moduleFailures: string[] = [];
     for (const module of modules) {
@@ -123,16 +133,6 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
         moduleFailures.push(`${module.name}: ${detail}`);
       }
     }
-    // Finance planning must complete its three API-backed initial reads, not merely render a shell.
-    await page.goto("/finance-planning", { waitUntil: "domcontentloaded" });
-    // Wait for the page's API-backed content before draining captured 5xx bodies;
-    // otherwise a fast DOMContentLoaded can race the initial React data fetches.
-    await expect(page.getByRole("heading", { name: "Create cost centre" })).toBeVisible({ timeout: 20_000 });
-    await Promise.all(serverErrorBodies);
-    await expect(page.getByRole("heading", { name: "Create monthly budget" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Budget vs actual" })).toBeVisible();
-    await expect(page.getByRole("alert")).toHaveCount(0);
-
     console.log("\nPreview module acceptance results:\n" + results.join("\n"));
     expect(pageErrors, `Browser JavaScript errors:\n${pageErrors.join("\n")}`).toEqual([]);
     expect(serverErrors, `API/server 5xx responses:\n${serverErrors.join("\n")}`).toEqual([]);
