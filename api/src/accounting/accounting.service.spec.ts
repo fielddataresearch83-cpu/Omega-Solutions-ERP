@@ -177,3 +177,39 @@ describe('AccountingService trial balance',()=>{
  });
 
 });
+
+
+describe('AccountingService budget period filters', () => {
+  const user: AuthenticatedUser = {
+    userId: 'user-1', email: 'owner@example.test', fullName: 'Test Owner',
+    companyId: 'company-active', branchId: null, role: 'owner', permissions: ['accounting:read'],
+  };
+  const query = vi.fn().mockResolvedValue({ rows: [], rowCount: 0 });
+  let service: AccountingService;
+
+  beforeEach(() => {
+    query.mockClear().mockResolvedValue({ rows: [], rowCount: 0 });
+    const memberships = {
+      getMembership: vi.fn(),
+      getMembershipForCompany: vi.fn().mockResolvedValue({
+        companyId: 'company-active', branchId: null, role: 'owner',
+      }),
+    };
+    service = new AccountingService(
+      { query, transaction: vi.fn() } as unknown as DatabaseService,
+      memberships as unknown as MembershipsService,
+      { log: vi.fn() } as unknown as AuditService,
+    );
+  });
+
+  it('binds fiscal year and month as positional SQL parameters', async () => {
+    await service.budgetVsActual(user, 2026, 11);
+
+    expect(query).toHaveBeenCalledTimes(1);
+    const [sql, params] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(sql).toContain('b.company_id=$1');
+    expect(sql).toContain('b.fiscal_year=$2');
+    expect(sql).toContain('b.period_month=$3');
+    expect(params).toEqual(['company-active', 2026, 11]);
+  });
+});
