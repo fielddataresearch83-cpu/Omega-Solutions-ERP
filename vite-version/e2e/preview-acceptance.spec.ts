@@ -71,11 +71,13 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
     const pageErrors: string[] = [];
     const serverErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
-    page.on("response", async (response) => {
+    const serverErrorBodies: Promise<void>[] = [];
+    page.on("response", (response) => {
       if (response.status() >= 500) {
-        let body = "<unreadable response body>";
-        try { body = (await response.text()).slice(0, 2000); } catch { /* response body unavailable */ }
-        serverErrors.push(`${response.status()} ${response.url()} :: ${body}`);
+        serverErrorBodies.push(response.text().then(
+          (body) => { serverErrors.push(`${response.status()} ${response.url()} :: ${body.slice(0, 2000)}`); },
+          () => { serverErrors.push(`${response.status()} ${response.url()} :: <unreadable response body>`); },
+        ));
       }
     });
 
@@ -123,6 +125,7 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
     }
     // Finance planning must complete its three API-backed initial reads, not merely render a shell.
     await page.goto("/finance-planning", { waitUntil: "domcontentloaded" });
+    await Promise.all(serverErrorBodies);
     await expect(page.getByRole("heading", { name: "Create cost centre" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Create monthly budget" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Budget vs actual" })).toBeVisible();
