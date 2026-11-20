@@ -37,7 +37,7 @@ export class ModuleEntitlementsGuard implements CanActivate {
     // Guards execute before Nest interceptors. Establish tenant scope here so RLS-protected
     // subscription and module-override reads see only this authenticated company.
     return tenantDatabaseContext.run(
-      { userId: user.userId, companyId, branchId: user.branchId ?? null },
+      { userId: user.userId, companyId: user.companyId, branchId: user.branchId ?? null },
       async () => {
     const result = await this.database.query<SubscriptionRow>(
       `SELECT s.status, p.modules FROM company_subscriptions s
