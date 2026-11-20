@@ -32,6 +32,21 @@ describe('AuthController HttpOnly refresh sessions', () => {
     expect(response.cookie).toHaveBeenCalledWith('omega_refresh', 'new-refresh', expect.any(Object));
   });
 
+  it('clears the HttpOnly refresh cookie when refresh is expired, revoked, or invalid', async () => {
+    const auth = { refresh: vi.fn().mockRejectedValue(new Error('Invalid refresh token')) };
+    const controller = new AuthController(auth as any, {} as any);
+    const response = responseStub();
+    const request = { headers: { cookie: 'omega_refresh=expired-refresh' } } as any;
+
+    await expect(controller.refresh({}, request, response)).rejects.toThrow('Invalid refresh token');
+
+    expect(auth.refresh).toHaveBeenCalledWith({ refreshToken: 'expired-refresh' });
+    expect(response.clearCookie).toHaveBeenCalledWith('omega_refresh', expect.objectContaining({
+      httpOnly: true, secure: true, sameSite: 'none', path: '/api/auth',
+    }));
+    expect(response.cookie).not.toHaveBeenCalled();
+  });
+
   it('revokes the cookie session on logout and clears the cookie', async () => {
     const auth = { revokeRefreshToken: vi.fn().mockResolvedValue(undefined) };
     const controller = new AuthController(auth as any, {} as any);
