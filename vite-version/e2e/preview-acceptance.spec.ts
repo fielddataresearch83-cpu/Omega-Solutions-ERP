@@ -133,6 +133,9 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
         moduleFailures.push(`${module.name}: ${detail}`);
       }
     }
+    // Drain every captured 5xx response after navigation has finished. The
+    // promises are appended by the response listener throughout the module sweep.
+    await Promise.all(serverErrorBodies);
     console.log("\nPreview module acceptance results:\n" + results.join("\n"));
     expect(pageErrors, `Browser JavaScript errors:\n${pageErrors.join("\n")}`).toEqual([]);
     expect(serverErrors, `API/server 5xx responses:\n${serverErrors.join("\n")}`).toEqual([]);
