@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { DatabaseService } from '../database.service.js';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js';
 import { REQUIRED_MODULE_KEY } from './require-module.decorator.js';
+import { tenantDatabaseContext } from '../database/tenant-database-context.js';
 
 type SubscriptionRow = { status: string; modules: string[] };
 type ModuleOverride = { module_code: string; enabled: boolean };
@@ -33,6 +34,11 @@ export class ModuleEntitlementsGuard implements CanActivate {
     const user = request.user;
     if (!user?.companyId) throw new ForbiddenException('Select a company before accessing this module.');
 
+    // Guards execute before Nest interceptors. Establish tenant scope here so RLS-protected
+    // subscription and module-override reads see only this authenticated company.
+    return tenantDatabaseContext.run(
+      { userId: user.userId, companyId, branchId: user.branchId ?? null },
+      async () => {
     const result = await this.database.query<SubscriptionRow>(
       `SELECT s.status, p.modules FROM company_subscriptions s
        JOIN subscription_plans p ON p.code = s.plan_code WHERE s.company_id = $1`,
@@ -69,6 +75,8 @@ export class ModuleEntitlementsGuard implements CanActivate {
       );
     }
     return true;
+      },
+    );
   }
 
   private findMissingDependency(moduleCode: string, enabled: Set<string>, visited = new Set<string>()): string | null {
