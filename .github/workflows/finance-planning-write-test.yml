@@ -1,0 +1,61 @@
+name: One-off Preview finance write acceptance
+run-name: Preview finance create test on ${{ github.ref_name }}
+
+on:
+  push:
+    branches:
+      - development
+    paths:
+      - "vite-version/e2e/finance-planning-write.spec.ts"
+      - ".github/workflows/finance-planning-write-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-finance-write-acceptance
+  cancel-in-progress: false
+
+jobs:
+  finance-write-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: vite-version
+    env:
+      CI: "true"
+      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+      E2E_ACCEPTANCE_EMAIL: ${{ secrets.E2E_ACCEPTANCE_EMAIL }}
+      E2E_ACCEPTANCE_PASSWORD: ${{ secrets.E2E_ACCEPTANCE_PASSWORD }}
+      E2E_COMPANY_NAME: ${{ vars.E2E_COMPANY_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: vite-version/package-lock.json
+      - name: Validate isolated Preview test configuration
+        run: |
+          for key in E2E_BASE_URL E2E_ACCEPTANCE_EMAIL E2E_ACCEPTANCE_PASSWORD; do
+            if [ -z "${!key}" ]; then echo "Missing GitHub Actions secret: $key"; exit 1; fi
+          done
+          case "$E2E_BASE_URL" in
+            https://*) ;;
+            *) echo "E2E_BASE_URL must be an HTTPS Preview URL."; exit 1 ;;
+          esac
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Create one Preview test cost centre and draft budget
+        run: npx playwright test e2e/finance-planning-write.spec.ts
+      - name: Upload Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-finance-write-results
+          path: |
+            vite-version/test-results/
+            vite-version/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
