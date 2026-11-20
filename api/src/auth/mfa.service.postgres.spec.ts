@@ -4,6 +4,18 @@ import { Pool } from 'pg';
 import { MfaService } from './mfa.service.js';
 
 const connectionString = process.env.MFA_TEST_DATABASE_URL;
+
+if (connectionString) {
+  const testDatabaseUrl = new URL(connectionString);
+  const testDatabaseName = decodeURIComponent(testDatabaseUrl.pathname.slice(1));
+  const localTestHosts = new Set(['localhost', '127.0.0.1', '::1', 'postgres']);
+  if (!localTestHosts.has(testDatabaseUrl.hostname) || !testDatabaseName.endsWith('_test')) {
+    throw new Error(
+      'Refusing MFA PostgreSQL concurrency tests: MFA_TEST_DATABASE_URL must target a local disposable *_test database.',
+    );
+  }
+}
+
 const suite = describe.skipIf(!connectionString);
 
 suite('MfaService recovery-code PostgreSQL concurrency', () => {
@@ -12,6 +24,17 @@ suite('MfaService recovery-code PostgreSQL concurrency', () => {
   let service: MfaService;
 
   beforeAll(async () => {
+    // This concurrency test needs only a minimal user row. CI supplies an empty
+    // disposable PostgreSQL database, so create the minimum fixture schema when
+    // the full application migrations have not been applied.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.users (
+        id uuid PRIMARY KEY,
+        email text NOT NULL UNIQUE,
+        password_hash text NOT NULL,
+        full_name text NOT NULL
+      )
+    `);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS public.user_mfa (
         user_id text PRIMARY KEY,
