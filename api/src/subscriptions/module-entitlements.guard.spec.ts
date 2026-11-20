@@ -4,7 +4,7 @@ import { ModuleEntitlementsGuard } from './module-entitlements.guard.js';
 
 function context(companyId: string | null = 'company-1') {
   return { getHandler: () => 'handler', getClass: () => 'controller',
-    switchToHttp: () => ({ getRequest: () => ({ user: { companyId } }) }) } as never;
+    switchToHttp: () => ({ getRequest: () => ({ user: { userId: 'user-1', companyId, branchId: null } }) }) } as never;
 }
 function makeGuard(required: string, subscriptions: {status:string;modules:string[]}[], overrides: {module_code:string;enabled:boolean}[] = []) {
   const reflector = { getAllAndOverride: vi.fn().mockReturnValue(required) };
