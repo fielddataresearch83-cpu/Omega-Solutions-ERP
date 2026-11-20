@@ -81,19 +81,19 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
     await page.getByRole("button", { name: /sign in to omega/i }).click();
 
     // Some accounts have one company and proceed directly; others are asked to choose.
-    const companyChooser = page.locator('[aria-label="Choose company"]');
-    // isVisible() is an immediate snapshot; wait for the asynchronous post-login
-    // company-selection state so slower Preview responses do not race this check.
-    const companySelectionRequired = await companyChooser
-      .waitFor({ state: "visible", timeout: 5_000 })
+    const companyHeading = page.getByRole("heading", { name: /choose your company/i });
+    const companySelectionRequired = await companyHeading
+      .waitFor({ state: "visible", timeout: 10_000 })
       .then(() => true)
       .catch(() => false);
     if (companySelectionRequired) {
-      const choice = companyName
-        ? companyChooser.getByRole("button", { name: new RegExp(companyName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") })
-        : companyChooser.getByRole("button").first();
+      const targetCompany = companyName || "The Shire";
+      const choice = page.getByRole("main").getByRole("button", {
+        name: new RegExp(targetCompany, "i"),
+      });
       await expect(choice).toBeVisible();
       await choice.click();
+      await expect(companyHeading).toBeHidden({ timeout: 20_000 });
     }
 
     await expect(page).toHaveURL(/\/(dashboard|sales-dashboard)(\?|$)/, { timeout: 45_000 });
