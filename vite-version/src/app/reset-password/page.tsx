@@ -33,7 +33,7 @@ export default function ResetPasswordPage() {
         setResetRequested(true)
         setNotice("If an Omega account exists for that email, a password-reset code will be sent. Check your inbox.")
       } else {
-        if (!/^\\d{6}$/.test(otp.trim())) throw new Error("Enter the 6-digit reset code from your email.")
+        if (!/^\d{6}$/.test(otp.trim())) throw new Error("Enter the 6-digit reset code from your email.")
         if (password.length < 8) throw new Error("Your new password must be at least 8 characters.")
         if (password !== confirmPassword) throw new Error("The passwords do not match.")
         await resetNeonPassword(email, otp, password)
@@ -96,7 +96,7 @@ export default function ResetPasswordPage() {
               <form onSubmit={handleSubmit} className="mt-6 space-y-5">
                 <div className="space-y-2"><Label htmlFor="reset-email">Email address</Label><Input id="reset-email" type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" required disabled={resetRequested} placeholder="you@company.com" /></div>
                 {resetRequested && <>
-                  <div className="space-y-2"><Label htmlFor="reset-code">6-digit reset code</Label><Input id="reset-code" inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={event => setOtp(event.target.value.replace(/\\D/g, "").slice(0, 6))} minLength={6} maxLength={6} required placeholder="Enter code from email" /></div>
+                  <div className="space-y-2"><Label htmlFor="reset-code">6-digit reset code</Label><Input id="reset-code" inputMode="numeric" autoComplete="one-time-code" value={otp} onChange={event => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} minLength={6} maxLength={6} required placeholder="Enter code from email" /></div>
                   <div className="space-y-2"><Label htmlFor="new-password">New password</Label><div className="relative"><Input id="new-password" type={showPassword ? "text" : "password"} value={password} onChange={event => setPassword(event.target.value)} autoComplete="new-password" minLength={8} required placeholder="At least 8 characters" className="pr-11" /><button type="button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? "Hide password" : "Show password"} aria-pressed={showPassword} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</button></div></div>
                   <div className="space-y-2"><Label htmlFor="confirm-password">Confirm new password</Label><Input id="confirm-password" type={showPassword ? "text" : "password"} value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} required placeholder="Enter your new password again" /></div>
                 </>}
