@@ -4,8 +4,8 @@ const email = process.env.E2E_ACCEPTANCE_EMAIL;
 const password = process.env.E2E_ACCEPTANCE_PASSWORD;
 const companyName = process.env.E2E_COMPANY_NAME;
 
-// This one-off Preview-only test creates exactly one disposable test cost centre
-// and one draft budget through the authenticated UI. It never approves budgets.
+// One-off Preview-only test: creates one test cost centre and one draft budget.
+// It uses the authenticated UI and deliberately does not approve the budget.
 test("creates and verifies a Preview cost centre and draft budget", async ({ page }) => {
   test.skip(!email || !password, "Requires the dedicated non-production acceptance account.");
 
@@ -38,12 +38,11 @@ test("creates and verifies a Preview cost centre and draft budget", async ({ pag
   const code = `QA-${suffix}`;
   const name = `Preview acceptance ${suffix}`;
 
-  const codeInput = page.locator("input").nth(0);
-  const nameInput = page.locator("input").nth(1);
-  const descriptionInput = page.locator("input").nth(2);
-  await codeInput.fill(code);
-  await nameInput.fill(name);
-  await descriptionInput.fill("Automated Preview acceptance test data only; not a live business cost centre.");
+  const centrePanel = page.getByRole("heading", { name: "Create cost centre" }).locator("xpath=../..");
+  const centreInputs = centrePanel.locator("input");
+  await centreInputs.nth(0).fill(code);
+  await centreInputs.nth(1).fill(name);
+  await centreInputs.nth(2).fill("Automated Preview acceptance test data only; not a live business cost centre.");
 
   const createCentreResponse = page.waitForResponse((response) =>
     response.request().method() === "POST" &&
@@ -54,11 +53,16 @@ test("creates and verifies a Preview cost centre and draft budget", async ({ pag
   expect(centreResponse.status(), "Cost centre creation API response").toBeLessThan(300);
   await expect(page.getByText(code, { exact: true })).toBeVisible();
 
-  const accountSelect = page.getByLabel("Account");
+  const budgetPanel = page.getByRole("heading", { name: "Create monthly budget" }).locator("xpath=../..");
+  const budgetSelects = budgetPanel.locator("select");
+  const accountSelect = budgetSelects.nth(1);
   await expect(accountSelect).not.toHaveValue("");
-  const costCentreSelect = page.getByLabel("Cost centre (optional)");
-  await costCentreSelect.selectOption({ label: new RegExp(`${code}.*${name}`) } as never);
-  await page.getByLabel("Budget amount (KES)").fill("123.45");
+  const costCentreSelect = budgetSelects.nth(2);
+  const matchingOption = (await costCentreSelect.locator("option").allTextContents())
+    .find((option) => option.includes(code));
+  expect(matchingOption, "New cost centre should be selectable for the budget").toBeTruthy();
+  await costCentreSelect.selectOption({ label: matchingOption! });
+  await budgetPanel.locator("input").nth(1).fill("123.45");
 
   const createBudgetResponse = page.waitForResponse((response) =>
     response.request().method() === "POST" &&
