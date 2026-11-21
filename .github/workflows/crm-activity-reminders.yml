@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: crm-activity-reminders-development
@@ -18,30 +19,52 @@ jobs:
     timeout-minutes: 2
     env:
       OMEGA_API_URL: ${{ vars.OMEGA_DEVELOPMENT_API_URL }}
-      CRM_REMINDER_CRON_SECRET: ${{ secrets.CRM_REMINDER_CRON_SECRET }}
     steps:
-      - name: Dispatch development CRM reminders
+      - name: Dispatch development CRM reminders using GitHub OIDC
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$OMEGA_API_URL" || -z "$CRM_REMINDER_CRON_SECRET" ]]; then
-            echo "::error::Set OMEGA_DEVELOPMENT_API_URL and CRM_REMINDER_CRON_SECRET before enabling CRM reminder delivery."
-            exit 1
-          fi
-          node --input-type=module -e '
-            const url = new URL(process.env.OMEGA_API_URL);
-            if (
-              url.protocol !== "https:" ||
-              url.hostname !== "omega-solutions-erp-9k9s-git-development-coll5.vercel.app" ||
-              url.pathname !== "/api" ||
-              url.username || url.password || url.search || url.hash
-            ) {
-              throw new Error("Refusing an unapproved target. OMEGA_DEVELOPMENT_API_URL must point to the exact Development API deployment URL ending in /api.");
+          node --input-type=module <<'NODE'
+          const api = new URL(process.env.OMEGA_API_URL ?? '');
+          if (
+            api.protocol !== 'https:' ||
+            api.hostname !== 'omega-solutions-erp-9k9s-git-development-coll5.vercel.app' ||
+            api.pathname !== '/api' ||
+            api.username || api.password || api.search || api.hash
+          ) {
+            throw new Error('Refusing an unapproved target. OMEGA_DEVELOPMENT_API_URL must point to the exact Development API deployment URL ending in /api.');
+          }
+
+          const tokenUrl = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);
+          tokenUrl.searchParams.set('audience', 'omega-erp-reminders');
+          const tokenResponse = await fetch(tokenUrl, {
+            headers: {
+              Authorization: `Bearer ${process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}`,
+            },
+          });
+          if (!tokenResponse.ok) {
+            throw new Error(`GitHub OIDC token request failed with HTTP ${tokenResponse.status}.`);
+          }
+          const { value: identityToken } = await tokenResponse.json();
+          if (typeof identityToken !== 'string' || !identityToken) {
+            throw new Error('GitHub did not return an OIDC identity token.');
+          }
+
+          const endpoint = `${api.origin}${api.pathname}/internal/crm-reminders/dispatch`;
+          console.log('Development CRM reminder endpoint:', endpoint);
+          for (let attempt = 1; attempt <= 3; attempt += 1) {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${identityToken}` },
+            });
+            const body = await response.text();
+            if (response.ok) {
+              console.log(body);
+              process.exit(0);
             }
-            console.log("Development CRM reminder endpoint:", url.origin + url.pathname);
-          '
-          curl --fail-with-body --silent --show-error \
-            --retry 2 --retry-delay 5 --max-time 45 \
-            -X POST \
-            -H "x-omega-cron-secret: $CRM_REMINDER_CRON_SECRET" \
-            "$OMEGA_API_URL/internal/crm-reminders/dispatch"
+            if (response.status < 500 || attempt === 3) {
+              throw new Error(`CRM reminder dispatch failed with HTTP ${response.status}: ${body}`);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+          }
+          NODE
