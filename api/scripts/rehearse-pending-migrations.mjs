@@ -14,6 +14,7 @@
 //   * the rebatch availability index matches the application's status values,
 //   * every new uniqueness constraint rejects duplicates,
 //   * every new RLS policy isolates companies/users under a NOBYPASSRLS role,
+//   * the runtime role can append/read audit logs but cannot UPDATE/DELETE/TRUNCATE them,
 //   * omega_app_dev can read the global catalogs but cannot write them or read
 //     the migration ledger, while the auth throttle stays writable.
 //
@@ -55,6 +56,7 @@ const PENDING = [
   '202611190001_user_display_preferences.sql',
   '202611190002_user_display_preferences_rls.sql',
   '202611210001_control_plane_least_privilege.sql',
+  '202611210002_audit_logs_append_only.sql',
 ];
 
 const APP_ROLE = 'omega_app_dev';
@@ -735,6 +737,33 @@ async function main() {
     });
     assert(codes.every(code => code === '42501'), `expected only 42501, got ${codes.join(', ')}`);
     return `7 write statements rejected with 42501`;
+  });
+
+  await check('runtime role can read and append audit logs but cannot rewrite them', async () => {
+    const outcome = await asAppRole(ids.companyA, ids.userA, async () => {
+      const read = await client.query('SELECT id FROM public.audit_logs LIMIT 1');
+      const insert = await client.query(
+        `INSERT INTO public.audit_logs(company_id, user_id, action, entity_type, entity_id)
+         VALUES ($1, $2, 'rehearsal.audit.append', 'rehearsal', gen_random_uuid()) RETURNING id`,
+        [ids.companyA, ids.userA],
+      );
+      const codes = [];
+      for (const statement of [
+        `UPDATE public.audit_logs SET action = 'tampered' WHERE id = '${insert.rows[0].id}'`,
+        `DELETE FROM public.audit_logs WHERE id = '${insert.rows[0].id}'`,
+        'TRUNCATE public.audit_logs',
+      ]) {
+        await client.query('SAVEPOINT audit_acl');
+        try { await client.query(statement); codes.push('succeeded'); }
+        catch (error) { codes.push(String(error.code)); }
+        await client.query('ROLLBACK TO SAVEPOINT audit_acl');
+        await client.query('RELEASE SAVEPOINT audit_acl');
+      }
+      return { read: read.rowCount, inserted: insert.rowCount, codes };
+    });
+    assert(outcome.inserted === 1, 'runtime role could not append an audit event');
+    assert(outcome.codes.every(code => code === '42501'), `expected UPDATE/DELETE/TRUNCATE denied, got ${outcome.codes.join(',')}`);
+    return 'SELECT and INSERT permitted; UPDATE, DELETE and TRUNCATE rejected with 42501';
   });
 
   await check('runtime role cannot read the migration ledger', async () => {
