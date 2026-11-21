@@ -151,16 +151,18 @@ try {
   const auditAcl = await client.query(`
     SELECT
       pg_get_userbyid(c.relowner) AS owner,
-      has_table_privilege('omega_app_dev', 'public.audit_logs', 'SELECT') AS dev_select,
-      has_table_privilege('omega_app_dev', 'public.audit_logs', 'INSERT') AS dev_insert,
-      has_table_privilege('omega_app_dev', 'public.audit_logs', 'UPDATE') AS dev_update,
-      has_table_privilege('omega_app_dev', 'public.audit_logs', 'DELETE') AS dev_delete,
-      has_table_privilege('omega_app_dev', 'public.audit_logs', 'TRUNCATE') AS dev_truncate,
-      has_table_privilege('omega_app', 'public.audit_logs', 'UPDATE') AS prod_update,
-      has_table_privilege('omega_app', 'public.audit_logs', 'DELETE') AS prod_delete,
-      has_table_privilege('omega_app', 'public.audit_logs', 'TRUNCATE') AS prod_truncate
+      CASE WHEN dev.oid IS NOT NULL THEN has_table_privilege(dev.rolname, 'public.audit_logs', 'SELECT') ELSE false END AS dev_select,
+      CASE WHEN dev.oid IS NOT NULL THEN has_table_privilege(dev.rolname, 'public.audit_logs', 'INSERT') ELSE false END AS dev_insert,
+      CASE WHEN dev.oid IS NOT NULL THEN has_table_privilege(dev.rolname, 'public.audit_logs', 'UPDATE') ELSE false END AS dev_update,
+      CASE WHEN dev.oid IS NOT NULL THEN has_table_privilege(dev.rolname, 'public.audit_logs', 'DELETE') ELSE false END AS dev_delete,
+      CASE WHEN dev.oid IS NOT NULL THEN has_table_privilege(dev.rolname, 'public.audit_logs', 'TRUNCATE') ELSE false END AS dev_truncate,
+      CASE WHEN prod.oid IS NOT NULL THEN has_table_privilege(prod.rolname, 'public.audit_logs', 'UPDATE') ELSE false END AS prod_update,
+      CASE WHEN prod.oid IS NOT NULL THEN has_table_privilege(prod.rolname, 'public.audit_logs', 'DELETE') ELSE false END AS prod_delete,
+      CASE WHEN prod.oid IS NOT NULL THEN has_table_privilege(prod.rolname, 'public.audit_logs', 'TRUNCATE') ELSE false END AS prod_truncate
     FROM pg_class c
     JOIN pg_namespace n ON n.oid=c.relnamespace
+    LEFT JOIN pg_roles dev ON dev.rolname='omega_app_dev'
+    LEFT JOIN pg_roles prod ON prod.rolname='omega_app'
     WHERE n.nspname='public' AND c.relname='audit_logs' AND c.relkind='r'
   `);
   if (!auditAcl.rows.length) {
