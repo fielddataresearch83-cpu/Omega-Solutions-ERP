@@ -291,6 +291,44 @@ suite('Cross-company and role isolation (application layer, real PostgreSQL)', (
     expect(membership.rows[0]).toEqual({ is_active: true, role: 'owner' });
   });
 
+  it('never lists another company’s invitations', async () => {
+    const invitation = await pool.query<{ id: string }>(
+      `INSERT INTO company_invitations (company_id, invited_by, email, role, token_hash, expires_at)
+       VALUES ($1, $2, 'invitee-b@omega-isolation.test', 'staff', $3, NOW() + INTERVAL '7 days')
+       RETURNING id`,
+      [COMPANY_B, OWNER_B, 'b'.repeat(64)],
+    );
+
+    const response = await request(app.getHttpServer())
+      .get('/api/users-roles/invitations')
+      .set(auth(sessions.ownerA))
+      .expect(200);
+
+    const ids = (response.body as Array<{ id: string }>).map(row => row.id);
+    expect(ids).not.toContain(invitation.rows[0].id);
+    expect(JSON.stringify(response.body)).not.toContain('invitee-b@omega-isolation.test');
+  });
+
+  it('cannot revoke another company’s invitation', async () => {
+    const invitation = await pool.query<{ id: string }>(
+      `INSERT INTO company_invitations (company_id, invited_by, email, role, token_hash, expires_at)
+       VALUES ($1, $2, 'invitee-b2@omega-isolation.test', 'staff', $3, NOW() + INTERVAL '7 days')
+       RETURNING id`,
+      [COMPANY_B, OWNER_B, 'c'.repeat(64)],
+    );
+
+    await request(app.getHttpServer())
+      .post(`/api/users-roles/invitations/${invitation.rows[0].id}/revoke`)
+      .set(auth(sessions.ownerA))
+      .expect(404);
+
+    const unchanged = await pool.query<{ revoked_at: Date | null }>(
+      'SELECT revoked_at FROM company_invitations WHERE id = $1',
+      [invitation.rows[0].id],
+    );
+    expect(unchanged.rows[0].revoked_at).toBeNull();
+  });
+
   it('revokes an existing session immediately when the membership is deactivated', async () => {
     await pool.query(
       'UPDATE company_memberships SET is_active = false WHERE user_id = $1 AND company_id = $2',

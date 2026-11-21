@@ -33,11 +33,11 @@ Clean-rebuild verification (`omega_ci_test`, disposable): 121 public base tables
 
 ## Verdict
 
-- **Intentionally global (5):** `companies`, `users`, `user_mfa`, `permissions`, `role_permissions`, `subscription_plans`, `auth_rate_limits` are not tenant-partitioned by design — 7 objects across 6 classes; RLS cannot express their isolation as a company predicate alone.
+- **Intentionally global (7):** `companies`, `users`, `user_mfa`, `permissions`, `role_permissions`, `subscription_plans`, `auth_rate_limits` are not tenant-partitioned by design — 7 objects across 5 classes (tenant registry, identity, per-user secret, global/platform catalog, operational). RLS cannot express their isolation as a company predicate alone. This corrects an earlier miscount of 5 in this section.
 - **Intentionally control-plane (3):** `company_memberships`, `auth_refresh_tokens`, `company_invitations` carry `company_id` but are excluded on purpose because authentication must read them before tenant context exists. Their isolation is an application responsibility, and that responsibility is now partly covered by tests (cross-tenant membership administration, cross-company `/users-roles` scoping, session revocation on membership and branch deactivation).
 - **Bookkeeping (1):** `omega_schema_migrations`.
 
-**None of the 11 is an accidental omission from the loop.** The genuine open risk is not the exclusion list but the *runtime identity*: if the API connects as a role with `rolbypassrls` (or as the table owner without `FORCE ROW LEVEL SECURITY`), then all 110 policies are inert and the application's own `WHERE company_id = $1` predicates become the only boundary. That is why the runtime-role confirmation remains a P0 release blocker — see the readiness map and `docs/TENANT_ISOLATION_REMEDIATION.md`.
+**None of the 11 is an accidental omission from the loop.** Per-table policy design, the full pre-tenant versus tenant-context audit, and the granted least-privilege model are in [CONTROL_PLANE_AUTHORIZATION.md](CONTROL_PLANE_AUTHORIZATION.md). The genuine open risk is not the exclusion list but the *runtime identity*: if the API connects as a role with `rolbypassrls` (or as the table owner without `FORCE ROW LEVEL SECURITY`), then all 110 policies are inert and the application's own `WHERE company_id = $1` predicates become the only boundary. That is why the runtime-role confirmation remains a P0 release blocker — see the readiness map and `docs/TENANT_ISOLATION_REMEDIATION.md`.
 
 ## How to re-verify on the real database
 

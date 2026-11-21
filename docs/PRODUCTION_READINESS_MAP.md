@@ -104,6 +104,25 @@ Local result: **6/6 checks passed** on `omega_forward_repair_test`. The rehearsa
 2. Vercel runtime configuration — owner reads the API project's Development/Preview `DATABASE_URL` role name in the dashboard and confirms host/branch; the value must not be pasted anywhere.
 3. Branch protection — repository admin applies the documented rule.
 
+## Control-plane authorization checkpoint — 2026-11-21
+
+**Full audit and design:** [CONTROL_PLANE_AUTHORIZATION.md](CONTROL_PLANE_AUTHORIZATION.md). Ten tables traced through the complete authentication lifecycle; no shared or production database touched.
+
+**The finding that governs the design:** the majority of control-plane access happens **before** tenant context exists. `POST /api/auth/refresh` and `POST /api/auth/logout` carry no JWT at all (refresh token only), and registration, password login, MFA challenge completion and the Neon identity exchange all run outside tenant scope. Five tables (`users`, `company_memberships`, `user_mfa`, `auth_refresh_tokens`, `companies`) are required by pre-tenant authentication *and* by tenant-scoped business queries. A generic `company_id` policy on them would make refresh and logout silent no-ops — weakening session revocation — and would block MFA verification and invitation acceptance.
+
+**Implemented (safe, verified):** `202611210001_control_plane_least_privilege.sql` revokes write access to the global catalogs (`permissions`, `role_permissions`, `subscription_plans`) and all access to `omega_schema_migrations` from the application roles and from `PUBLIC`, while leaving `auth_rate_limits` writable because login throttling depends on it. It enables no RLS policy, changes no row, and alters no application behaviour. Owner-role caveat recorded: `REVOKE` does not constrain a table owner, so this only binds once the runtime role is a non-owner with `NOBYPASSRLS`.
+
+**Designed, deliberately not enabled:** table-specific policies keyed on an identity anchor (`app.user_id`) rather than `company_id`, plus `SECURITY DEFINER` lookup helpers for the genuinely pre-identity paths (email login/registration, invitation token acceptance). Enabling them requires the application to establish a verified identity context first; that dependency chain is written out step by step in the design document. Shipping the policies without it would break authentication, so they are held back rather than applied unverified.
+
+**Tests added:**
+
+- `test/control-plane-least-privilege.e2e-spec.ts` — creates its own `NOBYPASSRLS` role, pre-grants broad access, applies the hardening migration, then proves catalog reads succeed while writes to all three catalogs and reads of the ledger fail with `42501`; the auth throttle stays writable. **6 passed, 0 skipped, 0 failed**; role and privileges removed afterwards (verified absent).
+- `test/tenant-cross-company.e2e-spec.ts` — two new negatives: another company's invitations are never listed (and their email never appears), and revoking one returns 404 with `revoked_at` still null. Tenant-isolation total is now **17 passed, 0 skipped, 0 failed** (14 cross-company + 3 synthetic RLS).
+
+**Global-table count corrected:** [RLS_EXCLUSION_REVIEW.md](RLS_EXCLUSION_REVIEW.md) previously said "Intentionally global (5)" while listing seven tables. It now states 7 objects across 5 classes, consistent with the 11-table enumeration (7 global + 3 control-plane + 1 ledger).
+
+**Not changed:** no RLS policy enabled, no shared-database migration applied, no hosting setting or deployment touched, no branch created.
+
 ## CI evidence — 2026-11-21
 
 - **`Development validation` run [44898232714](https://github.com/fielddataresearch83-cpu/Omega-Solutions-ERP/actions/runs/44898232714) — success** on `development` `9f14c1db`. Step conclusions: `Apply migrations to disposable CI database` success, `Rehearse schema forward-repair bundle in isolation` success, `Rehearse inventory weighted-average cost correction in isolation` success, `Verify tenant isolation and role boundaries` success, `Verify company RLS policy migration` success. Both RLS steps carry a JSON assertion that fails the job if any test skips or if the executed count is below the expected minimum, so "success" means the suites executed.

@@ -94,6 +94,20 @@ jobs:
       # Keeps docs/DEVELOPMENT_SCHEMA_FORWARD_REPAIR.sql honest: installs migrations on a
       # throwaway database, simulates the documented drift, then proves the bundle repairs it,
       # is idempotent, and fails closed on duplicate supplier invoice references.
+      - name: Verify control-plane least privilege
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_ci_test
+        run: |
+          npm run test:e2e -- test/control-plane-least-privilege.e2e-spec.ts --no-file-parallelism --reporter=json --outputFile="$RUNNER_TEMP/control-plane.json"
+          node -e "
+            const r = require(process.env.RUNNER_TEMP + '/control-plane.json');
+            console.log('Control-plane: ' + r.numPassedTests + ' passed, ' + r.numPendingTests + ' skipped, ' + r.numFailedTests + ' failed');
+            if (r.numFailedTests !== 0) process.exit(1);
+            if (r.numPendingTests !== 0) { console.error('Control-plane least-privilege suite skipped; it must execute in CI.'); process.exit(1); }
+            if (r.numPassedTests < 6) { console.error('Expected at least 6 executed control-plane least-privilege tests.'); process.exit(1); }
+          "
+
       - name: Rehearse schema forward-repair bundle in isolation
         working-directory: api
         env:
@@ -133,7 +147,7 @@ jobs:
             console.log('tenant isolation: passed=' + r.numPassedTests + ' total=' + r.numTotalTests + ' skipped=' + r.numPendingTests + ' failed=' + r.numFailedTests);
             if (r.numFailedTests > 0) process.exit(1);
             if (r.numPendingTests !== 0) { console.error('Tenant isolation tests were skipped; they must execute against PostgreSQL.'); process.exit(1); }
-            if (r.numPassedTests < 15) { console.error('Expected at least 15 executed tenant isolation tests (12 cross-company + 3 RLS).'); process.exit(1); }
+            if (r.numPassedTests < 17) { console.error('Expected at least 17 executed tenant isolation tests (14 cross-company + 3 RLS).'); process.exit(1); }
           "
 
       - name: Verify company RLS policy migration
