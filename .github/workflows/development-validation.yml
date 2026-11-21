@@ -82,6 +82,18 @@ jobs:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_ci_test
         run: npm run migrate
 
+      # Keeps docs/DEVELOPMENT_SCHEMA_FORWARD_REPAIR.sql honest: installs migrations on a
+      # throwaway database, simulates the documented drift, then proves the bundle repairs it,
+      # is idempotent, and fails closed on duplicate supplier invoice references.
+      - name: Rehearse schema forward-repair bundle in isolation
+        working-directory: api
+        env:
+          DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/omega_ci_test
+        run: |
+          node scripts/create-disposable-database.mjs omega_forward_repair_test
+          DATABASE_URL=postgres://postgres:postgres@localhost:5432/omega_forward_repair_test \
+            node scripts/rehearse-schema-forward-repair.mjs
+
       - name: Create disposable application-RLS database
         working-directory: api
         env:
