@@ -6,9 +6,9 @@ function context(companyId: string | null = 'company-1') {
   return { getHandler: () => 'handler', getClass: () => 'controller',
     switchToHttp: () => ({ getRequest: () => ({ user: { userId: 'user-1', companyId, branchId: null } }) }) } as never;
 }
-function makeGuard(required: string, subscriptions: {status:string;modules:string[]}[], overrides: {module_code:string;enabled:boolean}[] = []) {
+function makeGuard(required: string, subscriptions: {status:string;modules:string[];period_active?:boolean}[], overrides: {module_code:string;enabled:boolean}[] = []) {
   const reflector = { getAllAndOverride: vi.fn().mockReturnValue(required) };
-  const database = { query: vi.fn().mockResolvedValueOnce({rows:subscriptions,rowCount:subscriptions.length})
+  const database = { query: vi.fn().mockResolvedValueOnce({rows:subscriptions.map(subscription=>({period_active:true,...subscription})),rowCount:subscriptions.length})
     .mockResolvedValue({rows:overrides,rowCount:overrides.length}) };
   return { guard: new ModuleEntitlementsGuard(reflector as never, database as never), database };
 }
@@ -42,6 +42,11 @@ describe('ModuleEntitlementsGuard', () => {
     const {guard}=makeGuard('procurement',[{status:'active',modules:['core','inventory','sales','accounting','procurement']}]);
     await expect(guard.canActivate(context())).resolves.toBe(true);
   });
+  it('blocks subscriptions whose billing period has expired even when status remains active', async () => {
+    const {guard}=makeGuard('inventory',[{status:'active',modules:['core','inventory'],period_active:false}]);
+    await expect(guard.canActivate(context())).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('blocks inactive subscriptions', async () => {
     const {guard}=makeGuard('inventory',[{status:'past_due',modules:['core','inventory']}]);
     await expect(guard.canActivate(context())).rejects.toBeInstanceOf(ForbiddenException);
