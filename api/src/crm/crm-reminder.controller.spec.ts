@@ -1,14 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException } from '@nestjs/common';
+import { verifyGitHubActionsReminderRequest } from '../github-actions-reminder-auth.js';
 import { CrmReminderController } from './crm-reminder.controller.js';
 import type { CrmService } from './crm.service.js';
 
+vi.mock('../github-actions-reminder-auth.js', () => ({
+  verifyGitHubActionsReminderRequest: vi.fn(),
+}));
+
 describe('CrmReminderController', () => {
   const crm = { dispatchActivityReminders: vi.fn().mockResolvedValue({ delivered: 2 }) };
+  const verifyIdentity = vi.mocked(verifyGitHubActionsReminderRequest);
   let controller: CrmReminderController;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    verifyIdentity.mockResolvedValue(undefined);
     controller = new CrmReminderController(crm as unknown as CrmService);
   });
 
@@ -16,22 +23,20 @@ describe('CrmReminderController', () => {
     vi.unstubAllEnvs();
   });
 
-  it('refuses dispatch when the scheduler secret is not configured', () => {
-    vi.stubEnv('CRM_REMINDER_CRON_SECRET', '');
-    expect(() => controller.dispatch('some-secret')).toThrow(ServiceUnavailableException);
+  it('rejects an unauthorized GitHub Actions identity', async () => {
+    verifyIdentity.mockRejectedValueOnce(new UnauthorizedException());
+    await expect(controller.dispatch('Bearer invalid')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
     expect(crm.dispatchActivityReminders).not.toHaveBeenCalled();
   });
 
-  it('rejects an incorrect scheduler secret', () => {
-    vi.stubEnv('CRM_REMINDER_CRON_SECRET', 'a'.repeat(40));
-    expect(() => controller.dispatch('wrong-secret')).toThrow(UnauthorizedException);
-    expect(crm.dispatchActivityReminders).not.toHaveBeenCalled();
-  });
-
-  it('dispatches reminders only with the configured scheduler secret', async () => {
-    const secret = 'safe-development-scheduler-secret-123456';
-    vi.stubEnv('CRM_REMINDER_CRON_SECRET', secret);
-    expect(await controller.dispatch(secret)).toEqual({ delivered: 2 });
+  it('dispatches reminders only after verifying the CRM workflow identity', async () => {
+    expect(await controller.dispatch('Bearer verified-token')).toEqual({ delivered: 2 });
+    expect(verifyIdentity).toHaveBeenCalledWith(
+      'Bearer verified-token',
+      'crm-activity-reminders.yml',
+    );
     expect(crm.dispatchActivityReminders).toHaveBeenCalledOnce();
   });
 });
