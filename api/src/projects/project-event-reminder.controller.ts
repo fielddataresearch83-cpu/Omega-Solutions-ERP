@@ -1,13 +1,11 @@
-import { timingSafeEqual } from 'node:crypto';
 import {
   Controller,
   Headers,
   HttpCode,
   HttpStatus,
   Post,
-  ServiceUnavailableException,
-  UnauthorizedException,
 } from '@nestjs/common';
+import { verifyGitHubActionsReminderRequest } from '../github-actions-reminder-auth.js';
 import { ProjectsService } from './projects.service.js';
 
 @Controller('internal/project-event-reminders')
@@ -16,22 +14,11 @@ export class ProjectEventReminderController {
 
   @Post('dispatch')
   @HttpCode(HttpStatus.OK)
-  dispatch(@Headers('x-cron-secret') suppliedSecret?: string) {
-    const configuredSecret = process.env.PROJECT_EVENT_REMINDER_CRON_SECRET;
-    if (!configuredSecret || configuredSecret.length < 32) {
-      throw new ServiceUnavailableException(
-        'Project event reminder scheduler is not configured.',
-      );
-    }
-
-    if (
-      typeof suppliedSecret !== 'string' ||
-      Buffer.byteLength(suppliedSecret) !== Buffer.byteLength(configuredSecret) ||
-      !timingSafeEqual(Buffer.from(suppliedSecret), Buffer.from(configuredSecret))
-    ) {
-      throw new UnauthorizedException('Invalid scheduler credential.');
-    }
-
+  async dispatch(@Headers('authorization') authorization?: string) {
+    await verifyGitHubActionsReminderRequest(
+      authorization,
+      'project-event-reminders.yml',
+    );
     return this.projects.dispatchEventReminders();
   }
 }
