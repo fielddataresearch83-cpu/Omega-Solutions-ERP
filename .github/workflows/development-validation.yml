@@ -133,7 +133,7 @@ jobs:
             console.log('tenant isolation: passed=' + r.numPassedTests + ' total=' + r.numTotalTests + ' skipped=' + r.numPendingTests + ' failed=' + r.numFailedTests);
             if (r.numFailedTests > 0) process.exit(1);
             if (r.numPendingTests !== 0) { console.error('Tenant isolation tests were skipped; they must execute against PostgreSQL.'); process.exit(1); }
-            if (r.numPassedTests < 14) { console.error('Expected at least 14 executed tenant isolation tests (11 cross-company + 3 RLS).'); process.exit(1); }
+            if (r.numPassedTests < 15) { console.error('Expected at least 15 executed tenant isolation tests (12 cross-company + 3 RLS).'); process.exit(1); }
           "
 
       - name: Verify company RLS policy migration

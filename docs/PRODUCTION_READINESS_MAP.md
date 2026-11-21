@@ -70,6 +70,14 @@ Local result: **6/6 checks passed** on `omega_forward_repair_test`. The rehearsa
 - `api/scripts/rehearse-inventory-cost-repair.mjs` rehearses the reviewed per-stock-level correction on a disposable database: recomputes from inbound movements (110.0000/unit for the synthetic 4 units / 440 value anomaly), is idempotent, refuses already-valued levels, and refuses levels without positive-cost inbound history. **6/6 checks passed.**
 - Both rehearsals run in `development-validation.yml`; the cost correction is **not** applied to any shared database.
 
+## CI evidence — 2026-11-21
+
+- **`Development validation` run [44898232714](https://github.com/fielddataresearch83-cpu/Omega-Solutions-ERP/actions/runs/44898232714) — success** on `development` `9f14c1db`. Step conclusions: `Apply migrations to disposable CI database` success, `Rehearse schema forward-repair bundle in isolation` success, `Rehearse inventory weighted-average cost correction in isolation` success, `Verify tenant isolation and role boundaries` success, `Verify company RLS policy migration` success. Both RLS steps carry a JSON assertion that fails the job if any test skips or if the executed count is below the expected minimum, so "success" means the suites executed.
+- **Run [44896491717](https://github.com/fielddataresearch83-cpu/Omega-Solutions-ERP/actions/runs/44896491717) — failure diagnosed, not guessed.** `Test API` succeeded, `Apply migrations to disposable CI database` failed, every later step was skipped. Root cause reproduced locally: the MFA concurrency spec created `users`/`user_mfa` in `omega_ci_test`, so the migration runner refused to start (tables exist without a ledger). Fixed by giving MFA its own disposable database (`omega_mfa_test`).
+- No `Development validation` run exists for `f9ef9102`: it was superseded within seconds by the next push and cancelled by the workflow's `cancel-in-progress` concurrency group. Its change is contained in the verified `9f14c1db` tree.
+- **`development` branch protection re-checked 2026-11-21: `protected: false`** (GitHub branches API). Required checks are still not enforced; this needs repository administration, not a code change.
+- Added a cross-tenant membership negative: a company owner cannot suspend or change the role of another company's membership (404, target verified unchanged). `company_memberships` is outside RLS, so this is application-layer evidence for that control-plane table.
+
 ## Current checkpoint
 
 - [x] Confirm current repository and branch. Evidence (2026-11-15): `origin` is `fielddataresearch83-cpu/Omega-Solutions-ERP`; branch is `development`; workspace HEAD is `c302e6f29dc2c23cd5e81277d8ff3c579a0ebfc3`. Existing uncommitted changes were preserved. This HEAD has not been pushed or CI-verified.

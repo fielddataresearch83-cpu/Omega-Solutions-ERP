@@ -35,6 +35,7 @@ const ADMIN_A = 'a2000000-0000-4000-8000-000000000004';
 const OWNER_B = 'b2000000-0000-4000-8000-000000000002';
 const CUSTOMER_A = 'a3000000-0000-4000-8000-000000000001';
 const CUSTOMER_B = 'b3000000-0000-4000-8000-000000000002';
+const MEMBERSHIP_OWNER_B = 'b4000000-0000-4000-8000-000000000002';
 
 type Session = { userId: string; companyId: string; branchId: string | null; role: string; email: string };
 
@@ -108,13 +109,13 @@ suite('Cross-company and role isolation (application layer, real PostgreSQL)', (
       [OWNER_A, STAFF_A, BRANCH_ADMIN_A, ADMIN_A, OWNER_B],
     );
     await pool.query(
-      `INSERT INTO company_memberships (user_id, company_id, branch_id, role, is_active) VALUES
-         ($1, $6, NULL, 'owner', true),
-         ($2, $6, NULL, 'staff', true),
-         ($3, $6, $8, 'admin', true),
-         ($4, $6, NULL, 'admin', true),
-         ($5, $7, NULL, 'owner', true)`,
-      [OWNER_A, STAFF_A, BRANCH_ADMIN_A, ADMIN_A, OWNER_B, COMPANY_A, COMPANY_B, BRANCH_A1],
+      `INSERT INTO company_memberships (id, user_id, company_id, branch_id, role, is_active) VALUES
+         (gen_random_uuid(), $1, $6, NULL, 'owner', true),
+         (gen_random_uuid(), $2, $6, NULL, 'staff', true),
+         (gen_random_uuid(), $3, $6, $8, 'admin', true),
+         (gen_random_uuid(), $4, $6, NULL, 'admin', true),
+         ($9, $5, $7, NULL, 'owner', true)`,
+      [OWNER_A, STAFF_A, BRANCH_ADMIN_A, ADMIN_A, OWNER_B, COMPANY_A, COMPANY_B, BRANCH_A1, MEMBERSHIP_OWNER_B],
     );
     await pool.query(
       `INSERT INTO customers (id, company_id, name, email, status, is_active) VALUES
@@ -267,6 +268,27 @@ suite('Cross-company and role isolation (application layer, real PostgreSQL)', (
     const ids = (companyB.body as Array<{ id: string }>).map((row) => row.id);
     expect(ids).toContain(CUSTOMER_B);
     expect(ids).not.toContain(CUSTOMER_A);
+  });
+
+  it('cannot suspend or change the role of another company’s membership', async () => {
+    // company_memberships is deliberately outside RLS, so the application layer must scope it.
+    await request(app.getHttpServer())
+      .patch(`/api/users-roles/${MEMBERSHIP_OWNER_B}/status`)
+      .set(auth(sessions.ownerA))
+      .send({ isActive: false })
+      .expect(404);
+
+    await request(app.getHttpServer())
+      .patch(`/api/users-roles/${MEMBERSHIP_OWNER_B}/role`)
+      .set(auth(sessions.ownerA))
+      .send({ role: 'staff' })
+      .expect(404);
+
+    const membership = await pool.query<{ is_active: boolean; role: string }>(
+      'SELECT is_active, role FROM company_memberships WHERE id = $1',
+      [MEMBERSHIP_OWNER_B],
+    );
+    expect(membership.rows[0]).toEqual({ is_active: true, role: 'owner' });
   });
 
   it('revokes an existing session immediately when the membership is deactivated', async () => {
