@@ -22,4 +22,4 @@ cron-job.org offers free scheduled HTTP requests, supports custom headers and PO
 
 Configure CRM_REMINDER_CRON_SECRET in the Vercel API Preview environment and redeploy the development API before enabling the scheduler. Use the same value in cron-job.org's x-omega-cron-secret header. If the value is unavailable, generate a new random secret, save it in Vercel, redeploy, and then configure the scheduler. Never commit or share the secret.
 
-The GitHub Actions workflow .github/workflows/crm-activity-reminders.yml is manual-only and can be used as an alternative dispatcher after setting the repository variable OMEGA_DEVELOPMENT_API_BASE_URL and the repository secret CRM_REMINDER_CRON_SECRET. It does not run automatically.
+The GitHub Actions workflow .github/workflows/crm-activity-reminders.yml runs every 15 minutes and can also be run manually. Configure the repository variable OMEGA_DEVELOPMENT_API_URL to the exact Development API base URL ending in /api, and the repository secret CRM_REMINDER_CRON_SECRET to the same value stored in Vercel Preview. The workflow fails visibly when either value is missing; a green skipped run is not treated as reminder delivery.
