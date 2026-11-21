@@ -32,6 +32,37 @@
 - GitHub Actions runs are validation evidence, not a mechanism for selecting or pushing code. The repository currently has overlapping workflows and differing Node versions; record this as an open CI-governance issue until a safe consolidation is locally tested. Do not use direct GitHub Contents API commits as a substitute for local pre-push validation.
 - Do not run workflows that alter Neon Auth configuration, mutate shared business data, send messages, or interact with Render/Vercel. Manual live workflows require a separate explicit authorization and side-effect review.
 
+## P0-2 implementation checkpoint — 2026-11-21
+
+**What changed (branch `development`)**
+
+| Commit | Change |
+|---|---|
+| `2be8b040` | New `api/test/tenant-cross-company.e2e-spec.ts` (9 negative tests: BOLA read/write/delete, client-supplied tenant identifiers, `/users-roles` scoping, company-switch rejection, role permission boundaries, branch-bound accounting denial, per-company session scoping) and `api/scripts/create-disposable-database.mjs`. `application-rls` may now use a dedicated `omega_app_rls_test` database. |
+| `f9ef9102` | CI fix: the development workflow never applied migrations to its `postgres:16` service container, so the new suite failed in [run 44895403575](https://github.com/fielddataresearch83-cpu/Omega-Solutions-ERP/actions/runs/44895403575). Added an explicit migration step for the disposable CI database. |
+| `851ddd31` | P0-4 hardening: `configure-neon-auth-verification` (PATCHes hosted Neon Auth), `finance-planning-write-acceptance` (writes financial records) and `preview-acceptance` (exercises shared Preview) no longer run on routine pushes. |
+
+**Executed locally on a disposable PostgreSQL 18.7 cluster (no shared database touched)**
+
+- `tenant-cross-company.e2e-spec.ts` + `tenant-rls.e2e-spec.ts`: **12 passed, 0 skipped, 0 failed**. Cross-company suite transiently asserted the wrong expectation once (`staff` legitimately holds `customers:write` per `005_seed_permissions.sql`); the test was corrected, not the application.
+- `application-rls.e2e-spec.ts` against a dedicated empty database: **4 passed, 0 skipped, 0 failed**.
+- Reproduced the CI failure from an empty database, then proved the corrected workflow sequence passes from zero tables: migrate → 12 passed → 4 passed.
+- `npm run build`, `npm run lint`, unit suite: **585 passed, 2 skipped**.
+
+**Still open for P0-2 (do not mark SEC-01…SEC-13 complete)**
+
+- CI evidence on the release-candidate commit is required; local execution is not CI evidence.
+- `company_memberships`, `auth_refresh_tokens` and `company_invitations` remain outside RLS and rely on application checks; the membership/invitation negative matrix is still incomplete.
+- Render runtime `DATABASE_URL` role (`NOBYPASSRLS`) is unconfirmed.
+
+## P0-1 rehearsal checkpoint — 2026-11-21
+
+`api/scripts/rehearse-schema-forward-repair.mjs` now rehearses `docs/DEVELOPMENT_SCHEMA_FORWARD_REPAIR.sql` on a disposable local database. It installs all migrations, simulates the documented drift (tax snapshot columns, credit-note line links, supplier uniqueness index), applies the bundle, verifies postconditions, re-applies it for idempotency, and proves fail-closed behaviour on duplicate active supplier invoice references.
+
+Local result: **6/6 checks passed** on `omega_forward_repair_test`. The rehearsal is wired into `development-validation.yml` as a standing regression.
+
+**No migration has been applied to the shared development or production database.** Applying the bundle to shared still requires: an isolated clone rehearsal on the actual drifted schema, a catalog diff, a backup, and explicit owner approval.
+
 ## Current checkpoint
 
 - [x] Confirm current repository and branch. Evidence (2026-11-15): `origin` is `fielddataresearch83-cpu/Omega-Solutions-ERP`; branch is `development`; workspace HEAD is `c302e6f29dc2c23cd5e81277d8ff3c579a0ebfc3`. Existing uncommitted changes were preserved. This HEAD has not been pushed or CI-verified.
