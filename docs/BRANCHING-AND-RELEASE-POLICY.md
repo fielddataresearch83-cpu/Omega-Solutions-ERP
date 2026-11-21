@@ -39,7 +39,15 @@ Until both Vercel Production Branch settings are verified as `main`, do not push
 
 ## Required branch-protection settings for `development`
 
-**Current state (checked 2026-11-21 via the GitHub branches API): `protected: false`.** No rule is enforced; any actor with push access can push directly and a red CI run does not block a merge. This is a repository-governance change, not a code change, and has not been applied.
+**Current state (last successful read 2026-11-21 via the GitHub branches API: `protected: false`).** No rule is enforced; any actor with push access can push directly and a red CI run does not block a merge. This is a repository-governance change, not a code change, and has not been applied.
+
+**How to enforce it, and why it is still open:**
+
+- The only supported routes are the repository's Settings → Branches UI or `gh api -X PUT .../branches/development/protection`, both of which require an authenticated actor with **admin** permission on the repository. The Freebuff connection is deliberately not authenticated for administration.
+- In this environment `gh auth status` reports no logged-in host, and unauthenticated REST calls to the branches/protection endpoint return **HTTP 403 (rate limit)** from the shared egress address. The block is authentication, not a missing command.
+- Do **not** attempt to work around it: no personal access token in a file, no `GITHUB_TOKEN` injection into the workspace, no ruleset created through an unofficial endpoint.
+- Owner action: a repository admin runs the API call below (or applies the table's settings in the UI) and then re-reads `GET .../branches/development/protection` to confirm `enforce_admins.enabled=true` and `required_status_checks.contexts` contains `validate`. The audit will verify the result only from that authenticated read.
+- Verify the check context **before** requiring it, because a required context that never reports blocks every merge: open one pull request, confirm a check named `validate` appears (job name in `development-validation.yml`), then enable protection.
 
 The exact rule to create — GitHub → Settings → Branches → Add branch protection rule, branch name pattern `development`:
 
@@ -89,7 +97,7 @@ Order of operations: confirm the check context name from a real pull request fir
 
 To confirm the API's database role without exposing secrets (owner action, read-only):
 
-1. Vercel dashboard → the API project → Settings → Environment Variables → inspect **Development/Preview** only. Record the **role name** in `DATABASE_URL` (expected `omega_app_dev`); never copy the value or password into a ticket, doc, or chat.
+1. Vercel dashboard → the API project → Settings → Environment Variables → inspect **Development/Preview** only. Record the **role name** in `DATABASE_URL` (expected `omega_app_dev`); never copy the value or password into a ticket, doc, or chat. There is no Vercel token or CLI in the audit workspace, so this cannot be read from code.
 2. Confirm the host is the designated development Neon branch, not production.
 3. Run the read-only inspection against that same database and read the `IDENTITY` block: `current_user` must equal the configured role and `rolbypassrls` must be `false`.
-4. If `rolbypassrls` is `true` or the role owns the tables, stop: the 110 policies are inert. Create/point to a `NOBYPASSRLS` role and rehearse on a disposable clone before changing any environment variable.
+4. Read the `public tables owned by current_user` line. If `rolbypassrls` is `true` **or that count is greater than 0**, stop: the 110 policies are inert for that identity. Create/point to a `NOBYPASSRLS` role that owns no table and rehearse on a disposable clone before changing any environment variable.

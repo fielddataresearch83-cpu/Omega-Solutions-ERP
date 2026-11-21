@@ -14,8 +14,9 @@
  *     object names, counts and booleans only.
  *
  * It answers, without changing anything:
- *   1. Which role is the runtime/session identity, and does it bypass RLS?
- *   2. Does the ledger match the migration source (counts, gaps, checksums)?
+ *   1. Which role is the runtime/session identity, does it bypass RLS, and does it own
+ *      any public table (owners bypass their own policies without FORCE RLS)?
+ *   2. Does the ledger match the migration source, file by file (counts, gaps, checksums)?
  *   3. Which public tables lack RLS, and which have RLS but no policy?
  *   4. Are the four forward-repair objects (tax snapshots, credit-note line
  *      links, supplier invoice uniqueness index) present?
@@ -106,6 +107,21 @@ try {
   } else {
     out('RLS enforced for this identity', 'yes (no BYPASSRLS)');
   }
+  // Ownership matters even without BYPASSRLS: a table owner is exempt from its own
+  // policies unless the table has FORCE ROW LEVEL SECURITY.
+  const ownedByCurrentUser = (
+    await client.query(
+      `SELECT COUNT(*)::int AS count FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'public' AND c.relkind = 'r' AND pg_get_userbyid(c.relowner) = current_user`,
+    )
+  ).rows[0].count;
+  out('public tables owned by current_user', ownedByCurrentUser);
+  if (ownedByCurrentUser > 0) {
+    record(
+      'P0',
+      `The connected identity owns ${ownedByCurrentUser} public table(s); a table owner bypasses its own RLS policies unless FORCE ROW LEVEL SECURITY is set.`,
+    );
+  }
 
   const appRole = (
     await client.query(
@@ -156,6 +172,18 @@ try {
     out('Checksum drift', drift.length);
     out('Gaps before later applied migrations', gaps.length);
 
+    // One line per source migration so the ledger comparison is complete, not just a
+    // summary. This is the only place every file, checksum and ledger state is joined.
+    console.log('  per-migration comparison (source order; checksum is sha256):');
+    for (const entry of source.managed) {
+      const state = !applied.has(entry.filename)
+        ? 'MISSING'
+        : applied.get(entry.filename) === entry.checksum
+          ? 'applied+match'
+          : 'CHECKSUM-DRIFT';
+      console.log(`    ${state.padEnd(14)} ${entry.checksum.slice(0, 16)}  ${entry.filename}`);
+    }
+
     if (missing.length) {
       console.log('  missing (in source order):');
       for (const entry of missing) console.log(`    - ${entry.filename}`);
@@ -200,7 +228,31 @@ try {
   const policyByTable = new Map(policies.map(row => [row.tablename, row.count]));
   const withoutRls = tables.filter(table => !table.rls_enabled);
   const rlsNoPolicy = tables.filter(table => table.rls_enabled && !policyByTable.get(table.table_name));
+  // Object inventory. Compare these counts with the clean-rebuild baseline recorded in
+  // docs/PRODUCTION_READINESS_MAP.md for the current source tree; a lower live count means
+  // schema objects are missing even when the ledger looks reconciled.
+  const inventory = (
+    await client.query(`
+      SELECT
+        (SELECT COUNT(*)::int FROM information_schema.columns
+          WHERE table_schema = 'public') AS columns,
+        (SELECT COUNT(*)::int FROM pg_indexes WHERE schemaname = 'public') AS indexes,
+        (SELECT COUNT(*)::int FROM pg_constraint k JOIN pg_class t ON t.oid = k.conrelid
+          JOIN pg_namespace n ON n.oid = t.relnamespace WHERE n.nspname = 'public') AS constraints,
+        (SELECT COUNT(*)::int FROM pg_trigger g JOIN pg_class t ON t.oid = g.tgrelid
+          JOIN pg_namespace n ON n.oid = t.relnamespace
+          WHERE n.nspname = 'public' AND NOT g.tgisinternal) AS triggers,
+        (SELECT COUNT(*)::int FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+          WHERE n.nspname = 'public') AS functions,
+        (SELECT COUNT(*)::int FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'public' AND c.relkind = 'S') AS sequences
+    `)
+  ).rows[0];
   out('Public base tables', tables.length);
+  out(
+    'Object inventory',
+    `columns=${inventory.columns} indexes=${inventory.indexes} constraints=${inventory.constraints} triggers=${inventory.triggers} functions=${inventory.functions} sequences=${inventory.sequences}`,
+  );
   out('RLS enabled', tables.length - withoutRls.length);
   out('RLS enforced for owner', tables.filter(table => table.rls_forced).length);
   out('Policies in public', policies.reduce((sum, row) => sum + row.count, 0));
