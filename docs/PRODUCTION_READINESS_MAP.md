@@ -187,6 +187,8 @@ This workspace has **no shared-database credential** (`DATABASE_URL`, `NEON_*`, 
 3. Branch protection on `development` is still `protected: false`.
 4. The shared tax-snapshot, credit-note-link and supplier-uniqueness repairs remain rehearsed-only.
 
+**CI:** `Development validation` run [44908951645](https://github.com/fielddataresearch83-cpu/Omega-Solutions-ERP/actions/runs/44908951645) on `development` `9086c876` — the single `validate` job concluded **success** (job-level; GitHub's public run page does not expose step names, so this confirms the job, not each step).
+
 ## CI evidence — 2026-11-21
 
 - **`Development validation` run [44898232714](https://github.com/fielddataresearch83-cpu/Omega-Solutions-ERP/actions/runs/44898232714) — success** on `development` `9f14c1db`. Step conclusions: `Apply migrations to disposable CI database` success, `Rehearse schema forward-repair bundle in isolation` success, `Rehearse inventory weighted-average cost correction in isolation` success, `Verify tenant isolation and role boundaries` success, `Verify company RLS policy migration` success. Both RLS steps carry a JSON assertion that fails the job if any test skips or if the executed count is below the expected minimum, so "success" means the suites executed.
