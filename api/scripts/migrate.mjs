@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { compareMigrationNames, findMigrationLedgerGaps } from './migration-order.mjs';
+import { applyMigrationTransaction } from './migration-sql.mjs';
 
 const { Client } = pg;
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -94,19 +95,8 @@ try {
     }
 
     console.log(`→ Applying ${filename}`);
-    await client.query('BEGIN');
-    try {
-      await client.query(sql);
-      await client.query(
-        'INSERT INTO omega_schema_migrations (filename, checksum) VALUES ($1, $2)',
-        [filename, checksum],
-      );
-      await client.query('COMMIT');
-      console.log(`✓ ${filename} applied`);
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    }
+    await applyMigrationTransaction(client, filename, sql, checksum);
+    console.log(`✓ ${filename} applied`);
   }
 
   console.log('Database migrations are up to date.');
