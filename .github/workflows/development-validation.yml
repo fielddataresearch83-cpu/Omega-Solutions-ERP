@@ -68,10 +68,19 @@ jobs:
         working-directory: api
         run: npx vitest run src/approvals/approvals.service.spec.ts
 
+      # The MFA concurrency spec needs an empty disposable database and creates its own
+      # minimal users/user_mfa fixtures. Give it one so it cannot trip the migration
+      # runner's "tables exist but ledger is missing" guard on the isolation database.
+      - name: Create disposable MFA database
+        working-directory: api
+        env:
+          DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/omega_ci_test
+        run: node scripts/create-disposable-database.mjs omega_mfa_test
+
       - name: Test API
         working-directory: api
         env:
-          MFA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_ci_test
+          MFA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_mfa_test
         run: npm test
 
       # The cross-company suite runs the real application against the migrated schema.
@@ -94,6 +103,15 @@ jobs:
           DATABASE_URL=postgres://postgres:postgres@localhost:5432/omega_forward_repair_test \
             node scripts/rehearse-schema-forward-repair.mjs
 
+      - name: Rehearse inventory weighted-average cost correction in isolation
+        working-directory: api
+        env:
+          DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/omega_ci_test
+        run: |
+          node scripts/create-disposable-database.mjs omega_cost_repair_test
+          DATABASE_URL=postgres://postgres:postgres@localhost:5432/omega_cost_repair_test \
+            node scripts/rehearse-inventory-cost-repair.mjs
+
       - name: Create disposable application-RLS database
         working-directory: api
         env:
@@ -115,7 +133,7 @@ jobs:
             console.log('tenant isolation: passed=' + r.numPassedTests + ' total=' + r.numTotalTests + ' skipped=' + r.numPendingTests + ' failed=' + r.numFailedTests);
             if (r.numFailedTests > 0) process.exit(1);
             if (r.numPendingTests !== 0) { console.error('Tenant isolation tests were skipped; they must execute against PostgreSQL.'); process.exit(1); }
-            if (r.numPassedTests < 12) { console.error('Expected at least 12 executed tenant isolation tests (9 cross-company + 3 RLS).'); process.exit(1); }
+            if (r.numPassedTests < 14) { console.error('Expected at least 14 executed tenant isolation tests (11 cross-company + 3 RLS).'); process.exit(1); }
           "
 
       - name: Verify company RLS policy migration

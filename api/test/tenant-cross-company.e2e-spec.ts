@@ -268,4 +268,45 @@ suite('Cross-company and role isolation (application layer, real PostgreSQL)', (
     expect(ids).toContain(CUSTOMER_B);
     expect(ids).not.toContain(CUSTOMER_A);
   });
+
+  it('revokes an existing session immediately when the membership is deactivated', async () => {
+    await pool.query(
+      'UPDATE company_memberships SET is_active = false WHERE user_id = $1 AND company_id = $2',
+      [STAFF_A, COMPANY_A],
+    );
+    try {
+      await request(app.getHttpServer())
+        .get('/api/customers')
+        .set(auth(sessions.staffA))
+        .expect(401);
+    } finally {
+      await pool.query(
+        'UPDATE company_memberships SET is_active = true WHERE user_id = $1 AND company_id = $2',
+        [STAFF_A, COMPANY_A],
+      );
+    }
+
+    // Restoring the membership must restore access for the same live session.
+    await request(app.getHttpServer())
+      .get('/api/customers')
+      .set(auth(sessions.staffA))
+      .expect(200);
+  });
+
+  it('revokes a branch-bound session when its branch is deactivated', async () => {
+    await pool.query('UPDATE branches SET is_active = false WHERE id = $1', [BRANCH_A1]);
+    try {
+      await request(app.getHttpServer())
+        .get('/api/customers')
+        .set(auth(sessions.branchAdminA))
+        .expect(401);
+    } finally {
+      await pool.query('UPDATE branches SET is_active = true WHERE id = $1', [BRANCH_A1]);
+    }
+
+    await request(app.getHttpServer())
+      .get('/api/customers')
+      .set(auth(sessions.branchAdminA))
+      .expect(200);
+  });
 });
