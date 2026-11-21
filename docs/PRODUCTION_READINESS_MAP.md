@@ -63,6 +63,13 @@ Local result: **6/6 checks passed** on `omega_forward_repair_test`. The rehearsa
 
 **No migration has been applied to the shared development or production database.** Applying the bundle to shared still requires: an isolated clone rehearsal on the actual drifted schema, a catalog diff, a backup, and explicit owner approval.
 
+## P0-2/P0-3 continuation checkpoint — 2026-11-21 (later session)
+
+- Added two more application-layer negatives: a deactivated membership immediately revokes an existing session (401 then 200 after restoration) and a deactivated branch revokes a branch-bound session. Tenant-isolation step now executes **14 tests (11 cross-company + 3 synthetic RLS)**, 0 skipped.
+- `api/scripts/report-inventory-cost-anomalies.mjs` reports positive-stock levels whose persisted weighted-average cost is zero despite positive-cost inbound history. Read-only (`BEGIN READ ONLY`), prints no credentials.
+- `api/scripts/rehearse-inventory-cost-repair.mjs` rehearses the reviewed per-stock-level correction on a disposable database: recomputes from inbound movements (110.0000/unit for the synthetic 4 units / 440 value anomaly), is idempotent, refuses already-valued levels, and refuses levels without positive-cost inbound history. **6/6 checks passed.**
+- Both rehearsals run in `development-validation.yml`; the cost correction is **not** applied to any shared database.
+
 ## Current checkpoint
 
 - [x] Confirm current repository and branch. Evidence (2026-11-15): `origin` is `fielddataresearch83-cpu/Omega-Solutions-ERP`; branch is `development`; workspace HEAD is `c302e6f29dc2c23cd5e81277d8ff3c579a0ebfc3`. Existing uncommitted changes were preserved. This HEAD has not been pushed or CI-verified.
