@@ -14,7 +14,11 @@ const isDisposableLocalDatabase = (() => {
       process.env.OMEGA_ISOLATED_RLS_DB_ACK === 'true' &&
       url.hostname.endsWith('.neon.tech') &&
       url.pathname === '/omega_ci_test';
-    return url.pathname === '/omega_ci_test' && (isLocalDisposable || isExplicitlyApprovedIsolatedNeon);
+    // This suite fabricates and then drops public.company_memberships, so CI gives it a
+    // dedicated database instead of sharing one whose order against other suites would matter.
+    const dedicatedDatabase =
+      url.pathname === '/omega_ci_test' || url.pathname === '/omega_app_rls_test';
+    return dedicatedDatabase && (isLocalDisposable || isExplicitlyApprovedIsolatedNeon);
   } catch {
     return false;
   }
