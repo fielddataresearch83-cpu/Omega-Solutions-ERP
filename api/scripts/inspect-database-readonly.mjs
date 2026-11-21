@@ -146,6 +146,41 @@ try {
       if (role.rolbypassrls || role.rolsuper) record('P0', `Role ${role.rolname} bypasses RLS.`);
     }
   }
+  // ---------- 1b. Audit-log append-only privileges ----------
+  console.log('=== AUDIT LOG PRIVILEGES ===');
+  const auditAcl = await client.query(`
+    SELECT
+      pg_get_userbyid(c.relowner) AS owner,
+      has_table_privilege('omega_app_dev', 'public.audit_logs', 'SELECT') AS dev_select,
+      has_table_privilege('omega_app_dev', 'public.audit_logs', 'INSERT') AS dev_insert,
+      has_table_privilege('omega_app_dev', 'public.audit_logs', 'UPDATE') AS dev_update,
+      has_table_privilege('omega_app_dev', 'public.audit_logs', 'DELETE') AS dev_delete,
+      has_table_privilege('omega_app_dev', 'public.audit_logs', 'TRUNCATE') AS dev_truncate,
+      has_table_privilege('omega_app', 'public.audit_logs', 'UPDATE') AS prod_update,
+      has_table_privilege('omega_app', 'public.audit_logs', 'DELETE') AS prod_delete,
+      has_table_privilege('omega_app', 'public.audit_logs', 'TRUNCATE') AS prod_truncate
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relname='audit_logs' AND c.relkind='r'
+  `);
+  if (!auditAcl.rows.length) {
+    out('audit_logs', 'ABSENT');
+    record('P1', 'audit_logs table is absent; append-only privileges cannot be verified.');
+  } else {
+    const acl = auditAcl.rows[0];
+    out('audit_logs owner', acl.owner);
+    out('omega_app_dev SELECT/INSERT', `${acl.dev_select}/${acl.dev_insert}`);
+    out('omega_app_dev UPDATE/DELETE/TRUNCATE', `${acl.dev_update}/${acl.dev_delete}/${acl.dev_truncate}`);
+    out('omega_app UPDATE/DELETE/TRUNCATE', `${acl.prod_update}/${acl.prod_delete}/${acl.prod_truncate}`);
+    if (acl.dev_update || acl.dev_delete || acl.dev_truncate || acl.prod_update || acl.prod_delete || acl.prod_truncate) {
+      record('P1', 'An application role can UPDATE, DELETE or TRUNCATE audit_logs; append-only enforcement is not effective.');
+    }
+    if (acl.owner === 'omega_app_dev' || acl.owner === 'omega_app') {
+      record('P0', `Application role ${acl.owner} owns audit_logs and can bypass ordinary table ACL revokes.`);
+    }
+  }
+  console.log('');
+
   console.log('');
 
   // ---------- 2. Migration ledger vs source ----------
