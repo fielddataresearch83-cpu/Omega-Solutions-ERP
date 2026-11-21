@@ -70,13 +70,16 @@ CREATE INDEX IF NOT EXISTS inventory_movement_allocations_movement_idx
   ON inventory_stock_movement_allocations(company_id, movement_id);
 
 -- Legacy aggregate stock becomes a released snapshot lot; no stock balance or movement is changed.
+-- The batch code uses the complete stock-level identifier: a truncated prefix can
+-- collide between two stock rows of the same company and abort this migration on
+-- the (company_id, batch_code) unique constraint.
 INSERT INTO inventory_batches (
   company_id, product_id, warehouse_id, batch_code, received_quantity,
   quantity_on_hand, reserved_quantity, unit_cost, source_type, source_reference,
   quality_status, status, created_at, updated_at
 )
 SELECT s.company_id, s.product_id, s.warehouse_id,
-       'LEGACY-' || UPPER(SUBSTRING(s.id::text FROM 1 FOR 12)),
+       'LEGACY-' || UPPER(REPLACE(s.id::text, '-', '')),
        s.quantity, s.quantity, s.reserved_quantity, s.average_unit_cost,
        'legacy_snapshot', s.id::text, 'released',
        CASE WHEN s.quantity <= s.reserved_quantity THEN 'depleted' ELSE 'available' END,

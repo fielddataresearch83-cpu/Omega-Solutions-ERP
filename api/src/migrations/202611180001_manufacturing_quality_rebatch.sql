@@ -1,5 +1,10 @@
 -- Manufacturing quality holds, recoverable spoiled batches and controlled rebatching.
 -- Additive only: no stock is moved and no existing production data is rewritten.
+--
+-- This file was never applied to a shared or production database. If a database
+-- did record an earlier revision of it, the migration runner's checksum guard
+-- will refuse the tree; correct that database with a reviewed follow-up
+-- migration instead of rewriting the ledger.
 
 ALTER TABLE manufacturing_production_orders
   ADD COLUMN IF NOT EXISTS bom_version_at_release INTEGER,
@@ -74,9 +79,16 @@ CREATE INDEX IF NOT EXISTS manufacturing_quality_events_company_status_idx
   ON manufacturing_quality_events(company_id,status,created_at DESC);
 CREATE INDEX IF NOT EXISTS manufacturing_quality_events_order_idx
   ON manufacturing_quality_events(company_id,production_order_id);
+-- Recovered lots are usable while 'available' and while 'partially_consumed'.
+-- manufacturing.service.ts selects exactly those two states when reserving a lot,
+-- and the table's status domain has no 'released' value, so the earlier predicate
+-- (status = 'released') could never match a row and the index was dead weight.
+-- DROP first so a database that somehow recorded the old definition is corrected
+-- rather than silently keeping an unusable index.
+DROP INDEX IF EXISTS manufacturing_rebatch_lots_available_idx;
 CREATE INDEX IF NOT EXISTS manufacturing_rebatch_lots_available_idx
   ON manufacturing_rebatch_lots(company_id,warehouse_id,product_id,status)
-  WHERE status = 'released';
+  WHERE status IN ('available','partially_consumed');
 CREATE INDEX IF NOT EXISTS manufacturing_rebatch_consumptions_order_idx
   ON manufacturing_rebatch_consumptions(company_id,production_order_id);
 CREATE INDEX IF NOT EXISTS manufacturing_rebatch_consumptions_lot_idx

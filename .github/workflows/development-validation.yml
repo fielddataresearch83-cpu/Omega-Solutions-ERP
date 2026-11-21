@@ -108,6 +108,20 @@ jobs:
             if (r.numPassedTests < 6) { console.error('Expected at least 6 executed control-plane least-privilege tests.'); process.exit(1); }
           "
 
+      # Rebuilds the development schema as it stands before the five newest migrations,
+      # applies them with the real runner, and proves the rebatch index correction, the
+      # inventory backfill, the new uniqueness constraints, the new RLS policies and the
+      # control-plane grants against a NOBYPASSRLS runtime role.
+      # Runs after the control-plane suite because it creates and drops omega_app_dev.
+      - name: Rehearse pending migrations in isolation
+        working-directory: api
+        env:
+          DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/omega_ci_test
+        run: |
+          node scripts/create-disposable-database.mjs omega_pending_migrations_test
+          DATABASE_URL=postgres://postgres:postgres@localhost:5432/omega_pending_migrations_test \
+            node scripts/rehearse-pending-migrations.mjs
+
       - name: Rehearse schema forward-repair bundle in isolation
         working-directory: api
         env:

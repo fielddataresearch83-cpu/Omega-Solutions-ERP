@@ -123,6 +123,70 @@ Local result: **6/6 checks passed** on `omega_forward_repair_test`. The rehearsa
 
 **Not changed:** no RLS policy enabled, no shared-database migration applied, no hosting setting or deployment touched, no branch created.
 
+## Pending-migration reconciliation — 2026-11-21
+
+**Scope:** the five newest migrations, which no shared ledger can contain yet. No migration was applied to the shared development or production database, no hosting or credential setting was touched, and no branch was created.
+
+| Migration | Adds | Data-changing statements |
+|---|---|---|
+| `202611180001_manufacturing_quality_rebatch.sql` | 4 tables, 5 indexes, 4 RLS policies, grants | none |
+| `202611180002_inventory_batch_traceability.sql` | 4 tables, 6 indexes, 3 RLS policies, grants | one idempotent `legacy_snapshot` backfill from `inventory_stock_levels` |
+| `202611190001_user_display_preferences.sql` | 1 table, PK + membership FK + format check | none |
+| `202611190002_user_display_preferences_rls.sql` | RLS policy, grants | none |
+| `202611210001_control_plane_least_privilege.sql` | catalog/ledger grants only | none |
+
+### Defects found and corrected before any application
+
+1. **Rebatch index/status mismatch.** `manufacturing_rebatch_lots_available_idx` was declared `WHERE status = 'released'`, but the table's `CHECK` allows only `available`, `partially_consumed`, `consumed`, `blocked`, `disposed`, and `manufacturing.service.ts:130` reserves lots with `status IN ('available','partially_consumed')`. The predicate therefore matched no row and the index was dead. Corrected to `WHERE status IN ('available','partially_consumed')`, with `DROP INDEX IF EXISTS` first so a stale definition would be replaced rather than kept. The application code, not the index, defined the intended statuses; no status value was invented.
+2. **Legacy batch-code collision.** The inventory backfill derived `LEGACY-<first 12 characters of the stock-level UUID>` under a `(company_id, batch_code)` unique constraint. Two stock levels sharing a 12-character prefix aborted the whole migration with `23505` — reproduced in the rehearsal. The code now uses the complete identifier (`LEGACY-<32 hex>`), which is still deterministic and idempotent through the `source_reference` guard.
+3. **Missing runtime grant.** `202611190002` enabled RLS on `user_display_preferences` but never granted the runtime role access, so `omega_app_dev` got `permission denied` on the new table. The migration now issues the same conditional `GRANT SELECT, INSERT, UPDATE, DELETE` used by the other pending migrations.
+
+### Rehearsal (`api/scripts/rehearse-pending-migrations.mjs`, wired into `development-validation.yml`)
+
+Rebuilds the development schema **before** the five files (82 migrations), seeds two companies with memberships, products, warehouses, four stock levels (positive, zero, fully reserved, foreign) and a production order, then applies the five with the real runner.
+
+**32/32 checks passed** on disposable PostgreSQL 18.7 (`omega_pending_migrations_test`), exit 0:
+
+- runner applied the five in order: `...180001 → ...180002 → ...190001 → ...190002 → ...210001`;
+- corrected index predicate present, planner uses the index, and the status domain rejects the old `released` value with `23514`;
+- backfill created exactly 3 snapshots for 3 positive levels, copied quantity/reservation/cost exactly, skipped the zero level, marked the fully reserved level `depleted`, created **0** stock movements, and left aggregates at 20.0000 quantity / 7.0000 reserved;
+- re-running the migration set is idempotent (still 3 snapshots, index and policies unchanged);
+- uniqueness: batch code per company (`23505`, reusable across companies), `reserved <= on hand` and negative receipts (`23514`), rebatch lot number and one-lot-per-quality-event (`23505`), quantity split `23514`, movement/batch allocation (`23505`), display-preference PK (`23505`), non-member FK (`23503`), invalid format (`23514`);
+- RLS: 8 new tables, 8 policies, `omega_app_dev` is `NOBYPASSRLS`/non-superuser, own-company rows visible, spoofed `app.company_id` with a foreign membership returns 0 rows, missing context returns 0 rows, cross-company insert and another user's preference both refused;
+- control plane: `permissions`, `role_permissions`, `subscription_plans` readable; 7 write statements (INSERT/UPDATE/DELETE/TRUNCATE) rejected with `42501`; `omega_schema_migrations` unreadable (`42501`); `auth_rate_limits` still writable.
+
+### Full local gates (disposable PostgreSQL 18.7, `development` tree)
+
+| Gate | Command | Result |
+|---|---|---|
+| Clean install + idempotency | `npm run migrate` twice on a rebuilt `omega_ci_test` | 87 migrations applied, second run all `already applied`; 121 tables, 110 with RLS, 110 policies, **11 without RLS** |
+| Unit | `npm test` | **587 passed, 0 skipped, 0 failed** |
+| Tenant isolation + control plane | `test/tenant-cross-company`, `test/tenant-rls`, `test/control-plane-least-privilege` | **23 passed, 0 skipped, 0 failed** (17 isolation + 6 control plane) |
+| Application RLS | `test/application-rls` on dedicated empty DB | **4 passed, 0 skipped, 0 failed** |
+| Forward-repair rehearsal | `rehearse-schema-forward-repair.mjs` | 6/6 |
+| Cost-repair rehearsal | `rehearse-inventory-cost-repair.mjs` | 6/6 |
+| Lint / build (API) | `npm run lint`, `npm run build` | 0 warnings / 0 errors (258 files); build ok |
+| Lint / build (frontend) | `vite-version` `npm run lint`, `npm run build` | both ok |
+
+No security test was skipped. The read-only inspector still reports `rolbypassrls=true` for the local superuser fixture and exit 2 — that is the designed P0 for that identity, not a schema finding.
+
+### Review against the actual development schema — blocked, not assumed
+
+This workspace has **no shared-database credential** (`DATABASE_URL`, `NEON_*`, `VERCEL_*` unset; `gh` unauthenticated), so the five files could not be compared with the live development catalog. What is established instead:
+
+- every object they reference (`manufacturing_production_orders`, `products(id,company_id)`, `warehouses(id,company_id)`, `inventory_stock_levels.average_unit_cost` + `reserved_quantity`, `sales_order_reservations`, `inventory_stock_movements`, `company_memberships(user_id, company_id)` unique, `permissions`, `role_permissions`, `subscription_plans`, `auth_rate_limits`, `omega_schema_migrations`) is documented present in the 2026-10-29 read-only inspection and is created by migrations that precede the five in the current tree;
+- `user-preferences.service.ts` requires `user.companyId` and runs through `tenantDatabaseContext`, so the display-preference policy is compatible with the endpoint that uses it;
+- no file references an object from the still-missing tax-snapshot / credit-note-link / supplier-uniqueness set, so the five are independent of those repairs.
+
+**Blocker:** confirming the live development catalog still matches this assumption needs the read-only owner-run `inspect-database-readonly.mjs` output (or a read-only connection string). Until then the five are rehearsed, not verified against shared.
+
+### Remaining blockers (unchanged by this work)
+
+1. Shared development ledger/schema: still unreconciled (48 rows for 66 files at inspection; 87 files today). Applying these five to shared requires the approved repair window — they cannot be applied while the runner's gap guard is tripped.
+2. Runtime role: `omega_app_dev`/`omega_app` must be non-owner with `NOBYPASSRLS` for the grants to bind; unverified in hosting.
+3. Branch protection on `development` is still `protected: false`.
+4. The shared tax-snapshot, credit-note-link and supplier-uniqueness repairs remain rehearsed-only.
+
 ## CI evidence — 2026-11-21
 
 - **`Development validation` run [44898232714](https://github.com/fielddataresearch83-cpu/Omega-Solutions-ERP/actions/runs/44898232714) — success** on `development` `9f14c1db`. Step conclusions: `Apply migrations to disposable CI database` success, `Rehearse schema forward-repair bundle in isolation` success, `Rehearse inventory weighted-average cost correction in isolation` success, `Verify tenant isolation and role boundaries` success, `Verify company RLS policy migration` success. Both RLS steps carry a JSON assertion that fails the job if any test skips or if the executed count is below the expected minimum, so "success" means the suites executed.

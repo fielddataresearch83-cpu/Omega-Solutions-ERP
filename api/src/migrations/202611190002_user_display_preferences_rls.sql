@@ -28,3 +28,13 @@ CREATE POLICY omega_user_company_isolation ON user_display_preferences
         AND m.is_active = true
     )
   );
+
+-- The table is created by the previous migration, so a role-wide baseline grant
+-- from an earlier migration does not cover it.
+DO $grants$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'omega_app_dev') THEN
+    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON user_display_preferences TO omega_app_dev';
+  END IF;
+END
+$grants$;
