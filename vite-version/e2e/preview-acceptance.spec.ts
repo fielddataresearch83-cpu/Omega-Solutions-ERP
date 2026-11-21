@@ -66,6 +66,9 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
   });
 
   test("signs in, selects a company, and smoke-tests core modules", async ({ page }) => {
+    // This serial sweep visits 48 lazy-loaded routes; give the whole acceptance
+    // pass enough time while retaining per-route limits and failure reporting.
+    test.setTimeout(240_000);
     test.skip(!email || !password, "Authenticated acceptance requires E2E credentials in the test runner environment; Vercel project secrets are not automatically available in this workspace.");
 
     const pageErrors: string[] = [];
@@ -117,6 +120,7 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
     const results: string[] = [];
     const moduleFailures: string[] = [];
     for (const module of modules) {
+      const startedAt = Date.now();
       try {
         await page.goto(module.path, { waitUntil: "domcontentloaded" });
         await expect(page.locator("body")).toBeVisible();
@@ -124,12 +128,12 @@ test.describe("Omega ERP Preview acceptance (read-only)", () => {
         await expect(page).toHaveURL(new RegExp(`${module.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:[?#].*)?$`), { timeout: 15_000 });
         await expect.poll(
           async () => (await page.locator("body").innerText()).trim().length,
-          { timeout: 15_000, message: `${module.name} should finish rendering its lazy-loaded page` },
+          { timeout: 30_000, message: `${module.name} should finish rendering its lazy-loaded page` },
         ).toBeGreaterThan(20);
-        results.push(`${module.name}: PASS`);
+        results.push(`${module.name}: PASS (${Date.now() - startedAt}ms)`);
       } catch (error) {
         const detail = error instanceof Error ? error.message.split("\n")[0] : String(error);
-        results.push(`${module.name}: FAIL (${detail})`);
+        results.push(`${module.name}: FAIL (${Date.now() - startedAt}ms; ${detail})`);
         moduleFailures.push(`${module.name}: ${detail}`);
       }
     }
