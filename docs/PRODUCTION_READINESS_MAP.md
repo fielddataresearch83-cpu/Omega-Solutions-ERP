@@ -53,7 +53,7 @@
 
 - CI evidence on the release-candidate commit is required; local execution is not CI evidence.
 - `company_memberships`, `auth_refresh_tokens` and `company_invitations` remain outside RLS and rely on application checks; the membership/invitation negative matrix is still incomplete.
-- Render runtime `DATABASE_URL` role (`NOBYPASSRLS`) is unconfirmed.
+- Runtime `DATABASE_URL` role (`NOBYPASSRLS`) is unconfirmed. `vercel.json` deploys the API as a Vercel service (`/api/*` → `api`), while 2026-10-29 metadata described a Render service; confirm which platform serves the API before verifying its environment.
 
 ## P0-1 rehearsal checkpoint — 2026-11-21
 
@@ -69,6 +69,40 @@ Local result: **6/6 checks passed** on `omega_forward_repair_test`. The rehearsa
 - `api/scripts/report-inventory-cost-anomalies.mjs` reports positive-stock levels whose persisted weighted-average cost is zero despite positive-cost inbound history. Read-only (`BEGIN READ ONLY`), prints no credentials.
 - `api/scripts/rehearse-inventory-cost-repair.mjs` rehearses the reviewed per-stock-level correction on a disposable database: recomputes from inbound movements (110.0000/unit for the synthetic 4 units / 440 value anomaly), is idempotent, refuses already-valued levels, and refuses levels without positive-cost inbound history. **6/6 checks passed.**
 - Both rehearsals run in `development-validation.yml`; the cost correction is **not** applied to any shared database.
+
+## P0-1/P0-2/P0-4 checkpoint — 2026-11-21 (shared-database verification attempt)
+
+**What was attempted:** verify the shared development database's migration ledger, schema drift, financial anomalies and runtime role using read-only queries only, then reconcile against the migration source without marking anything applied.
+
+**What actually happened:** this workspace has **no shared-database credential and no hosting token** (`DATABASE_URL`, `NEON_*`, `VERCEL_*` all unset; only `.env.example` files exist; `vercel` CLI absent; `gh` not authenticated). Steps requiring the live database or Vercel environment therefore **could not be executed**, and are reported as blocked rather than inferred. No shared or production resource was touched.
+
+**Deliverable that closes the gap safely:** `api/scripts/inspect-database-readonly.mjs`. Run it with the development branch's connection string and it reports, inside `BEGIN TRANSACTION READ ONLY`: session role, `rolsuper`/`rolbypassrls`, ledger-vs-source reconciliation (missing files, ledger-only rows, checksum drift, interleaved gaps), RLS coverage per table, the four forward-repair objects, duplicate active supplier-invoice groups, and the inventory valuation anomaly count. It prints no connection string or credentials and exits non-zero on any P0 finding.
+
+**Validation of that tool (disposable PostgreSQL 18.7, no shared database):**
+
+| Scenario | Result |
+|---|---|
+| Clean rebuild (`omega_ci_test`, 86 migrations) | 86/86 ledger entries, 0 missing, 0 ledger-only, 0 checksum drift, 0 gaps; 121 public tables, 110 with RLS, 110 policies, **11 without RLS**; all repair objects present; 0 duplicates; 0 valuation anomalies |
+| Deliberate drift (`omega_inspect_test`: 2 ledger rows deleted, supplier-invoice index dropped, `invoice_items.tax_treatment` dropped) | Detected **exactly** the 2 missing migrations, 2 interleaved gaps, and both absent objects → exit 2 |
+
+**Source-side reconciliation (steps 2 and 4, without a live ledger):**
+
+- 86 runner-managed migration files, 0 excluded by the runner's filename pattern.
+- Duplicate numeric prefixes exist by design: `008` (crm foundation, products/sales), `024` (workforce foundation first, then attendance assignments) and `20261022` (three files). `compareMigrationNames` resolves them deterministically, foundation-first.
+- The historical shared-database drift is **not** a count mismatch to be normalised: the 2026-10-29 inspection found 48 ledger rows against 66 source files with 18 interleaved gaps, and today's tree has 86 files. Marking files applied to close the gap would replay data-changing SQL (notably `032_inventory_weighted_average_cost.sql`, which backfills cost). The runner's gap guard must stay enabled, and reconciliation must follow `docs/MIGRATION_LEDGER_RECONCILIATION.md`.
+- No ledger row was added, removed or corrected for any shared database.
+
+**RLS exclusions (step 5):** the 11 tables without RLS are enumerated and classified in [RLS_EXCLUSION_REVIEW.md](RLS_EXCLUSION_REVIEW.md): 7 intentionally global (`companies`, `users`, `user_mfa`, `permissions`, `role_permissions`, `subscription_plans`, `auth_rate_limits`), 3 intentional control-plane exclusions (`company_memberships`, `auth_refresh_tokens`, `company_invitations`, named in the RLS migration header), and the `omega_schema_migrations` ledger. The exclusion list matches the live count of 11 exactly, so none of them is an accidental omission. The dominant risk is therefore the runtime identity, not the list.
+
+**Branch protection (step 6):** `development` is still `protected: false` (re-checked 2026-11-21). The exact rule — required PR with 1 approval, stale-approval dismissal, last-push approval, strict required check `validate`, conversation resolution, linear history, no force-push, no deletion, administrators included, restricted pushers — is documented with its equivalent `gh api` call in [BRANCHING-AND-RELEASE-POLICY.md](BRANCHING-AND-RELEASE-POLICY.md). Not applied: it needs repository administration.
+
+**Deployment topology correction:** the root `vercel.json` declares four Vercel services (`api` NestJS, `vite-version`, `docs` VitePress, `nextjs-version`) and rewrites `/api/*` to the `api` service. Earlier map entries assuming a Render-hosted API are historical; which platform currently serves the API, and which environment holds `DATABASE_URL`, must be confirmed before the runtime-role check.
+
+**Blocked, with the exact unblocking action:**
+
+1. Ledger/schema/valuation/role verification on shared development — owner provides a **read-only** connection string for the development branch (or runs the inspection script and shares its output). No mutation is implied.
+2. Vercel runtime configuration — owner reads the API project's Development/Preview `DATABASE_URL` role name in the dashboard and confirms host/branch; the value must not be pasted anywhere.
+3. Branch protection — repository admin applies the documented rule.
 
 ## CI evidence — 2026-11-21
 
@@ -86,7 +120,7 @@ Local result: **6/6 checks passed** on `omega_forward_repair_test`. The rehearsa
 - [ ] Resolve overlapping CI workflows and Node-version inconsistency. Current workflow inventory shows `development-validation.yml` uses Node 24, `validate-development.yml` uses Node 24, and `workforce-validation.yml` uses Node 22, while the repository `.nvmrc` specifies Node 22.22.3. Confirm package engine compatibility, then consolidate or clearly partition checks; do not change workflows until the proposed configuration is validated locally.
 - [ ] Make CI a reliable release gate: ensure required checks are configured/enforced on the existing `development` branch. Branch protection was previously observed disabled; recheck through an authorized owner/admin route. Do not claim required checks are enforced.
 - [ ] Complete route-to-service authorization inventory and isolated negative tests.
-- [ ] Confirm the Render runtime PostgreSQL role without exposing credentials; do not alter Render. The 2026-10-29 read-only Neon catalog inspection found 55 public tables with RLS enabled but zero policies; inspected owner role bypassed RLS. This does not establish which role the API runtime uses.
+- [ ] Confirm the runtime PostgreSQL role without exposing credentials; do not alter hosting. The 2026-10-29 read-only Neon catalog inspection found 55 public tables with RLS enabled but zero policies; the inspected owner role bypassed RLS. The 2026-11-21 source rebuild finds 110 policies in the current migration tree, so the older zero-policy snapshot is stale rather than current; the runtime role is still unverified.
 - [ ] Design and test a least-privilege tenant-isolation approach on an isolated/disposable database before any shared-database changes.
 - [ ] Reconcile the shared development database migration ledger/schema safely using an isolated schema clone; do not run catch-up migrations or mutate shared Neon as part of this audit.
 

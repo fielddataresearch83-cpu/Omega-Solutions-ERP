@@ -34,3 +34,62 @@
 ## Current safety hold
 
 Until both Vercel Production Branch settings are verified as `main`, do not push commits from the current `development` branch. Continue local/cloud-workspace development and testing only.
+
+**Status 2026-11-21:** this hold is superseded for audit work by explicit owner authorization to keep committing to the existing `development` branch (single-branch workflow, no new branches). The Vercel Production Branch setting itself is still unverified — see the runtime-configuration section below.
+
+## Required branch-protection settings for `development`
+
+**Current state (checked 2026-11-21 via the GitHub branches API): `protected: false`.** No rule is enforced; any actor with push access can push directly and a red CI run does not block a merge. This is a repository-governance change, not a code change, and has not been applied.
+
+The exact rule to create — GitHub → Settings → Branches → Add branch protection rule, branch name pattern `development`:
+
+| Setting | Required value | Reason |
+|---|---|---|
+| Require a pull request before merging | **On** | Prevents direct pushes to the integration branch |
+| Required approvals | **1** | At least one human review before merge |
+| Dismiss stale pull request approvals when new commits are pushed | **On** | Approval must apply to the commit being merged |
+| Require review from Code Owners | Off (no `CODEOWNERS` file exists) | Would otherwise be unenforceable |
+| Require approval of the most recent reviewable push | **On** | Stops the author self-approving their own final push |
+| Require status checks to pass before merging | **On** | Makes CI a real gate |
+| Require branches to be up to date before merging | **On** (strict) | Prevents merging a commit never tested against the current tip |
+| Required status check | **`validate`** (workflow `Development validation`) | It carries migrations, both RLS suites, both repair rehearsals, and API/frontend build+lint. The job name is the check context; confirm the exact context string in the branch-protection UI after the first PR |
+| Require conversation resolution before merging | **On** | Prevents merging with open review threads |
+| Require signed commits | Off (documented decision, no key distribution yet) | Would block every current contributor |
+| Require linear history | **On** | Merge commits complicate release bisection |
+| Require deployments to succeed | Off (no deployment gate exists) | Nothing to bind to |
+| Lock branch | Off | Development must stay writable |
+| Do not allow bypassing the above settings | **On** (include administrators) | Otherwise an admin push silently skips every rule |
+| Restrict who can push to matching branches | **On** — the maintainers who need it | Least privilege on the integration branch |
+| Allow force pushes | Off | History on a shared branch must be append-only |
+| Allow deletions | Off | Prevents accidental branch deletion |
+
+Equivalent API call (documented for an authorized repository admin; **not executed** from this audit):
+
+```bash
+gh api -X PUT repos/fielddataresearch83-cpu/Omega-Solutions-ERP/branches/development/protection \
+  -H 'Accept: application/vnd.github+json' \
+  -F 'required_status_checks[strict]=true' \
+  -F 'required_status_checks[contexts][]=validate' \
+  -F 'enforce_admins=true' \
+  -F 'required_pull_request_reviews[required_approving_review_count]=1' \
+  -F 'required_pull_request_reviews[dismiss_stale_reviews]=true' \
+  -F 'required_pull_request_reviews[require_last_push_approval]=true' \
+  -F 'restrictions[users][]=<maintainer-login>' \
+  -F 'required_linear_history=true' \
+  -F 'allow_force_pushes=false' \
+  -F 'allow_deletions=false' \
+  -F 'required_conversation_resolution=true'
+```
+
+Order of operations: confirm the check context name from a real pull request first (`validate`), because a required check that never reports blocks every merge permanently.
+
+## Runtime configuration verification (API service)
+
+`vercel.json` at the repository root declares four Vercel services — `api` (NestJS), `vite-version`, `docs` (VitePress) and `nextjs-version` — with `/api/(.*)` rewritten to the `api` service. The backend therefore runs as a Vercel service; earlier documents describing a Render-hosted API are historical.
+
+To confirm the API's database role without exposing secrets (owner action, read-only):
+
+1. Vercel dashboard → the API project → Settings → Environment Variables → inspect **Development/Preview** only. Record the **role name** in `DATABASE_URL` (expected `omega_app_dev`); never copy the value or password into a ticket, doc, or chat.
+2. Confirm the host is the designated development Neon branch, not production.
+3. Run the read-only inspection against that same database and read the `IDENTITY` block: `current_user` must equal the configured role and `rolbypassrls` must be `false`.
+4. If `rolbypassrls` is `true` or the role owns the tables, stop: the 110 policies are inert. Create/point to a `NOBYPASSRLS` role and rehearse on a disposable clone before changing any environment variable.
