@@ -1,12 +1,10 @@
 name: Configure Neon Auth email verification
 
+# Manual-only: this PATCHes hosted Neon Auth configuration for the development branch.
+# It must never run automatically from a routine commit. Dispatch it deliberately
+# after reviewing the target project/branch and the required credential.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - development
-    paths:
-      - .github/workflows/configure-neon-auth-verification.yml
 
 permissions:
   contents: read

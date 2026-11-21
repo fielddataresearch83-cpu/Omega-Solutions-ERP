@@ -1,13 +1,10 @@
 name: Finance Planning Preview write acceptance
 run-name: Finance Planning write acceptance on ${{ github.ref_name }}
 
+# Manual-only: this acceptance run creates financial planning records against the
+# shared Preview environment. Routine commits must not mutate shared business data.
 on:
-  push:
-    branches:
-      - development
-    paths:
-      - "vite-version/e2e/finance-planning-write-acceptance.spec.ts"
-      - ".github/workflows/finance-planning-write-acceptance.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
