@@ -33,6 +33,10 @@ jobs:
         working-directory: api
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
 
+      - name: Update frontend lint tooling within declared compatible ranges
+        working-directory: vite-version
+        run: npm update eslint typescript-eslint --package-lock-only --ignore-scripts --no-audit --no-fund
+
       - name: Regenerate frontend dependency lockfile
         working-directory: vite-version
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
