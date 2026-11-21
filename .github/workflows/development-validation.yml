@@ -74,6 +74,14 @@ jobs:
           MFA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_ci_test
         run: npm test
 
+      # The cross-company suite runs the real application against the migrated schema.
+      # This only ever touches the disposable CI service container, never a shared database.
+      - name: Apply migrations to disposable CI database
+        working-directory: api
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/omega_ci_test
+        run: npm run migrate
+
       - name: Create disposable application-RLS database
         working-directory: api
         env:
