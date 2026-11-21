@@ -5,7 +5,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.js
 import { REQUIRED_MODULE_KEY } from './require-module.decorator.js';
 import { tenantDatabaseContext } from '../database/tenant-database-context.js';
 
-type SubscriptionRow = { status: string; modules: string[] };
+type SubscriptionRow = { status: string; modules: string[]; period_active: boolean };
 type ModuleOverride = { module_code: string; enabled: boolean };
 
 const MODULE_LABELS: Record<string, string> = {
@@ -40,7 +40,8 @@ export class ModuleEntitlementsGuard implements CanActivate {
       { userId: user.userId, companyId: user.companyId, branchId: user.branchId ?? null },
       async () => {
     const result = await this.database.query<SubscriptionRow>(
-      `SELECT s.status, p.modules FROM company_subscriptions s
+      `SELECT s.status, p.modules, (s.current_period_end > NOW()) AS period_active
+       FROM company_subscriptions s
        JOIN subscription_plans p ON p.code = s.plan_code WHERE s.company_id = $1`,
       [user.companyId],
     );
@@ -52,8 +53,8 @@ export class ModuleEntitlementsGuard implements CanActivate {
     }
 
     const subscription = result.rows[0];
-    if (!['active', 'trialing'].includes(subscription.status)) {
-      throw new ForbiddenException('This company subscription is not active. Contact your company administrator.');
+    if (!['active', 'trialing'].includes(subscription.status) || !subscription.period_active) {
+      throw new ForbiddenException('This company subscription is inactive or its billing period has expired. Contact your company administrator.');
     }
 
     const enabledModules = new Set(subscription.modules);
