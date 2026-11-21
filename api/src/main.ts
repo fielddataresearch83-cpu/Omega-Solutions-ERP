@@ -31,7 +31,7 @@ async function bootstrap() {
       const url = new URL(origin);
       return (
         url.protocol === 'https:' &&
-        /^omega-solutions-[a-z0-9-]+-coll5\.vercel\.app$/.test(url.hostname)
+        /^omega-solutions-erp-git-[a-z0-9-]+-coll5\.vercel\.app$/.test(url.hostname)
       );
     } catch {
       return false;
